@@ -105,12 +105,12 @@ enum Environment {
 
         // A fan of shafts spreading from the sun down into the water.
         let configs: [(width: CGFloat, angle: CGFloat, baseAlpha: CGFloat, period: TimeInterval)] = [
-            (200, -0.30, 0.16, 7.0),
-            (150, -0.16, 0.20, 5.5),
-            (240, -0.02, 0.22, 8.5),
-            (160,  0.14, 0.18, 6.0),
-            (120,  0.28, 0.14, 9.0),
-            (90,   0.42, 0.10, 5.0)
+            (260, -0.30, 0.11, 7.0),
+            (200, -0.16, 0.14, 5.5),
+            (310, -0.02, 0.16, 8.5),
+            (210,  0.14, 0.13, 6.0),
+            (155,  0.28, 0.10, 9.0),
+            (120,  0.42, 0.07, 5.0)
         ]
 
         for (i, c) in configs.enumerated() {
