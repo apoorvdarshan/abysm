@@ -15,14 +15,19 @@ final class OceanSurface: SKNode {
     private let glowLine = SKShapeNode()
     private let foam = SKShapeNode()
     private let width: CGFloat
-    private let bandDepth: CGFloat = 150
+    private let bandDepth: CGFloat = 230
 
     init(width: CGFloat) {
         self.width = width
         super.init()
         zPosition = GameConfig.Z.surface
 
-        band.fillColor = Palette.surfaceBand.withAlphaComponent(0.30)
+        // Fade the sunlit band out toward its bottom (alpha-gradient fillTexture)
+        // so there's no hard horizontal seam where the fill stops.
+        band.fillTexture = TextureFactory.verticalGradient(
+            size: CGSize(width: 8, height: 128),
+            stops: [(UIColor(white: 1, alpha: 1), 0.0), (UIColor(white: 1, alpha: 0), 1.0)])
+        band.fillColor = Palette.surfaceBand.withAlphaComponent(0.5)
         band.strokeColor = .clear
         band.blendMode = .add
         band.zPosition = 0
