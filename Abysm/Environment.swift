@@ -1,0 +1,151 @@
+//
+//  Environment.swift
+//  Abysm
+//
+//  Builds the static & shader-driven backdrop of the surface scene: the sky,
+//  the water column gradient, the sun with its glow, animated god rays, and
+//  the caustic light layer. Each factory returns a ready-to-add node with its
+//  zPosition already set.
+//
+
+import SpriteKit
+
+enum Environment {
+
+    /// Generous horizontal overhang so the world's edges are never visible
+    /// past the camera clamp.
+    private static var spanWidth: CGFloat { GameConfig.worldHalfWidth * 2 + 400 }
+
+    /// Where the sun sits — low and to one side so it's framed in the top
+    /// corner of the starting view (just below the surface), then reads as a
+    /// low sun on the horizon when the swimmer rises to the top.
+    static var sunPosition: CGPoint {
+        CGPoint(x: GameConfig.worldHalfWidth * 0.17, y: 215)
+    }
+
+    // MARK: Sky
+
+    static func makeSky() -> SKSpriteNode {
+        let height = GameConfig.skyTop + 400
+        let texture = TextureFactory.verticalGradient(size: CGSize(width: 8, height: 1024),
+                                                      stops: Palette.skyStops)
+        let sky = SKSpriteNode(texture: texture, size: CGSize(width: spanWidth, height: height))
+        sky.anchorPoint = CGPoint(x: 0.5, y: 0)   // bottom edge sits on the surface (y = 0)
+        sky.position = .zero
+        sky.zPosition = GameConfig.Z.sky
+        return sky
+    }
+
+    // MARK: Water column
+
+    static func makeWater() -> SKSpriteNode {
+        let height = -GameConfig.worldFloor + 800
+        let texture = TextureFactory.verticalGradient(size: CGSize(width: 8, height: 1024),
+                                                      stops: Palette.waterStops)
+        let water = SKSpriteNode(texture: texture, size: CGSize(width: spanWidth, height: height))
+        water.anchorPoint = CGPoint(x: 0.5, y: 1)  // top edge sits on the surface (y = 0)
+        water.position = .zero
+        water.zPosition = GameConfig.Z.water
+        return water
+    }
+
+    // MARK: Sun
+
+    static func makeSun() -> SKNode {
+        let node = SKNode()
+        node.position = sunPosition
+        node.zPosition = GameConfig.Z.sunGlow
+
+        // Big soft halo.
+        let glow = SKSpriteNode(texture: TextureFactory.radialGlow(
+            diameter: 500,
+            inner: Palette.sunGlow.withAlphaComponent(0.52),
+            outer: Palette.sunGlow.withAlphaComponent(0)))
+        glow.blendMode = .add
+        node.addChild(glow)
+
+        // Inner bright core.
+        let core = SKSpriteNode(texture: TextureFactory.radialGlow(
+            diameter: 190,
+            inner: UIColor(white: 1, alpha: 1),
+            outer: Palette.sunCore.withAlphaComponent(0)))
+        core.blendMode = .add
+        node.addChild(core)
+
+        // A gentle breathing pulse.
+        let pulse = SKAction.sequence([
+            SKAction.group([.scale(to: 1.05, duration: 3.0),
+                            .fadeAlpha(to: 0.92, duration: 3.0)]),
+            SKAction.group([.scale(to: 1.0, duration: 3.0),
+                            .fadeAlpha(to: 1.0, duration: 3.0)])
+        ])
+        pulse.timingMode = .easeInEaseOut
+        glow.run(.repeatForever(pulse))
+        return node
+    }
+
+    // MARK: God rays
+
+    static func makeGodRays() -> SKNode {
+        let node = SKNode()
+        node.position = sunPosition
+        node.zPosition = GameConfig.Z.godRays
+
+        let beamTexture = TextureFactory.softBeam(size: CGSize(width: 256, height: 1024))
+        let beamHeight = sunPosition.y + GameConfig.causticDepth + 600
+
+        // A fan of shafts spreading from the sun down into the water.
+        let configs: [(width: CGFloat, angle: CGFloat, baseAlpha: CGFloat, period: TimeInterval)] = [
+            (200, -0.30, 0.16, 7.0),
+            (150, -0.16, 0.20, 5.5),
+            (240, -0.02, 0.22, 8.5),
+            (160,  0.14, 0.18, 6.0),
+            (120,  0.28, 0.14, 9.0),
+            (90,   0.42, 0.10, 5.0)
+        ]
+
+        for (i, c) in configs.enumerated() {
+            let beam = SKSpriteNode(texture: beamTexture, size: CGSize(width: c.width, height: beamHeight))
+            beam.anchorPoint = CGPoint(x: 0.5, y: 1)   // hangs downward from the sun
+            beam.zRotation = c.angle
+            beam.blendMode = .add
+            beam.color = Palette.rayColor
+            beam.colorBlendFactor = 0.4
+            beam.alpha = c.baseAlpha
+
+            // Each shaft breathes on its own phase so the light feels alive.
+            let dim = SKAction.fadeAlpha(to: c.baseAlpha * 0.45, duration: c.period)
+            dim.timingMode = .easeInEaseOut
+            let bright = SKAction.fadeAlpha(to: c.baseAlpha, duration: c.period)
+            bright.timingMode = .easeInEaseOut
+            let shimmer = SKAction.sequence([dim, bright])
+            let startDelay = SKAction.wait(forDuration: Double(i) * 0.6)
+            beam.run(.sequence([startDelay, .repeatForever(shimmer)]))
+
+            // A faint sway in angle.
+            let sway = SKAction.sequence([
+                SKAction.rotate(byAngle: 0.03, duration: c.period * 0.8),
+                SKAction.rotate(byAngle: -0.03, duration: c.period * 0.8)
+            ])
+            sway.timingMode = .easeInEaseOut
+            beam.run(.repeatForever(sway))
+
+            node.addChild(beam)
+        }
+        return node
+    }
+
+    // MARK: Caustics
+
+    static func makeCaustics() -> SKSpriteNode {
+        let size = CGSize(width: spanWidth, height: GameConfig.causticDepth)
+        let node = SKSpriteNode(texture: TextureFactory.white(), size: size)
+        node.anchorPoint = CGPoint(x: 0.5, y: 1)   // top at the surface, extends down
+        node.position = .zero
+        node.zPosition = GameConfig.Z.caustics
+        node.colorBlendFactor = 0
+        node.blendMode = .add
+        node.shader = Shaders.caustics()
+        return node
+    }
+}

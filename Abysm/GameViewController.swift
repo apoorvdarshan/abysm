@@ -2,44 +2,32 @@
 //  GameViewController.swift
 //  Abysm
 //
-//  Created by Apoorv Darshan on 21/06/26.
-//
 
 import UIKit
 import SpriteKit
-import GameplayKit
 
-class GameViewController: UIViewController {
+final class GameViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        if let view = self.view as! SKView? {
-            // Load the SKScene from 'GameScene.sks'
-            if let scene = SKScene(fileNamed: "GameScene") {
-                // Set the scale mode to scale to fit the window
-                scene.scaleMode = .aspectFill
-                
-                // Present the scene
-                view.presentScene(scene)
-            }
-            
-            view.ignoresSiblingOrder = true
-            
-            view.showsFPS = true
-            view.showsNodeCount = true
-        }
+
+        guard let skView = view as? SKView else { return }
+
+        // Build the scene in code (we don't use GameScene.sks). .resizeFill
+        // keeps 1 scene point == 1 screen point; the scene re-lays-out itself
+        // via didChangeSize whenever the view's bounds settle.
+        let scene = GameScene(size: skView.bounds.size)
+        scene.scaleMode = .resizeFill
+        skView.presentScene(scene)
+
+        skView.ignoresSiblingOrder = true   // we rely on explicit zPosition
+        skView.showsFPS = false
+        skView.showsNodeCount = false
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if UIDevice.current.userInterfaceIdiom == .phone {
-            return .allButUpsideDown
-        } else {
-            return .all
-        }
+        .portrait
     }
 
-    override var prefersStatusBarHidden: Bool {
-        return true
-    }
+    override var prefersStatusBarHidden: Bool { true }
 }
