@@ -2,21 +2,24 @@
 //  Joystick.swift
 //  Abysm
 //
-//  On-screen analog stick (bottom-left), now pixel-art: a hard pixel-circle
-//  ring base and a filled pixel-disc knob, with the knob snapped to the pixel
-//  grid. `vector` is direction × magnitude in [-1, 1] per axis (+y = up).
+//  On-screen analog stick (bottom-left), pixel-art and high-contrast so it's
+//  clearly visible over bright water: a dark base disc + bright ring, and a
+//  bright knob with a dark outline. `vector` = direction × magnitude [-1,1],
+//  +y = up. Knob snaps to the pixel grid.
 //
 
 import SpriteKit
 
 final class Joystick: SKNode {
 
-    let baseRadius: CGFloat = 60
+    let baseRadius: CGFloat = 62
     private let knobRadius: CGFloat = 30
     var activationRadius: CGFloat { baseRadius * 1.9 }
 
-    private let base = SKSpriteNode()
+    private let baseFill = SKSpriteNode()
+    private let baseRing = SKSpriteNode()
     private let knob = SKSpriteNode()
+    private let knobOutline = SKSpriteNode()
 
     private(set) var vector: CGVector = .zero
 
@@ -24,19 +27,26 @@ final class Joystick: SKNode {
         super.init()
         zPosition = GameConfig.Z.joystick
         let px = GameConfig.pixel
-
         let baseR = Int((baseRadius / px).rounded())
-        base.texture = TextureFactory.pixelCircle(radius: baseR, ring: 2,
-                                                  color: UIColor(white: 1, alpha: 0.5))
-        base.size = CGSize(width: CGFloat(baseR * 2 + 2) * px, height: CGFloat(baseR * 2 + 2) * px)
-        addChild(base)
+        let baseSize = CGSize(width: CGFloat(baseR * 2 + 2) * px, height: CGFloat(baseR * 2 + 2) * px)
+
+        baseFill.texture = TextureFactory.pixelCircle(radius: baseR, color: Palette.rgb(8, 22, 48))
+        baseFill.size = baseSize; baseFill.alpha = 0.5; baseFill.zPosition = 0
+        addChild(baseFill)
+
+        baseRing.texture = TextureFactory.pixelCircle(radius: baseR, ring: 2, color: Palette.rgb(190, 240, 238))
+        baseRing.size = baseSize; baseRing.alpha = 0.9; baseRing.zPosition = 1
+        addChild(baseRing)
 
         let knobR = Int((knobRadius / px).rounded())
-        knob.texture = TextureFactory.pixelCircle(radius: knobR, color: Palette.rgb(150, 240, 235))
-        knob.size = CGSize(width: CGFloat(knobR * 2 + 2) * px, height: CGFloat(knobR * 2 + 2) * px)
+        let knobSize = CGSize(width: CGFloat(knobR * 2 + 2) * px, height: CGFloat(knobR * 2 + 2) * px)
+        knobOutline.texture = TextureFactory.pixelCircle(radius: knobR, color: Palette.rgb(6, 20, 44))
+        knobOutline.size = knobSize; knobOutline.zPosition = 2
+        addChild(knobOutline)
+        knob.texture = TextureFactory.pixelCircle(radius: knobR - 1, color: Palette.rgb(120, 232, 230))
+        knob.size = CGSize(width: CGFloat((knobR - 1) * 2 + 2) * px, height: CGFloat((knobR - 1) * 2 + 2) * px)
+        knob.zPosition = 3
         addChild(knob)
-
-        alpha = 0.85
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -44,7 +54,6 @@ final class Joystick: SKNode {
     func engage(at point: CGPoint) -> Bool {
         let local = CGPoint(x: point.x - position.x, y: point.y - position.y)
         guard hypot(local.x, local.y) <= activationRadius else { return false }
-        run(.fadeAlpha(to: 1.0, duration: 0.06))
         moveKnob(to: local)
         return true
     }
@@ -55,21 +64,19 @@ final class Joystick: SKNode {
 
     func release() {
         vector = .zero
-        knob.removeAllActions()
         knob.run(.move(to: .zero, duration: 0.1))
-        run(.fadeAlpha(to: 0.85, duration: 0.15))
+        knobOutline.run(.move(to: .zero, duration: 0.1))
     }
 
     private func moveKnob(to local: CGPoint) {
         let dist = hypot(local.x, local.y)
-        if dist < 0.0001 { knob.position = .zero; vector = .zero; return }
+        if dist < 0.0001 { knob.position = .zero; knobOutline.position = .zero; vector = .zero; return }
         let clamped = min(dist, baseRadius)
         let ux = local.x / dist, uy = local.y / dist
         let px = GameConfig.pixel
-        knob.removeAction(forKey: "spring")
-        // Snap the knob to the pixel grid so it stays crisp.
-        knob.position = CGPoint(x: ((ux * clamped) / px).rounded() * px,
-                                y: ((uy * clamped) / px).rounded() * px)
+        let p = CGPoint(x: ((ux * clamped) / px).rounded() * px, y: ((uy * clamped) / px).rounded() * px)
+        knob.position = p
+        knobOutline.position = p
         vector = CGVector(dx: ux * (clamped / baseRadius), dy: uy * (clamped / baseRadius))
     }
 }
