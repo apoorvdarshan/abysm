@@ -17,10 +17,10 @@ enum Shaders {
     static func caustics() -> SKShader {
         let shader = SKShader(source: causticsSource)
         shader.uniforms = [
-            SKUniform(name: "u_intensity", float: 0.85),
-            SKUniform(name: "u_scale_x", float: 6.0),
-            SKUniform(name: "u_scale_y", float: 11.0),
-            SKUniform(name: "u_speed", float: 0.60)
+            SKUniform(name: "u_intensity", float: 0.55),
+            SKUniform(name: "u_scale_x", float: 10.0),
+            SKUniform(name: "u_scale_y", float: 17.0),
+            SKUniform(name: "u_speed", float: 0.55)
         ]
         return shader
     }
@@ -40,28 +40,30 @@ enum Shaders {
         return a4 * a4 * a4;
     }
 
-    void main() {
-        vec2 uv = v_tex_coord;
-        vec2 p = uv * vec2(u_scale_x, u_scale_y);
-        float t = u_time * u_speed;
-
-        // Slowly drift the whole field so it never looks static.
-        vec2 q = p + vec2(t * 0.15, t * 0.10);
-
-        // Three drifting wave fields. We keep only the bright crest of each
-        // (pow of the positive part) so each contributes a THIN band, then take
-        // their union. The background stays genuinely dark, so the turquoise
-        // water shows through the gaps instead of washing to white.
+    // One caustic octave: three drifting wave fields, keeping only the bright
+    // crest of each (ridge == max(0,w)^12) so each is a THIN band, unioned with
+    // max(). The background stays dark, so the water shows through the gaps.
+    float causticLayer(vec2 uv, float t, vec2 scl) {
+        vec2 q = uv * scl + vec2(t * 0.15, t * 0.10);
         float w1 = sin(q.x * 2.7 + sin(q.y * 1.9 + t));
         float w2 = sin(q.y * 2.3 + sin(q.x * 2.9 - t * 1.1));
         float w3 = sin((q.x + q.y) * 1.7 - t * 0.6);
+        return max(ridge(w1), max(ridge(w2), ridge(w3)));
+    }
 
-        float caustic = max(ridge(w1), max(ridge(w2), ridge(w3)));
+    void main() {
+        vec2 uv = v_tex_coord;
+        float t = u_time * u_speed;
+
+        // Two octaves: a finer base net plus a coarser, slower-drifting layer,
+        // giving a delicate dancing web instead of a few bold stripes.
+        float c = causticLayer(uv, t, vec2(u_scale_x, u_scale_y));
+        c += 0.55 * causticLayer(uv, t * 1.35, vec2(u_scale_x * 0.55, u_scale_y * 0.55));
 
         // Strong near the surface (top of the sprite), fading downward.
         float fade = smoothstep(0.0, 0.55, uv.y);
 
-        float intensity = caustic * fade * u_intensity;
+        float intensity = c * fade * u_intensity;
         vec3 lightColor = vec3(0.80, 1.0, 0.95);
         gl_FragColor = vec4(lightColor * intensity, 1.0);
     }
