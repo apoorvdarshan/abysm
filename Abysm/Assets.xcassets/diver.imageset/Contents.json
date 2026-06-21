@@ -1,0 +1,6 @@
+{
+  "images" : [
+    { "idiom" : "universal", "filename" : "diver.png" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
