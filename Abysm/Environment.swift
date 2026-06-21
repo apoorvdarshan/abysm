@@ -17,10 +17,10 @@ enum Environment {
     private static var spanWidth: CGFloat { GameConfig.worldHalfWidth * 2 + 400 }
 
     /// Where the sun sits — low and to one side so it's framed in the top
-    /// corner of the starting view (just below the surface), then reads as a
-    /// low sun on the horizon when the swimmer rises to the top.
+    /// corner of the starting view. Landscape has little vertical room, so the
+    /// sun rides near the waterline (a low, bright morning sun).
     static var sunPosition: CGPoint {
-        CGPoint(x: GameConfig.worldHalfWidth * 0.17, y: 215)
+        CGPoint(x: GameConfig.worldHalfWidth * 0.30, y: 95)
     }
 
     // MARK: Sky
@@ -92,7 +92,9 @@ enum Environment {
         node.zPosition = GameConfig.Z.godRays
 
         let beamTexture = TextureFactory.softBeam(size: CGSize(width: 256, height: 1024))
-        let beamHeight = sunPosition.y + GameConfig.causticDepth + 600
+        // Reach into the upper water (where shafts are visible) without painting
+        // a huge additive sprite whose lower half is already transparent.
+        let beamHeight = sunPosition.y + 1150
 
         // A fan of shafts spreading from the sun down into the water.
         let configs: [(width: CGFloat, angle: CGFloat, baseAlpha: CGFloat, period: TimeInterval)] = [

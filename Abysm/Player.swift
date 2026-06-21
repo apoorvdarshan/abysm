@@ -17,8 +17,9 @@ final class Player: SKNode {
     private let visual = SKNode()
     private let bubbles = Particles.bubbleTrail()
 
-    /// World point the swimmer is easing toward (nil = drifting freely).
-    private var target: CGPoint?
+    /// Steering input from the joystick: direction + magnitude in [-1, 1] per
+    /// axis (length ≤ 1). Zero = no thrust, so the swimmer coasts to a stop.
+    private var thrust: CGVector = .zero
     /// Internal clock for the idle bob.
     private var clock: CGFloat = 0
     private var movingScale: CGFloat = 1   // current vertical flip (+1 / -1)
@@ -144,8 +145,8 @@ final class Player: SKNode {
 
     // MARK: Steering
 
-    func setTarget(_ point: CGPoint) { target = point }
-    func clearTarget() { target = nil }
+    /// Set the joystick steering input (direction × magnitude, length ≤ 1).
+    func setThrust(_ vector: CGVector) { thrust = vector }
 
     // MARK: Per-frame update
 
@@ -153,17 +154,12 @@ final class Player: SKNode {
         guard let body = physicsBody else { return }
         clock += dt
 
-        // Ease toward the touch target with a steady swimming force.
-        if let tgt = target {
-            let dx = tgt.x - position.x
-            let dy = tgt.y - position.y
-            let dist = hypot(dx, dy)
-            if dist <= GameConfig.arriveRadius {
-                target = nil                  // arrived → drift to a stop
-            } else {
-                let force = GameConfig.playerAccel * body.mass / dist
-                body.applyForce(CGVector(dx: dx * force, dy: dy * force))
-            }
+        // Swim in the joystick's direction; magnitude scales the thrust so a
+        // small push glides and a full push drives hard. No input → coast.
+        let mag = hypot(thrust.dx, thrust.dy)
+        if mag > 0.05 {
+            let f = GameConfig.playerAccel * body.mass
+            body.applyForce(CGVector(dx: thrust.dx * f, dy: thrust.dy * f))
         }
 
         // Clamp to a comfortable top speed.
@@ -187,14 +183,17 @@ final class Player: SKNode {
     /// and add a gentle vertical bob.
     private func orient(velocity v: CGVector, speed: CGFloat) {
         if speed > GameConfig.orientSpeedThreshold {
-            let angle = atan2(v.dy, v.dx)
             movingScale = v.dx < 0 ? -1 : 1
             visual.yScale = movingScale
-            visual.zRotation = angle
+            visual.zRotation = atan2(v.dy, v.dx)
             visual.position.y = visual.position.y * 0.85   // settle bob back to 0
         } else {
-            // Idle: ease rotation back toward level, keep last facing, bob.
-            visual.zRotation *= 0.9
+            // Idle: KEEP the last facing (yScale), ease the pitch back to level
+            // for that facing (0 when facing right, π when facing left — paired
+            // with yScale = -1 that reads as upright), and add a gentle bob.
+            visual.yScale = movingScale
+            let level: CGFloat = movingScale < 0 ? .pi : 0
+            visual.zRotation = lerpAngle(visual.zRotation, level, 0.12)
             visual.position.y = sin(clock * 1.6) * 2.5
         }
     }

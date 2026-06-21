@@ -24,8 +24,11 @@ final class GameScene: SKScene {
     private let darkness = SKSpriteNode(color: .black, size: CGSize(width: 2400, height: 3400))
     private let plankton = Particles.plankton()
     private let hud = DepthHUD()
+    private let joystick = Joystick()
 
     private var lastUpdateTime: TimeInterval = 0
+    /// The single touch currently controlling the joystick (if any).
+    private var stickTouch: UITouch?
 
     // MARK: Scene setup
 
@@ -63,6 +66,9 @@ final class GameScene: SKScene {
 
         plankton.zPosition = GameConfig.Z.plankton
         cameraNode.addChild(plankton)
+        // Release motes into world space so the camera glides past them
+        // (parallax / suspended-in-water feel) instead of them riding the screen.
+        plankton.targetNode = self
         plankton.advanceSimulationTime(12)   // pre-fill the screen so it isn't empty at launch
 
         darkness.zPosition = GameConfig.Z.darkness
@@ -70,6 +76,7 @@ final class GameScene: SKScene {
         cameraNode.addChild(darkness)
 
         cameraNode.addChild(hud)
+        cameraNode.addChild(joystick)
     }
 
     private func buildPlayer() {
@@ -90,6 +97,13 @@ final class GameScene: SKScene {
         hud.position = CGPoint(x: 0, y: viewport.height / 2 - (topInset + 26))
         plankton.particlePositionRange = CGVector(dx: viewport.width + 80,
                                                   dy: viewport.height + 80)
+
+        // Joystick pinned to the bottom-left, clear of the landscape notch.
+        let safeBottom = view?.safeAreaInsets.bottom ?? 0
+        let safeLeft = view?.safeAreaInsets.left ?? 0
+        joystick.position = CGPoint(
+            x: -viewport.width / 2 + safeLeft + joystick.baseRadius + 28,
+            y: -viewport.height / 2 + safeBottom + joystick.baseRadius + 24)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -97,15 +111,31 @@ final class GameScene: SKScene {
         layout()
     }
 
-    // MARK: Touch steering
+    // MARK: Touch steering (virtual joystick, bottom-left)
 
-    private func steer(_ touches: Set<UITouch>) {
-        guard let touch = touches.first else { return }
-        player.setTarget(touch.location(in: self))
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard stickTouch == nil else { return }
+        for t in touches {
+            if joystick.engage(at: t.location(in: cameraNode)) {
+                stickTouch = t
+                break
+            }
+        }
     }
 
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) { steer(touches) }
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) { steer(touches) }
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let st = stickTouch, touches.contains(st) else { return }
+        joystick.drag(to: st.location(in: cameraNode))
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) { endStick(touches) }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { endStick(touches) }
+
+    private func endStick(_ touches: Set<UITouch>) {
+        guard let st = stickTouch, touches.contains(st) else { return }
+        joystick.release()
+        stickTouch = nil
+    }
 
     // MARK: Game loop
 
@@ -118,8 +148,13 @@ final class GameScene: SKScene {
         }
         lastUpdateTime = currentTime
 
+        player.setThrust(joystick.vector)
         player.update(dt)
-        oceanSurface.update(currentTime)
+
+        let halfW = size.width / 2 + 50
+        oceanSurface.update(currentTime,
+                            minX: cameraNode.position.x - halfW,
+                            maxX: cameraNode.position.x + halfW)
         updateDepthEffects()
     }
 

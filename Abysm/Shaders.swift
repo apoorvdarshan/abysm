@@ -30,6 +30,16 @@ enum Shaders {
     // here — the Metal backend treats `uniform` as a reserved template type and
     // the shader fails to compile (silently falling back to the base texture).
     private static let causticsSource = """
+    // Sharpen a wave crest into a thin bright band == max(0,w)^12, computed with
+    // multiplies instead of pow() (pow with a non-constant base is costly on
+    // mobile GPUs and this runs per-pixel over a full-screen additive sprite).
+    float ridge(float w) {
+        float a = max(0.0, w);
+        float a2 = a * a;
+        float a4 = a2 * a2;
+        return a4 * a4 * a4;
+    }
+
     void main() {
         vec2 uv = v_tex_coord;
         vec2 p = uv * vec2(u_scale_x, u_scale_y);
@@ -46,10 +56,7 @@ enum Shaders {
         float w2 = sin(q.y * 2.3 + sin(q.x * 2.9 - t * 1.1));
         float w3 = sin((q.x + q.y) * 1.7 - t * 0.6);
 
-        float c1 = pow(max(0.0, w1), 12.0);
-        float c2 = pow(max(0.0, w2), 12.0);
-        float c3 = pow(max(0.0, w3), 12.0);
-        float caustic = max(c1, max(c2, c3));
+        float caustic = max(ridge(w1), max(ridge(w2), ridge(w3)));
 
         // Strong near the surface (top of the sprite), fading downward.
         float fade = smoothstep(0.0, 0.55, uv.y);

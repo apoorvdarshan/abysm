@@ -45,29 +45,41 @@ final class OceanSurface: SKNode {
         + sin(x * 0.020 + t * 1.70) * 3
     }
 
-    /// Rebuild the wavy band + foam for the current time.
-    func update(_ currentTime: TimeInterval) {
+    /// Rebuild the wavy band + foam for the current time, but ONLY across the
+    /// x-range currently on screen ([minX, maxX]) rather than the whole world.
+    /// The wave is a pure function of absolute x and time, so the visible
+    /// window stays seamless as the camera pans — this cuts the per-frame path
+    /// work ~5x versus rebuilding the full 2200pt band every frame.
+    func update(_ currentTime: TimeInterval, minX: CGFloat, maxX: CGFloat) {
         let t = CGFloat(currentTime)
         let half = width / 2
         let step = GameConfig.surfaceWaveSampleStep
 
+        // Clamp the draw window to the band's own extent.
+        let lo = max(-half, minX)
+        let hi = min(half, maxX)
+        guard hi > lo else { band.path = nil; foam.path = nil; return }
+
         let bandPath = CGMutablePath()
         let foamPath = CGMutablePath()
 
-        // Band: filled region from the wavy surface down to -bandDepth.
-        bandPath.move(to: CGPoint(x: -half, y: -bandDepth))
-        bandPath.addLine(to: CGPoint(x: -half, y: waveY(-half, t)))
-        foamPath.move(to: CGPoint(x: -half, y: waveY(-half, t)))
+        bandPath.move(to: CGPoint(x: lo, y: -bandDepth))
+        bandPath.addLine(to: CGPoint(x: lo, y: waveY(lo, t)))
+        foamPath.move(to: CGPoint(x: lo, y: waveY(lo, t)))
 
-        var x = -half + step
-        while x <= half {
+        var x = lo + step
+        while x < hi {
             let y = waveY(x, t)
             bandPath.addLine(to: CGPoint(x: x, y: y))
             foamPath.addLine(to: CGPoint(x: x, y: y))
             x += step
         }
 
-        bandPath.addLine(to: CGPoint(x: half, y: -bandDepth))
+        // Always finish exactly at hi so the edge is crisp.
+        let yEnd = waveY(hi, t)
+        bandPath.addLine(to: CGPoint(x: hi, y: yEnd))
+        foamPath.addLine(to: CGPoint(x: hi, y: yEnd))
+        bandPath.addLine(to: CGPoint(x: hi, y: -bandDepth))
         bandPath.closeSubpath()
 
         band.path = bandPath

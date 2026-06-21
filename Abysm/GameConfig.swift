@@ -31,8 +31,9 @@ enum GameConfig {
 
     // MARK: Player (swimmer)
 
-    /// Where the swimmer starts — just below the surface (~2 m deep).
-    static let playerStartY: CGFloat = -170
+    /// Where the swimmer starts — just below the surface (~1 m deep). Kept
+    /// shallow so the low sun & surface frame nicely in landscape's short height.
+    static let playerStartY: CGFloat = -90
     /// Swim acceleration (target acceleration in points/sec², applied as force).
     static let playerAccel: CGFloat = 560
     /// Hard speed cap so the swimmer always feels controlled and floaty.
@@ -41,8 +42,6 @@ enum GameConfig {
     static let playerLinearDamping: CGFloat = 2.6
     /// Mass of the swimmer's physics body.
     static let playerMass: CGFloat = 0.5
-    /// How close to the target before we consider it "arrived" and drift.
-    static let arriveRadius: CGFloat = 16
     /// Minimum speed before the swimmer re-orients to face its heading.
     static let orientSpeedThreshold: CGFloat = 16
 
@@ -75,6 +74,7 @@ enum GameConfig {
         static let plankton: CGFloat   = 45
         static let darkness: CGFloat   = 60
         static let hud: CGFloat        = 100
+        static let joystick: CGFloat   = 110
     }
 }
 
@@ -131,4 +131,12 @@ func smoothstep(_ edge0: CGFloat, _ edge1: CGFloat, _ x: CGFloat) -> CGFloat {
 
 func clamp(_ value: CGFloat, _ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
     min(max(value, lower), upper)
+}
+
+/// Interpolate an angle toward a target along the shortest path (handles wrap).
+func lerpAngle(_ from: CGFloat, _ to: CGFloat, _ t: CGFloat) -> CGFloat {
+    var diff = (to - from).truncatingRemainder(dividingBy: 2 * .pi)
+    if diff > .pi { diff -= 2 * .pi }
+    if diff < -.pi { diff += 2 * .pi }
+    return from + diff * t
 }
