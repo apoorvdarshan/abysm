@@ -211,6 +211,9 @@ final class GameScene: SKScene {
         blueTint.color = lerpColor(Palette.tintShallow, Palette.tintDeep, grade)
         blueTint.alpha = 0.05 + grade * 0.22
         darkness.alpha = smoothstep(6, 52, meters) * 0.85
+        // Vignette eases off at the bright surface and tightens with depth so
+        // the deep feels more enclosed and abyssal.
+        vignette.alpha = 0.55 + smoothstep(4, 46, meters) * 0.45
     }
 
     /// Smoothly follow the swimmer (after physics has settled), clamped so the
