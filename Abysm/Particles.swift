@@ -73,6 +73,34 @@ enum Particles {
         return e
     }
 
+    /// A few big, very soft, out-of-focus motes drifting near the "lens" —
+    /// foreground depth-of-field that adds dimensionality without clutter.
+    static func bokeh() -> SKEmitterNode {
+        let e = SKEmitterNode()
+        e.particleTexture = TextureFactory.speck(diameter: 80)
+        e.particleBirthRate = 0.6
+        e.numParticlesToEmit = 0
+        e.particleLifetime = 18
+        e.particleLifetimeRange = 6
+
+        e.emissionAngle = .pi               // drift slowly with the "current"
+        e.emissionAngleRange = .pi / 2
+        e.particleSpeed = 13
+        e.particleSpeedRange = 8
+
+        e.particleScale = 1.0
+        e.particleScaleRange = 0.8
+        e.particleScaleSpeed = 0.05
+
+        e.particleAlpha = 0.09
+        e.particleAlphaRange = 0.05
+
+        e.particleColorBlendFactor = 0
+        e.particleBlendMode = .add
+        e.particlePositionRange = CGVector(dx: 800, dy: 500)
+        return e
+    }
+
     /// Larger, slower "marine snow" drifting gently downward — adds a sense of
     /// suspended depth behind the closer plankton.
     static func marineSnow() -> SKEmitterNode {

@@ -25,6 +25,7 @@ final class GameScene: SKScene {
     private let darkness = SKSpriteNode(color: .black, size: CGSize(width: 2400, height: 3400))
     private let plankton = Particles.plankton()
     private let marineSnow = Particles.marineSnow()
+    private let bokeh = Particles.bokeh()
     private let vignette = SKSpriteNode(texture: TextureFactory.vignette(diameter: 512, edgeAlpha: 0.55))
     private let hud = DepthHUD()
     private let joystick = Joystick()
@@ -86,6 +87,11 @@ final class GameScene: SKScene {
         marineSnow.targetNode = self
         marineSnow.advanceSimulationTime(16)
 
+        bokeh.zPosition = GameConfig.Z.plankton + 2   // closest "lens" layer
+        cameraNode.addChild(bokeh)
+        bokeh.targetNode = self
+        bokeh.advanceSimulationTime(18)
+
         plankton.zPosition = GameConfig.Z.plankton
         cameraNode.addChild(plankton)
         // Release motes into world space so the camera glides past them
@@ -125,6 +131,8 @@ final class GameScene: SKScene {
                                                   dy: viewport.height + 80)
         marineSnow.particlePositionRange = CGVector(dx: viewport.width + 120,
                                                     dy: viewport.height + 120)
+        bokeh.particlePositionRange = CGVector(dx: viewport.width + 160,
+                                               dy: viewport.height + 160)
 
         // Vignette stretched to frame the viewport (a touch larger so the dark
         // ring sits just past the screen edges rather than intruding).
