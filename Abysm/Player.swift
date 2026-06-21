@@ -162,6 +162,39 @@ final class Player: SKNode {
         glint.blendMode = .add
         glint.position = CGPoint(x: 35, y: 5)
         bodyRoot.addChild(glint)
+
+        addCausticHighlights()
+    }
+
+    /// Soft surface-light dapples that slowly drift and pulse across the body —
+    /// reads as caustic light playing on the swimmer (and glows via the bloom).
+    private func addCausticHighlights() {
+        let tex = TextureFactory.radialGlow(
+            diameter: 36,
+            inner: Palette.rgb(210, 255, 250).withAlphaComponent(0.7),
+            outer: Palette.rgb(210, 255, 250).withAlphaComponent(0))
+        let spots: [(CGPoint, TimeInterval)] = [(CGPoint(x: 2, y: 4), 0.0), (CGPoint(x: 20, y: -2), 1.1)]
+        for (origin, phase) in spots {
+            let spot = SKSpriteNode(texture: tex)
+            spot.blendMode = .add
+            spot.alpha = 0
+            spot.position = origin
+            spot.zPosition = 4
+            bodyRoot.addChild(spot)
+
+            let pulse = SKAction.sequence([
+                .fadeAlpha(to: 0.4, duration: 1.4),
+                .fadeAlpha(to: 0.0, duration: 1.6)
+            ])
+            pulse.timingMode = .easeInEaseOut
+            let drift = SKAction.sequence([
+                .moveBy(x: -14, y: 3, duration: 3.0),
+                .moveBy(x: 14, y: -3, duration: 3.0)
+            ])
+            drift.timingMode = .easeInEaseOut
+            spot.run(.sequence([.wait(forDuration: phase), .repeatForever(pulse)]))
+            spot.run(.repeatForever(drift))
+        }
     }
 
     // MARK: Limb builders
