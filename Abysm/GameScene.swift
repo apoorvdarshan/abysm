@@ -28,6 +28,7 @@ final class GameScene: SKScene {
     private let marineSnow = Particles.marineSnow()
     private let hud = DepthHUD()
     private let joystick = Joystick()
+    private let creatureInfo = CreatureInfoPanel()
 
     private var lastUpdateTime: TimeInterval = 0
     /// The single touch currently controlling the joystick (if any).
@@ -94,6 +95,7 @@ final class GameScene: SKScene {
         plankton.advanceSimulationTime(12)   // pre-fill the screen so it isn't empty at launch
 
         cameraNode.addChild(hud)
+        cameraNode.addChild(creatureInfo)
         cameraNode.addChild(joystick)
     }
 
@@ -124,6 +126,9 @@ final class GameScene: SKScene {
         joystick.position = CGPoint(
             x: -viewport.width / 2 + safeLeft + joystick.baseRadius + 28,
             y: -viewport.height / 2 + safeBottom + joystick.baseRadius + 24)
+
+        // Creature info card: bottom-center, above the safe area.
+        creatureInfo.position = CGPoint(x: 0, y: -viewport.height / 2 + safeBottom + creatureInfo.panelSize.height / 2 + 16)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -170,6 +175,13 @@ final class GameScene: SKScene {
 
         player.setThrust(joystick.vector)
         player.update(dt)
+
+        // Show the info card for the nearest creature you're swimming by.
+        if let def = creatureField.nearest(to: player.position, within: 210) {
+            creatureInfo.show(def)
+        } else {
+            creatureInfo.hide()
+        }
 
         let halfW = size.width / 2 + 50
         oceanSurface.update(currentTime,
