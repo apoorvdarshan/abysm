@@ -69,4 +69,32 @@ enum Particles {
         e.particlePositionRange = CGVector(dx: 600, dy: 900)
         return e
     }
+
+    /// Larger, slower "marine snow" drifting gently downward — adds a sense of
+    /// suspended depth behind the closer plankton.
+    static func marineSnow() -> SKEmitterNode {
+        let e = SKEmitterNode()
+        e.particleTexture = TextureFactory.speck(diameter: 24)
+        e.particleBirthRate = 3
+        e.numParticlesToEmit = 0
+        e.particleLifetime = 18
+        e.particleLifetimeRange = 7
+
+        e.emissionAngle = -.pi / 2          // drift downward like snow
+        e.emissionAngleRange = .pi / 2.5
+        e.particleSpeed = 9
+        e.particleSpeedRange = 6
+        e.yAcceleration = -4
+
+        e.particleScale = 0.11
+        e.particleScaleRange = 0.09
+
+        e.particleAlpha = 0.28
+        e.particleAlphaRange = 0.14
+
+        e.particleColorBlendFactor = 0
+        e.particleBlendMode = .add
+        e.particlePositionRange = CGVector(dx: 700, dy: 520)
+        return e
+    }
 }

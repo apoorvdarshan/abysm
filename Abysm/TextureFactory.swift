@@ -119,6 +119,25 @@ enum TextureFactory {
                    outer: UIColor(white: 1, alpha: 0))
     }
 
+    /// A radial vignette: fully clear through the center, darkening toward the
+    /// edges/corners. Stretched over the viewport for a cinematic frame.
+    static func vignette(diameter: CGFloat, edgeAlpha: CGFloat) -> SKTexture {
+        let size = CGSize(width: diameter, height: diameter)
+        let image = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            let space = CGColorSpaceCreateDeviceRGB()
+            let colors = [UIColor(white: 0, alpha: 0).cgColor,
+                          UIColor(white: 0, alpha: 0).cgColor,
+                          UIColor(white: 0, alpha: edgeAlpha).cgColor] as CFArray
+            guard let grad = CGGradient(colorsSpace: space, colors: colors, locations: [0, 0.55, 1]) else { return }
+            let c = CGPoint(x: diameter / 2, y: diameter / 2)
+            cg.drawRadialGradient(grad, startCenter: c, startRadius: 0,
+                                  endCenter: c, endRadius: diameter / 2,
+                                  options: [.drawsAfterEndLocation])
+        }
+        return SKTexture(image: image)
+    }
+
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)

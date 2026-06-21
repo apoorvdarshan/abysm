@@ -11,6 +11,7 @@
 //
 
 import SpriteKit
+import CoreImage
 
 final class GameScene: SKScene {
 
@@ -23,6 +24,8 @@ final class GameScene: SKScene {
     private let blueTint = SKSpriteNode(color: Palette.blueTint, size: CGSize(width: 2400, height: 3400))
     private let darkness = SKSpriteNode(color: .black, size: CGSize(width: 2400, height: 3400))
     private let plankton = Particles.plankton()
+    private let marineSnow = Particles.marineSnow()
+    private let vignette = SKSpriteNode(texture: TextureFactory.vignette(diameter: 512, edgeAlpha: 0.55))
     private let hud = DepthHUD()
     private let joystick = Joystick()
 
@@ -64,6 +67,11 @@ final class GameScene: SKScene {
         blueTint.alpha = 0.06
         cameraNode.addChild(blueTint)
 
+        marineSnow.zPosition = GameConfig.Z.plankton - 1
+        cameraNode.addChild(marineSnow)
+        marineSnow.targetNode = self
+        marineSnow.advanceSimulationTime(16)
+
         plankton.zPosition = GameConfig.Z.plankton
         cameraNode.addChild(plankton)
         // Release motes into world space so the camera glides past them
@@ -74,6 +82,10 @@ final class GameScene: SKScene {
         darkness.zPosition = GameConfig.Z.darkness
         darkness.alpha = 0
         cameraNode.addChild(darkness)
+
+        vignette.zPosition = GameConfig.Z.vignette
+        vignette.blendMode = .alpha
+        cameraNode.addChild(vignette)
 
         cameraNode.addChild(hud)
         cameraNode.addChild(joystick)
@@ -97,6 +109,12 @@ final class GameScene: SKScene {
         hud.position = CGPoint(x: 0, y: viewport.height / 2 - (topInset + 26))
         plankton.particlePositionRange = CGVector(dx: viewport.width + 80,
                                                   dy: viewport.height + 80)
+        marineSnow.particlePositionRange = CGVector(dx: viewport.width + 120,
+                                                    dy: viewport.height + 120)
+
+        // Vignette stretched to frame the viewport (a touch larger so the dark
+        // ring sits just past the screen edges rather than intruding).
+        vignette.size = CGSize(width: viewport.width * 1.25, height: viewport.height * 1.35)
 
         // Joystick pinned to the bottom-left, clear of the landscape notch.
         let safeBottom = view?.safeAreaInsets.bottom ?? 0

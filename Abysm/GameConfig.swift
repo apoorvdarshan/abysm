@@ -73,6 +73,7 @@ enum GameConfig {
         static let blueTint: CGFloat   = 40
         static let plankton: CGFloat   = 45
         static let darkness: CGFloat   = 60
+        static let vignette: CGFloat   = 70
         static let hud: CGFloat        = 100
         static let joystick: CGFloat   = 110
     }
