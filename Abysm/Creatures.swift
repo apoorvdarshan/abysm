@@ -122,6 +122,32 @@ enum Creatures {
         CreatureDef(key: "cookiecutter", name: "Cookiecutter Shark", depthM: 3400, width: 80,
                     fact: "Bites round plugs of flesh from whales, sharks, even submarines."),
         CreatureDef(key: "dumbooctopus", name: "Dumbo Octopus", depthM: 3952, width: 95,
-                    fact: "Flaps ear-like fins to 'fly' through the deep — the deepest-living octopus.")
+                    fact: "Flaps ear-like fins to 'fly' through the deep — the deepest-living octopus."),
+        // ── The Abyss (4000–6000 m) ──
+        CreatureDef(key: "atollajelly", name: "Atolla Jellyfish", depthM: 4050, width: 80,
+                    fact: "Sets off a spinning blue 'burglar alarm' to summon bigger predators onto its attacker."),
+        CreatureDef(key: "seapig", name: "Sea Pig", depthM: 4500, width: 80,
+                    fact: "A plump pink sea cucumber that walks the abyssal mud on tube-foot 'legs'."),
+        CreatureDef(key: "megamouth", name: "Megamouth Shark", depthM: 4600, width: 180,
+                    fact: "A rare giant that cruises with its huge mouth open, filtering tiny plankton."),
+        CreatureDef(key: "fangtooth", name: "Fangtooth", depthM: 4700, width: 70,
+                    fact: "Has the largest teeth, for its body size, of any fish in the ocean."),
+        CreatureDef(key: "tripodfish", name: "Tripod Fish", depthM: 4800, width: 95,
+                    fact: "Perches on three stilt-like fins, facing the current and waiting for food to drift in."),
+        CreatureDef(key: "facelessfish", name: "Faceless Cusk Eel", depthM: 5100, width: 100,
+                    fact: "Its eyes and nostrils hide under the skin — so it appears to have no face."),
+        CreatureDef(key: "brittlestar", name: "Brittle Star", depthM: 5500, width: 85,
+                    fact: "A starfish relative that crawls on writhing arms it can regrow if it loses one.", still: true),
+        // ── Hadal Zone (6000 m → the trench floor) ──
+        CreatureDef(key: "grenadier", name: "Grenadier", depthM: 6800, width: 120,
+                    fact: "Also called a rattail — one of the most common fish on the deep-sea floor."),
+        CreatureDef(key: "combjelly", name: "Comb Jelly", depthM: 7217, width: 62,
+                    fact: "Beats rows of tiny hairs that scatter light into shimmering rainbows."),
+        CreatureDef(key: "snailfish", name: "Hadal Snailfish", depthM: 8178, width: 80,
+                    fact: "The deepest fish ever filmed; its jelly-like body withstands the crushing pressure."),
+        CreatureDef(key: "cuskeel", name: "Cusk Eel", depthM: 8370, width: 100,
+                    fact: "Among the deepest of all fishes ever caught."),
+        CreatureDef(key: "amphipod", name: "Hadal Amphipod", depthM: 10322, width: 50,
+                    fact: "A shrimp-like scavenger thriving at the very bottom of the trenches.")
     ]
 }
