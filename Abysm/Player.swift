@@ -2,32 +2,50 @@
 //  Player.swift
 //  Abysm
 //
-//  The swimmer. Drawn entirely from SpriteKit shapes (no art assets), driven
-//  by a damped physics body for a slow, weightless, floaty feel. Steered by
-//  touch: tap or drag sets a target the swimmer eases toward, then drifts to
-//  a stop. Trails bubbles while moving and gently bobs while idle.
+//  The swimmer. Still drawn from SpriteKit shapes (no art assets), but with
+//  gradient-shaded body parts, bright rim highlights, a localized bloom glow,
+//  and an animated flutter-kick swim cycle. Driven by a damped physics body
+//  for a slow, weightless, floaty feel and steered by the on-screen joystick.
 //
 
 import SpriteKit
+import CoreImage
 
 final class Player: SKNode {
 
-    /// Visual container — orientation (heading rotation + left/right flip) is
-    /// applied here, leaving the physics node itself unrotated.
-    private let visual = SKNode()
+    /// Visual root (an SKEffectNode applying a soft bloom). Orientation —
+    /// heading rotation, left/right flip, idle bob — is applied here, leaving
+    /// the physics node itself unrotated. A *node-level* effect node works fine
+    /// with the camera (only scene-level effects misbehave).
+    private let bodyRoot = SKEffectNode()
     private let bubbles = Particles.bubbleTrail()
 
-    /// Steering input from the joystick: direction + magnitude in [-1, 1] per
-    /// axis (length ≤ 1). Zero = no thrust, so the swimmer coasts to a stop.
+    // Animated limbs.
+    private let legFront = SKNode()
+    private let legBack = SKNode()
+    private let armFront = SKNode()
+    private let armBack = SKNode()
+    private let armRestAngle: CGFloat = -0.18
+    private let armBackRestAngle: CGFloat = 2.7
+
+    /// Steering input from the joystick (direction × magnitude, length ≤ 1).
     private var thrust: CGVector = .zero
-    /// Internal clock for the idle bob.
-    private var clock: CGFloat = 0
-    private var movingScale: CGFloat = 1   // current vertical flip (+1 / -1)
+    private var clock: CGFloat = 0        // idle-bob clock
+    private var swimPhase: CGFloat = 0    // flutter-kick phase
+    private var movingScale: CGFloat = 1  // current vertical flip (+1 / -1)
 
     override init() {
         super.init()
         zPosition = GameConfig.Z.player
-        addChild(visual)
+
+        bodyRoot.shouldEnableEffects = true
+        if let bloom = CIFilter(name: "CIBloom") {
+            bloom.setValue(2.0, forKey: "inputRadius")
+            bloom.setValue(0.55, forKey: "inputIntensity")
+            bodyRoot.filter = bloom
+        }
+        addChild(bodyRoot)
+
         buildBody()
         setupPhysics()
 
@@ -38,87 +56,174 @@ final class Player: SKNode {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    // MARK: Build the cartoon swimmer (facing +x by default)
+    // MARK: Gradient textures (lit from above)
+
+    private static let suitTex = TextureFactory.verticalGradient(
+        size: CGSize(width: 8, height: 64),
+        stops: [(Palette.rgb(78, 138, 192), 0.0), (Palette.rgb(26, 44, 88), 1.0)])
+    private static let skinTex = TextureFactory.verticalGradient(
+        size: CGSize(width: 8, height: 64),
+        stops: [(Palette.rgb(255, 226, 192), 0.0), (Palette.rgb(228, 170, 120), 1.0)])
+    private static let capTex = TextureFactory.verticalGradient(
+        size: CGSize(width: 8, height: 64),
+        stops: [(Palette.rgb(54, 92, 150), 0.0), (Palette.rgb(22, 36, 74), 1.0)])
+
+    // MARK: Build the swimmer (facing +x by default)
 
     private func buildBody() {
-        let skin     = Palette.rgb(255, 214, 170)
-        let skinLine = Palette.rgb(206, 150, 110)
-        let suit     = Palette.rgb(40, 70, 120)
-        let suitLine = Palette.rgb(24, 44, 80)
-        let fin      = Palette.rgb(60, 150, 170)
-        let outline  = UIColor(white: 0.05, alpha: 0.35)
+        let finColor = Palette.rgb(48, 150, 172).withAlphaComponent(0.9)
+        let rim = Palette.rgb(190, 252, 246)
 
-        // Back fins / flippers (drawn first so they sit behind the body).
-        for dy in [CGFloat(6), -6] {
-            let flipper = SKShapeNode(path: trianglePath(length: 22, width: 16))
-            flipper.fillColor = fin
-            flipper.strokeColor = outline
-            flipper.lineWidth = 1
-            flipper.position = CGPoint(x: -30, y: dy)
-            flipper.zRotation = dy > 0 ? 0.25 : -0.25
-            visual.addChild(flipper)
-        }
-
-        // Legs.
-        for dy in [CGFloat(5), -5] {
-            let leg = capsule(width: 26, height: 8, color: skin, line: skinLine)
-            leg.position = CGPoint(x: -16, y: dy)
-            leg.zRotation = dy > 0 ? 0.12 : -0.12
-            visual.addChild(leg)
-        }
-
-        // Torso (swimsuit).
-        let torso = capsule(width: 46, height: 22, color: suit, line: suitLine)
-        torso.position = .zero
-        visual.addChild(torso)
-
-        // Forward-reaching arm.
-        let arm = capsule(width: 28, height: 8, color: skin, line: skinLine)
-        arm.position = CGPoint(x: 16, y: 9)
-        arm.zRotation = 0.28
-        visual.addChild(arm)
-
-        // Head.
-        let head = SKShapeNode(circleOfRadius: 11)
-        head.fillColor = skin
-        head.strokeColor = skinLine
-        head.lineWidth = 1
-        head.position = CGPoint(x: 27, y: 3)
-        visual.addChild(head)
-
-        // Swim mask / goggles.
-        let mask = SKShapeNode(rectOf: CGSize(width: 12, height: 8), cornerRadius: 3)
-        mask.fillColor = Palette.rgb(120, 220, 230).withAlphaComponent(0.9)
-        mask.strokeColor = suitLine
-        mask.lineWidth = 1
-        mask.position = CGPoint(x: 32, y: 4)
-        visual.addChild(mask)
-
-        // Soft contact-shadow under the swimmer for a touch of depth.
-        let shadow = SKShapeNode(ellipseOf: CGSize(width: 60, height: 26))
+        // Soft contact shadow underneath.
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 66, height: 24))
         shadow.fillColor = UIColor(white: 0, alpha: 0.10)
         shadow.strokeColor = .clear
-        shadow.zPosition = -1
-        visual.addChild(shadow)
+        shadow.position = CGPoint(x: -4, y: -13)
+        shadow.zPosition = -2
+        bodyRoot.addChild(shadow)
+
+        // Far (back) limbs first so they sit behind the torso.
+        configureLeg(legBack, finColor: finColor, near: false)
+        legBack.position = CGPoint(x: -20, y: 4)
+        legBack.zPosition = -1
+        bodyRoot.addChild(legBack)
+
+        configureArm(armBack, near: false)
+        armBack.position = CGPoint(x: 14, y: 2)
+        armBack.zRotation = armBackRestAngle
+        armBack.zPosition = -1
+        bodyRoot.addChild(armBack)
+
+        // Torso (wetsuit) with a gradient + bright rim along the top.
+        let torso = gradientCapsule(width: 48, height: 23, texture: Self.suitTex)
+        bodyRoot.addChild(torso)
+
+        let torsoRim = SKShapeNode(rectOf: CGSize(width: 40, height: 4), cornerRadius: 2)
+        torsoRim.fillColor = rim.withAlphaComponent(0.55)
+        torsoRim.strokeColor = .clear
+        torsoRim.blendMode = .add
+        torsoRim.position = CGPoint(x: -1, y: 9)
+        bodyRoot.addChild(torsoRim)
+
+        // Near (front) limbs over the torso.
+        configureLeg(legFront, finColor: finColor, near: true)
+        legFront.position = CGPoint(x: -20, y: -3)
+        bodyRoot.addChild(legFront)
+
+        configureArm(armFront, near: true)
+        armFront.position = CGPoint(x: 16, y: 4)
+        armFront.zRotation = armRestAngle
+        bodyRoot.addChild(armFront)
+
+        // Head + swim cap + mask.
+        let head = SKShapeNode(circleOfRadius: 11)
+        head.fillTexture = Self.skinTex
+        head.fillColor = .white
+        head.strokeColor = .clear
+        head.position = CGPoint(x: 28, y: 2)
+        bodyRoot.addChild(head)
+
+        let cap = SKShapeNode(path: capPath(radius: 12))
+        cap.fillTexture = Self.capTex
+        cap.fillColor = .white
+        cap.strokeColor = .clear
+        cap.position = CGPoint(x: 28, y: 2)
+        bodyRoot.addChild(cap)
+
+        let capRim = SKShapeNode(path: capRimPath(radius: 12))
+        capRim.fillColor = .clear
+        capRim.strokeColor = rim.withAlphaComponent(0.5)
+        capRim.lineWidth = 1.5
+        capRim.blendMode = .add
+        capRim.lineCap = .round
+        capRim.position = CGPoint(x: 28, y: 2)
+        bodyRoot.addChild(capRim)
+
+        // Snorkel: thin tube up & back from the side of the head.
+        let snorkel = SKShapeNode(rectOf: CGSize(width: 4, height: 22), cornerRadius: 2)
+        snorkel.fillColor = Palette.rgb(245, 222, 90)
+        snorkel.strokeColor = .clear
+        snorkel.position = CGPoint(x: 33, y: 13)
+        snorkel.zRotation = 0.18
+        snorkel.zPosition = -1
+        bodyRoot.addChild(snorkel)
+
+        // Dive mask — bright cyan, glints under bloom.
+        let mask = SKShapeNode(rectOf: CGSize(width: 13, height: 9), cornerRadius: 3.5)
+        mask.fillColor = Palette.rgb(140, 232, 240)
+        mask.strokeColor = Palette.rgb(24, 44, 80)
+        mask.lineWidth = 1
+        mask.position = CGPoint(x: 33, y: 3)
+        bodyRoot.addChild(mask)
+
+        let glint = SKShapeNode(rectOf: CGSize(width: 4, height: 4), cornerRadius: 1.5)
+        glint.fillColor = UIColor(white: 1, alpha: 0.9)
+        glint.strokeColor = .clear
+        glint.blendMode = .add
+        glint.position = CGPoint(x: 35, y: 5)
+        bodyRoot.addChild(glint)
     }
 
-    /// Rounded-rectangle "capsule" helper.
-    private func capsule(width: CGFloat, height: CGFloat, color: UIColor, line: UIColor) -> SKShapeNode {
-        let node = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: height / 2)
-        node.fillColor = color
-        node.strokeColor = line
-        node.lineWidth = 1
-        return node
+    // MARK: Limb builders
+
+    private func configureLeg(_ leg: SKNode, finColor: UIColor, near: Bool) {
+        let thigh = gradientCapsule(width: 26, height: 8, texture: Self.skinTex)
+        thigh.position = CGPoint(x: -13, y: 0)
+        thigh.alpha = near ? 1.0 : 0.9
+        leg.addChild(thigh)
+
+        let fin = SKShapeNode(path: finPath(length: 22, width: 17))
+        fin.fillColor = finColor
+        fin.strokeColor = UIColor(white: 1, alpha: 0.22)
+        fin.lineWidth = 1
+        fin.position = CGPoint(x: -25, y: 0)
+        leg.addChild(fin)
     }
 
-    /// A simple triangle path pointing in -x (used for fins behind the body).
-    private func trianglePath(length: CGFloat, width: CGFloat) -> CGPath {
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLine(to: CGPoint(x: -length, y: width / 2))
-        path.addLine(to: CGPoint(x: -length, y: -width / 2))
-        path.closeSubpath()
-        return path
+    private func configureArm(_ arm: SKNode, near: Bool) {
+        let limb = gradientCapsule(width: 28, height: 8, texture: Self.skinTex)
+        limb.position = CGPoint(x: 14, y: 0)
+        limb.alpha = near ? 1.0 : 0.85
+        arm.addChild(limb)
+    }
+
+    // MARK: Shape helpers
+
+    private func gradientCapsule(width: CGFloat, height: CGFloat, texture: SKTexture) -> SKShapeNode {
+        let n = SKShapeNode(rectOf: CGSize(width: width, height: height), cornerRadius: height / 2)
+        n.fillTexture = texture
+        n.fillColor = .white
+        n.strokeColor = .clear
+        n.lineWidth = 0
+        return n
+    }
+
+    /// A flipper: a soft elongated blade pointing in -x.
+    private func finPath(length: CGFloat, width: CGFloat) -> CGPath {
+        let p = CGMutablePath()
+        p.move(to: CGPoint(x: 2, y: 0))
+        p.addQuadCurve(to: CGPoint(x: -length, y: width / 2),
+                       control: CGPoint(x: -length * 0.5, y: width * 0.30))
+        p.addQuadCurve(to: CGPoint(x: -length, y: -width / 2),
+                       control: CGPoint(x: -length * 0.9, y: 0))
+        p.addQuadCurve(to: CGPoint(x: 2, y: 0),
+                       control: CGPoint(x: -length * 0.5, y: -width * 0.30))
+        p.closeSubpath()
+        return p
+    }
+
+    /// Top hemisphere of the head, used as the swim cap.
+    private func capPath(radius: CGFloat) -> CGPath {
+        let p = CGMutablePath()
+        p.addArc(center: .zero, radius: radius, startAngle: 0, endAngle: .pi, clockwise: false)
+        p.closeSubpath()
+        return p
+    }
+
+    private func capRimPath(radius: CGFloat) -> CGPath {
+        let p = CGMutablePath()
+        p.addArc(center: .zero, radius: radius - 1, startAngle: 0.15, endAngle: .pi - 0.15, clockwise: false)
+        return p
     }
 
     // MARK: Physics
@@ -126,12 +231,11 @@ final class Player: SKNode {
     private func setupPhysics() {
         let body = SKPhysicsBody(circleOfRadius: 22)
         body.affectedByGravity = false
-        body.allowsRotation = false           // we orient the visual manually
+        body.allowsRotation = false
         body.linearDamping = GameConfig.playerLinearDamping
         body.mass = GameConfig.playerMass
         body.friction = 0
         body.restitution = 0
-        // No collisions in Phase 1 — the swimmer roams freely.
         body.categoryBitMask = 0
         body.collisionBitMask = 0
         body.contactTestBitMask = 0
@@ -154,15 +258,12 @@ final class Player: SKNode {
         guard let body = physicsBody else { return }
         clock += dt
 
-        // Swim in the joystick's direction; magnitude scales the thrust so a
-        // small push glides and a full push drives hard. No input → coast.
         let mag = hypot(thrust.dx, thrust.dy)
         if mag > 0.05 {
             let f = GameConfig.playerAccel * body.mass
             body.applyForce(CGVector(dx: thrust.dx * f, dy: thrust.dy * f))
         }
 
-        // Clamp to a comfortable top speed.
         var v = body.velocity
         let speed = hypot(v.dx, v.dy)
         if speed > GameConfig.playerMaxSpeed {
@@ -172,39 +273,45 @@ final class Player: SKNode {
         }
 
         keepInsideWorld(body)
-        orient(velocity: body.velocity, speed: hypot(body.velocity.dx, body.velocity.dy))
+        orient(velocity: body.velocity, speed: speed)
+        animateSwim(dt: dt, speed: speed)
 
-        // More bubbles while swimming, a few while resting.
         bubbles.particleBirthRate = speed > 36 ? 24 : 3
     }
 
+    /// Flutter-kick + gentle arm stroke, faster the harder the swimmer moves.
+    private func animateSwim(dt: CGFloat, speed: CGFloat) {
+        let frac = min(speed / GameConfig.playerMaxSpeed, 1)
+        swimPhase += dt * (5.0 + frac * 9.0)
+        let kick = sin(swimPhase)
+        let amp = 0.16 + frac * 0.40
+        legFront.zRotation = kick * amp
+        legBack.zRotation = -kick * amp
+        armFront.zRotation = armRestAngle + sin(swimPhase * 0.5 + 1.0) * (0.08 + frac * 0.14)
+        armBack.zRotation = armBackRestAngle - sin(swimPhase * 0.5) * 0.07
+    }
+
     /// Face the direction of travel; flip vertically when heading left so the
-    /// swimmer stays upright instead of going belly-up. While idle, level out
-    /// and add a gentle vertical bob.
+    /// swimmer stays upright. While idle, level out the pitch and gently bob.
     private func orient(velocity v: CGVector, speed: CGFloat) {
         if speed > GameConfig.orientSpeedThreshold {
             movingScale = v.dx < 0 ? -1 : 1
-            visual.yScale = movingScale
-            visual.zRotation = atan2(v.dy, v.dx)
-            visual.position.y = visual.position.y * 0.85   // settle bob back to 0
+            bodyRoot.yScale = movingScale
+            bodyRoot.zRotation = atan2(v.dy, v.dx)
+            bodyRoot.position.y *= 0.85
         } else {
-            // Idle: KEEP the last facing (yScale), ease the pitch back to level
-            // for that facing (0 when facing right, π when facing left — paired
-            // with yScale = -1 that reads as upright), and add a gentle bob.
-            visual.yScale = movingScale
+            bodyRoot.yScale = movingScale
             let level: CGFloat = movingScale < 0 ? .pi : 0
-            visual.zRotation = lerpAngle(visual.zRotation, level, 0.12)
-            visual.position.y = sin(clock * 1.6) * 2.5
+            bodyRoot.zRotation = lerpAngle(bodyRoot.zRotation, level, 0.12)
+            bodyRoot.position.y = sin(clock * 1.6) * 2.5
         }
     }
 
-    /// Soft clamp inside the world bounds, killing the outward velocity so the
-    /// swimmer rests against the edge rather than jittering.
     private func keepInsideWorld(_ body: SKPhysicsBody) {
         let minX = -GameConfig.worldHalfWidth + 30
         let maxX =  GameConfig.worldHalfWidth - 30
         let minY =  GameConfig.worldFloor + 30
-        let maxY: CGFloat = 30                 // may peek just above the surface
+        let maxY: CGFloat = 30
 
         if position.x < minX { position.x = minX; if body.velocity.dx < 0 { body.velocity.dx = 0 } }
         if position.x > maxX { position.x = maxX; if body.velocity.dx > 0 { body.velocity.dx = 0 } }
