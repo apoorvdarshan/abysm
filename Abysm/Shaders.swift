@@ -17,7 +17,7 @@ enum Shaders {
     static func caustics(cols: Float, rows: Float) -> SKShader {
         let shader = SKShader(source: causticsSource)
         shader.uniforms = [
-            SKUniform(name: "u_intensity", float: 0.75),
+            SKUniform(name: "u_intensity", float: 0.42),
             SKUniform(name: "u_scale_x", float: 8.0),
             SKUniform(name: "u_scale_y", float: 14.0),
             SKUniform(name: "u_speed", float: 0.5),

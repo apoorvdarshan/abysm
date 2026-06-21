@@ -36,14 +36,16 @@ enum TextureFactory {
 
     // MARK: Pixel-art gradient
 
-    /// A vertical gradient rendered as PIXEL ART: low resolution (one texel per
-    /// `pixel` points), a posterized limited palette, and 4×4 Bayer ordered
-    /// dithering between levels — the classic pixel-gradient look. Displayed
-    /// nearest-neighbor so the texels are crisp blocks. `stops[0]` is the top.
+    /// A vertical gradient rendered as PIXEL ART: clean FLAT horizontal depth
+    /// bands (each `bandTexels` art-pixels tall) sampled from a disciplined
+    /// color ramp — no per-pixel dithering (that reads as halftone noise). A
+    /// thin Bayer dither is applied only on the 1-texel seam between bands so
+    /// transitions don't look like a hard artifact. `stops[0]` is the top.
     static func pixelGradient(size: CGSize, pixel: CGFloat,
-                              stops: [(UIColor, CGFloat)], levels: Int = 6) -> SKTexture {
+                              stops: [(UIColor, CGFloat)], bandTexels: Int = 5) -> SKTexture {
         let w = max(1, Int((size.width / pixel).rounded()))
         let h = max(1, Int((size.height / pixel).rounded()))
+        let band = max(1, bandTexels)
         let bayer: [[Int]] = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 
         let cs: [(CGFloat, (CGFloat, CGFloat, CGFloat))] = stops.map { (c, loc) in
@@ -63,22 +65,26 @@ enum TextureFactory {
             }
             return cs.last!.1
         }
+        func bandColor(_ b: Int) -> (CGFloat, CGFloat, CGFloat) {
+            let centerY = min(h - 1, b * band + band / 2)
+            return sample(h > 1 ? CGFloat(centerY) / CGFloat(h - 1) : 0)
+        }
+        func px(_ v: (CGFloat, CGFloat, CGFloat)) -> (UInt8, UInt8, UInt8) {
+            (UInt8(max(0, min(255, v.0 * 255))), UInt8(max(0, min(255, v.1 * 255))), UInt8(max(0, min(255, v.2 * 255))))
+        }
 
         var buf = [UInt8](repeating: 0, count: w * h * 4)
-        let maxLvl = CGFloat(levels - 1)
         for y in 0..<h {
-            let t = h > 1 ? CGFloat(y) / CGFloat(h - 1) : 0
-            let (r, g, b) = sample(t)
+            let b = y / band
+            let inSeam = (y % band) == 0 && b > 0      // top row of each band == seam
+            let cur = px(bandColor(b))
+            let prev = inSeam ? px(bandColor(b - 1)) : cur
             for x in 0..<w {
-                let th = CGFloat(bayer[y & 3][x & 3]) / 16.0
-                func q(_ v: CGFloat) -> UInt8 {
-                    let s = v * maxLvl
-                    let base = floor(s)
-                    let lvl = (s - base) > th ? base + 1 : base
-                    return UInt8(max(0, min(255, (lvl / maxLvl) * 255)))
-                }
+                // On the seam row, dither 50/50 between this band and the one above.
+                let usedPrev = inSeam && (bayer[y & 3][x & 3] >= 8)
+                let c = usedPrev ? prev : cur
                 let i = (y * w + x) * 4
-                buf[i] = q(r); buf[i + 1] = q(g); buf[i + 2] = q(b); buf[i + 3] = 255
+                buf[i] = c.0; buf[i + 1] = c.1; buf[i + 2] = c.2; buf[i + 3] = 255
             }
         }
         let space = CGColorSpaceCreateDeviceRGB()

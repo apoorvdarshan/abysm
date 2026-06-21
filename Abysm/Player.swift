@@ -22,13 +22,18 @@ final class Player: SKNode {
     private var movingScale: CGFloat = 1   // vertical flip used to stay upright when facing left
 
     override init() {
-        let tex = SKTexture(imageNamed: "diver")
-        tex.filteringMode = .nearest        // crisp pixels, no smoothing
-        sprite = SKSpriteNode(texture: tex)
+        let frames: [SKTexture] = (0..<4).map {
+            let t = SKTexture(imageNamed: "diver\($0)"); t.filteringMode = .nearest; return t
+        }
+        sprite = SKSpriteNode(texture: frames[0])
+        sprite.size = CGSize(width: 150, height: 150)   // 64px frames shown ~pixel-perfect
         super.init()
         zPosition = GameConfig.Z.player
 
         bodyRoot.addChild(sprite)
+        // Loop the flutter-kick swim cycle.
+        sprite.run(.repeatForever(.animate(with: frames, timePerFrame: 0.14,
+                                           resize: false, restore: true)), withKey: "swim")
         addChild(bodyRoot)
         setupPhysics()
 

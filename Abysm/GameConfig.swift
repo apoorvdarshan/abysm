@@ -98,14 +98,16 @@ enum Palette {
 
     /// Water gradient, top (surface, index 0) → bottom (abyss). Bright & colorful
     /// up top, fading to near-black deep down.
+    // Disciplined depth ramp: saturation peaks mid-ramp (never max-sat+max-
+    // bright = "washed"), hue shifts cooler and value drops as it deepens.
     static let waterStops: [(UIColor, CGFloat)] = [
-        (rgb(64, 224, 217), 0.00),   // bright turquoise at the surface
-        (rgb(28, 184, 196), 0.10),   // teal
-        (rgb(18, 132, 176), 0.28),   // shallow blue
-        (rgb(12,  86, 134), 0.50),   // mid blue
-        (rgb( 8,  48,  86), 0.72),   // deep blue
-        (rgb( 3,  18,  40), 0.88),   // dark navy
-        (rgb( 1,   7,  18), 1.00)    // near black
+        (rgb(94, 196, 194), 0.00),   // surface: soft cyan-teal
+        (rgb(58, 160, 184), 0.12),   // teal
+        (rgb(40, 118, 162), 0.28),   // shallow blue
+        (rgb(28,  84, 138), 0.46),   // saturated mid-blue
+        (rgb(20,  54, 104), 0.66),   // deep indigo
+        (rgb(13,  32,  70), 0.84),   // navy
+        (rgb( 7,  16,  38), 1.00)    // near-black blue-violet
     ]
 
     /// Sky gradient, top (index 0) → horizon (y = 0). Sunny daytime blue.
