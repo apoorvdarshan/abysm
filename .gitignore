@@ -14,6 +14,10 @@ DerivedData/
 *.dSYM
 *.dSYM.zip
 
+# Agent skills (materialized; restore with `npx skills` from skills-lock.json)
+.agents/
+.claude/skills/
+
 # Swift Package Manager
 .swiftpm/
 .build/
