@@ -114,6 +114,8 @@ enum Palette {
     ]
 
     static let blueTint    = rgb(20, 90, 150)          // whole-screen underwater tint
+    static let tintShallow = rgb(42, 150, 168)         // depth grade near the surface (teal)
+    static let tintDeep    = rgb(8, 26, 78)            // depth grade in the deep (indigo)
     static let surfaceBand  = rgb(150, 240, 235)        // sunlit band just under the surface
     static let foam         = UIColor(white: 1.0, alpha: 0.85)
     static let sunCore      = rgb(255, 250, 224)
@@ -132,6 +134,17 @@ func smoothstep(_ edge0: CGFloat, _ edge1: CGFloat, _ x: CGFloat) -> CGFloat {
 
 func clamp(_ value: CGFloat, _ lower: CGFloat, _ upper: CGFloat) -> CGFloat {
     min(max(value, lower), upper)
+}
+
+/// Linearly interpolate between two colors in RGB.
+func lerpColor(_ a: UIColor, _ b: UIColor, _ t: CGFloat) -> UIColor {
+    var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+    var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+    a.getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+    b.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+    let s = max(0, min(1, t))
+    return UIColor(red: ar + (br - ar) * s, green: ag + (bg - ag) * s,
+                   blue: ab + (bb - ab) * s, alpha: aa + (ba - aa) * s)
 }
 
 /// Interpolate an angle toward a target along the shortest path (handles wrap).

@@ -182,8 +182,13 @@ final class GameScene: SKScene {
         let meters = depthPoints / GameConfig.pointsPerMeter
 
         hud.update(depthMeters: meters)
-        darkness.alpha = smoothstep(3, 48, meters) * 0.82
-        blueTint.alpha = 0.06 + smoothstep(0, 40, meters) * 0.16
+
+        // Color-grade the whole scene by depth: a faint teal wash near the
+        // sunny surface deepening to indigo, then the black overlay takes over.
+        let grade = smoothstep(2, 42, meters)
+        blueTint.color = lerpColor(Palette.tintShallow, Palette.tintDeep, grade)
+        blueTint.alpha = 0.05 + grade * 0.22
+        darkness.alpha = smoothstep(6, 52, meters) * 0.85
     }
 
     /// Smoothly follow the swimmer (after physics has settled), clamped so the

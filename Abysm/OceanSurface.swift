@@ -12,6 +12,7 @@ import SpriteKit
 final class OceanSurface: SKNode {
 
     private let band = SKShapeNode()
+    private let glowLine = SKShapeNode()
     private let foam = SKShapeNode()
     private let width: CGFloat
     private let bandDepth: CGFloat = 150
@@ -27,12 +28,22 @@ final class OceanSurface: SKNode {
         band.zPosition = 0
         addChild(band)
 
+        // Soft wide glow under the crest — a sunlit sheen on the water line.
+        glowLine.fillColor = .clear
+        glowLine.strokeColor = Palette.surfaceBand.withAlphaComponent(0.5)
+        glowLine.lineWidth = 9
+        glowLine.lineCap = .round
+        glowLine.blendMode = .add
+        glowLine.zPosition = 1
+        addChild(glowLine)
+
+        // Crisp bright foam crest on top.
         foam.fillColor = .clear
         foam.strokeColor = Palette.foam
-        foam.lineWidth = 3
+        foam.lineWidth = 2.5
         foam.lineCap = .round
         foam.blendMode = .add
-        foam.zPosition = 1
+        foam.zPosition = 2
         addChild(foam)
     }
 
@@ -58,7 +69,7 @@ final class OceanSurface: SKNode {
         // Clamp the draw window to the band's own extent.
         let lo = max(-half, minX)
         let hi = min(half, maxX)
-        guard hi > lo else { band.path = nil; foam.path = nil; return }
+        guard hi > lo else { band.path = nil; foam.path = nil; glowLine.path = nil; return }
 
         let bandPath = CGMutablePath()
         let foamPath = CGMutablePath()
@@ -84,5 +95,6 @@ final class OceanSurface: SKNode {
 
         band.path = bandPath
         foam.path = foamPath
+        glowLine.path = foamPath
     }
 }
