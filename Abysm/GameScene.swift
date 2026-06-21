@@ -11,7 +11,6 @@
 //
 
 import SpriteKit
-import CoreImage
 
 final class GameScene: SKScene {
 
@@ -25,8 +24,6 @@ final class GameScene: SKScene {
     private let darkness = SKSpriteNode(color: .black, size: CGSize(width: 2400, height: 3400))
     private let plankton = Particles.plankton()
     private let marineSnow = Particles.marineSnow()
-    private let bokeh = Particles.bokeh()
-    private let vignette = SKSpriteNode(texture: TextureFactory.vignette(diameter: 512, edgeAlpha: 0.55))
     private let hud = DepthHUD()
     private let joystick = Joystick()
 
@@ -69,7 +66,6 @@ final class GameScene: SKScene {
         addChild(Environment.makeSky())
         addChild(Environment.makeWater())
         addChild(Environment.makeSun())
-        addChild(Environment.makeGodRays())
         addChild(Environment.makeCaustics())
         addChild(oceanSurface)
     }
@@ -87,11 +83,6 @@ final class GameScene: SKScene {
         marineSnow.targetNode = self
         marineSnow.advanceSimulationTime(16)
 
-        bokeh.zPosition = GameConfig.Z.plankton + 2   // closest "lens" layer
-        cameraNode.addChild(bokeh)
-        bokeh.targetNode = self
-        bokeh.advanceSimulationTime(18)
-
         plankton.zPosition = GameConfig.Z.plankton
         cameraNode.addChild(plankton)
         // Release motes into world space so the camera glides past them
@@ -102,10 +93,6 @@ final class GameScene: SKScene {
         darkness.zPosition = GameConfig.Z.darkness
         darkness.alpha = 0
         cameraNode.addChild(darkness)
-
-        vignette.zPosition = GameConfig.Z.vignette
-        vignette.blendMode = .alpha
-        cameraNode.addChild(vignette)
 
         cameraNode.addChild(hud)
         cameraNode.addChild(joystick)
@@ -131,12 +118,6 @@ final class GameScene: SKScene {
                                                   dy: viewport.height + 80)
         marineSnow.particlePositionRange = CGVector(dx: viewport.width + 120,
                                                     dy: viewport.height + 120)
-        bokeh.particlePositionRange = CGVector(dx: viewport.width + 160,
-                                               dy: viewport.height + 160)
-
-        // Vignette stretched to frame the viewport (a touch larger so the dark
-        // ring sits just past the screen edges rather than intruding).
-        vignette.size = CGSize(width: viewport.width * 1.25, height: viewport.height * 1.35)
 
         // Joystick pinned to the bottom-left, clear of the landscape notch.
         let safeBottom = view?.safeAreaInsets.bottom ?? 0
@@ -211,9 +192,6 @@ final class GameScene: SKScene {
         blueTint.color = lerpColor(Palette.tintShallow, Palette.tintDeep, grade)
         blueTint.alpha = 0.05 + grade * 0.22
         darkness.alpha = smoothstep(6, 52, meters) * 0.85
-        // Vignette eases off at the bright surface and tightens with depth so
-        // the deep feels more enclosed and abyssal.
-        vignette.alpha = 0.55 + smoothstep(4, 46, meters) * 0.45
     }
 
     /// Smoothly follow the swimmer (after physics has settled), clamped so the

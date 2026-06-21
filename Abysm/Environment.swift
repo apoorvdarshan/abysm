@@ -27,8 +27,8 @@ enum Environment {
 
     static func makeSky() -> SKSpriteNode {
         let height = GameConfig.skyTop + 400
-        let texture = TextureFactory.verticalGradient(size: CGSize(width: 8, height: 1024),
-                                                      stops: Palette.skyStops)
+        let texture = TextureFactory.pixelGradient(size: CGSize(width: spanWidth, height: height),
+                                                   pixel: GameConfig.pixel, stops: Palette.skyStops)
         let sky = SKSpriteNode(texture: texture, size: CGSize(width: spanWidth, height: height))
         sky.anchorPoint = CGPoint(x: 0.5, y: 0)   // bottom edge sits on the surface (y = 0)
         sky.position = .zero
@@ -40,8 +40,8 @@ enum Environment {
 
     static func makeWater() -> SKSpriteNode {
         let height = -GameConfig.worldFloor + 800
-        let texture = TextureFactory.verticalGradient(size: CGSize(width: 8, height: 1024),
-                                                      stops: Palette.waterStops)
+        let texture = TextureFactory.pixelGradient(size: CGSize(width: spanWidth, height: height),
+                                                   pixel: GameConfig.pixel, stops: Palette.waterStops)
         let water = SKSpriteNode(texture: texture, size: CGSize(width: spanWidth, height: height))
         water.anchorPoint = CGPoint(x: 0.5, y: 1)  // top edge sits on the surface (y = 0)
         water.position = .zero
@@ -56,38 +56,12 @@ enum Environment {
         node.position = sunPosition
         node.zPosition = GameConfig.Z.sunGlow
 
-        // Wide soft halo.
-        let halo = SKSpriteNode(texture: TextureFactory.radialGlow(
-            diameter: 560,
-            inner: Palette.sunGlow.withAlphaComponent(0.42),
-            outer: Palette.sunGlow.withAlphaComponent(0)))
-        halo.blendMode = .add
-        node.addChild(halo)
-
-        // Tighter inner glow.
-        let core = SKSpriteNode(texture: TextureFactory.radialGlow(
-            diameter: 200,
-            inner: UIColor(white: 1, alpha: 0.95),
-            outer: Palette.sunCore.withAlphaComponent(0)))
-        core.blendMode = .add
-        node.addChild(core)
-
-        // A crisp, defined sun disc.
-        let disc = SKShapeNode(circleOfRadius: 27)
-        disc.fillColor = Palette.sunCore
-        disc.strokeColor = .clear
-        disc.blendMode = .add
-        node.addChild(disc)
-
-        // A gentle breathing pulse on the halo only (disc stays crisp).
-        let pulse = SKAction.sequence([
-            SKAction.group([.scale(to: 1.06, duration: 3.2),
-                            .fadeAlpha(to: 0.9, duration: 3.2)]),
-            SKAction.group([.scale(to: 1.0, duration: 3.2),
-                            .fadeAlpha(to: 1.0, duration: 3.2)])
-        ])
-        pulse.timingMode = .easeInEaseOut
-        halo.run(.repeatForever(pulse))
+        // Hard-edged pixel-art sun disc (no soft glow).
+        let r = 11
+        let sun = SKSpriteNode(texture: TextureFactory.pixelSun(radius: r))
+        let d = CGFloat(r * 2 + 2) * GameConfig.pixel
+        sun.size = CGSize(width: d, height: d)
+        node.addChild(sun)
         return node
     }
 
@@ -154,7 +128,8 @@ enum Environment {
         node.zPosition = GameConfig.Z.caustics
         node.colorBlendFactor = 0
         node.blendMode = .add
-        node.shader = Shaders.caustics()
+        node.shader = Shaders.caustics(cols: Float(size.width / GameConfig.pixel),
+                                       rows: Float(size.height / GameConfig.pixel))
         return node
     }
 }

@@ -29,6 +29,10 @@ enum GameConfig {
     /// Points per in-world meter, used for the depth read-out.
     static let pointsPerMeter: CGFloat = 80
 
+    /// Size of one "art pixel" in points — the global pixel scale for the
+    /// whole pixel-art look (dithered gradients, caustics grid, etc.).
+    static let pixel: CGFloat = 6
+
     // MARK: Player (swimmer)
 
     /// Where the swimmer starts — just below the surface (~1 m deep). Kept

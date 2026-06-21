@@ -14,13 +14,15 @@ enum Shaders {
     /// Animated underwater caustics — the dancing net of light just below the
     /// surface. Designed for an additive sprite anchored at the surface; the
     /// pattern is brightest at the top (uv.y → 1) and fades with depth.
-    static func caustics() -> SKShader {
+    static func caustics(cols: Float, rows: Float) -> SKShader {
         let shader = SKShader(source: causticsSource)
         shader.uniforms = [
-            SKUniform(name: "u_intensity", float: 0.55),
-            SKUniform(name: "u_scale_x", float: 10.0),
-            SKUniform(name: "u_scale_y", float: 17.0),
-            SKUniform(name: "u_speed", float: 0.55)
+            SKUniform(name: "u_intensity", float: 0.75),
+            SKUniform(name: "u_scale_x", float: 8.0),
+            SKUniform(name: "u_scale_y", float: 14.0),
+            SKUniform(name: "u_speed", float: 0.5),
+            SKUniform(name: "u_cols", float: cols),   // pixel-grid resolution
+            SKUniform(name: "u_rows", float: rows)
         ]
         return shader
     }
@@ -52,18 +54,19 @@ enum Shaders {
     }
 
     void main() {
-        vec2 uv = v_tex_coord;
+        // Snap to the pixel grid so the caustic light reads as blocky pixels.
+        vec2 guv = (floor(v_tex_coord * vec2(u_cols, u_rows)) + 0.5) / vec2(u_cols, u_rows);
         float t = u_time * u_speed;
 
-        // Two octaves: a finer base net plus a coarser, slower-drifting layer,
-        // giving a delicate dancing web instead of a few bold stripes.
-        float c = causticLayer(uv, t, vec2(u_scale_x, u_scale_y));
-        c += 0.55 * causticLayer(uv, t * 1.35, vec2(u_scale_x * 0.55, u_scale_y * 0.55));
+        // Two octaves: a finer base net plus a coarser, slower-drifting layer.
+        float c = causticLayer(guv, t, vec2(u_scale_x, u_scale_y));
+        c += 0.55 * causticLayer(guv, t * 1.35, vec2(u_scale_x * 0.55, u_scale_y * 0.55));
 
         // Strong near the surface (top of the sprite), fading downward.
-        float fade = smoothstep(0.0, 0.55, uv.y);
+        float fade = smoothstep(0.0, 0.55, guv.y);
 
         float intensity = c * fade * u_intensity;
+        intensity = floor(intensity * 4.0) / 4.0;   // posterize -> stepped pixel light
         vec3 lightColor = vec3(0.80, 1.0, 0.95);
         gl_FragColor = vec4(lightColor * intensity, 1.0);
     }

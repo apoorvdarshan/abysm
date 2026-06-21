@@ -14,7 +14,7 @@ enum Particles {
     /// the player's speed (more bubbles while actively swimming).
     static func bubbleTrail() -> SKEmitterNode {
         let e = SKEmitterNode()
-        e.particleTexture = TextureFactory.bubble(diameter: 24)
+        e.particleTexture = TextureFactory.pixelDot(2, color: UIColor(white: 1, alpha: 0.95))
         e.particleBirthRate = 3
         e.numParticlesToEmit = 0            // endless
         e.particleLifetime = 2.6
@@ -28,16 +28,12 @@ enum Particles {
 
         e.particlePositionRange = CGVector(dx: 20, dy: 12)
 
-        e.particleScale = 0.46
-        e.particleScaleRange = 0.5          // mix of tiny and bigger bubbles
-        e.particleScaleSpeed = 0.04         // gently expand as they rise
+        e.particleScale = 3                 // ~1 art-pixel bubbles
+        e.particleScaleRange = 2
 
-        e.particleAlpha = 0.55
+        e.particleAlpha = 0.7
         e.particleAlphaRange = 0.2
-        e.particleAlphaSpeed = -0.18
-
-        e.particleRotationRange = .pi
-        e.particleRotationSpeed = 0.4
+        e.particleAlphaSpeed = -0.22
 
         e.particleColorBlendFactor = 0
         e.particleBlendMode = .add
@@ -48,7 +44,7 @@ enum Particles {
     /// particles. Spread across the viewport via `particlePositionRange`.
     static func plankton() -> SKEmitterNode {
         let e = SKEmitterNode()
-        e.particleTexture = TextureFactory.speck(diameter: 16)
+        e.particleTexture = TextureFactory.pixelDot(2, color: Palette.rgb(200, 245, 240))
         e.particleBirthRate = 8
         e.numParticlesToEmit = 0
         e.particleLifetime = 12
@@ -59,11 +55,11 @@ enum Particles {
         e.particleSpeed = 7
         e.particleSpeedRange = 5
 
-        e.particleScale = 0.18
-        e.particleScaleRange = 0.12
+        e.particleScale = 2.5
+        e.particleScaleRange = 1.5
 
-        e.particleAlpha = 0.16
-        e.particleAlphaRange = 0.10
+        e.particleAlpha = 0.35
+        e.particleAlphaRange = 0.15
 
         e.particleColorBlendFactor = 0
         e.particleBlendMode = .add
@@ -105,7 +101,7 @@ enum Particles {
     /// suspended depth behind the closer plankton.
     static func marineSnow() -> SKEmitterNode {
         let e = SKEmitterNode()
-        e.particleTexture = TextureFactory.speck(diameter: 24)
+        e.particleTexture = TextureFactory.pixelDot(2, color: UIColor(white: 1, alpha: 1))
         e.particleBirthRate = 3
         e.numParticlesToEmit = 0
         e.particleLifetime = 18
@@ -117,11 +113,11 @@ enum Particles {
         e.particleSpeedRange = 6
         e.yAcceleration = -4
 
-        e.particleScale = 0.11
-        e.particleScaleRange = 0.09
+        e.particleScale = 3
+        e.particleScaleRange = 1.5
 
-        e.particleAlpha = 0.28
-        e.particleAlphaRange = 0.14
+        e.particleAlpha = 0.4
+        e.particleAlphaRange = 0.15
 
         e.particleColorBlendFactor = 0
         e.particleBlendMode = .add
