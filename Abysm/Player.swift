@@ -26,7 +26,7 @@ final class Player: SKNode {
             let t = SKTexture(imageNamed: "diver\($0)"); t.filteringMode = .nearest; return t
         }
         sprite = SKSpriteNode(texture: frames[0])
-        sprite.size = CGSize(width: 150, height: 150)   // 64px frames shown ~pixel-perfect
+        sprite.size = CGSize(width: 184, height: 184)   // detailed 128px frames, larger presence
         super.init()
         zPosition = GameConfig.Z.player
 
