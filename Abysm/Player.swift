@@ -9,15 +9,12 @@
 //
 
 import SpriteKit
-import CoreImage
 
 final class Player: SKNode {
 
-    /// Visual root (an SKEffectNode applying a soft bloom). Orientation —
-    /// heading rotation, left/right flip, idle bob — is applied here, leaving
-    /// the physics node itself unrotated. A *node-level* effect node works fine
-    /// with the camera (only scene-level effects misbehave).
-    private let bodyRoot = SKEffectNode()
+    /// Visual root. Orientation — heading rotation, left/right flip, idle bob —
+    /// is applied here, leaving the physics node itself unrotated.
+    private let bodyRoot = SKNode()
     private let bubbles = Particles.bubbleTrail()
 
     // Animated limbs.
@@ -38,14 +35,8 @@ final class Player: SKNode {
         super.init()
         zPosition = GameConfig.Z.player
 
-        bodyRoot.shouldEnableEffects = true
-        if let bloom = CIFilter(name: "CIBloom") {
-            bloom.setValue(2.0, forKey: "inputRadius")
-            bloom.setValue(0.55, forKey: "inputIntensity")
-            bodyRoot.filter = bloom
-        }
         addChild(bodyRoot)
-
+        addGlowAura()
         buildBody()
         setupPhysics()
 
@@ -67,6 +58,19 @@ final class Player: SKNode {
     private static let capTex = TextureFactory.verticalGradient(
         size: CGSize(width: 8, height: 64),
         stops: [(Palette.rgb(54, 92, 150), 0.0), (Palette.rgb(22, 36, 74), 1.0)])
+
+    /// A cheap static additive glow behind the diver (replaces a per-frame
+    /// CIBloom, which re-rendered the animated body offscreen every frame).
+    private func addGlowAura() {
+        let glow = SKSpriteNode(texture: TextureFactory.radialGlow(
+            diameter: 130,
+            inner: Palette.rgb(175, 242, 240).withAlphaComponent(0.5),
+            outer: Palette.rgb(175, 242, 240).withAlphaComponent(0)))
+        glow.blendMode = .add
+        glow.alpha = 0.32
+        glow.zPosition = -5
+        bodyRoot.addChild(glow)
+    }
 
     // MARK: Build the swimmer (facing +x by default)
 
@@ -328,7 +332,10 @@ final class Player: SKNode {
     /// swimmer stays upright. While idle, level out the pitch and gently bob.
     private func orient(velocity v: CGVector, speed: CGFloat) {
         if speed > GameConfig.orientSpeedThreshold {
-            movingScale = v.dx < 0 ? -1 : 1
+            // Only flip facing on a clear horizontal heading; keep the last
+            // facing while moving near-vertical so joystick wobble around the
+            // vertical axis doesn't mirror-snap the whole body every frame.
+            if v.dx < -40 { movingScale = -1 } else if v.dx > 40 { movingScale = 1 }
             bodyRoot.zRotation = atan2(v.dy, v.dx)
             bodyRoot.position.y *= 0.85
         } else {
