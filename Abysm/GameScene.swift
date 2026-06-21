@@ -17,6 +17,7 @@ final class GameScene: SKScene {
     // World
     private let oceanSurface = OceanSurface(width: GameConfig.worldHalfWidth * 2 + 400)
     private let player = Player()
+    private let creatureField = CreatureField()
 
     // Camera & screen-space overlays (children of the camera)
     private let cameraNode = SKCameraNode()
@@ -68,6 +69,8 @@ final class GameScene: SKScene {
         addChild(Environment.makeSun())
         addChild(Environment.makeCaustics())
         addChild(oceanSurface)
+        creatureField.populate()
+        addChild(creatureField)
     }
 
     private func buildCamera() {
