@@ -269,6 +269,37 @@ enum TextureFactory {
         return t
     }
 
+    /// A warm light cone for the diver's headlamp: apex at the LEFT edge
+    /// (anchor 0,0.5), widening and fading to the right, posterized into a few
+    /// steps for a pixel look. Additive — it lights the dark water ahead.
+    static func lightCone(length: Int = 72, spread: Int = 58) -> SKTexture {
+        let w = length, h = spread
+        let cy = CGFloat(h) / 2
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        for x in 0..<w {
+            let fx = CGFloat(x) / CGFloat(max(1, w - 1))        // 0 apex → 1 far
+            let halfW = (0.10 + fx * 0.9) * cy                   // narrow at head, wide far
+            let distFade = pow(1 - fx, 1.3)                      // brightest near the lamp
+            for y in 0..<h {
+                let dy = abs(CGFloat(y) - cy)
+                guard dy <= halfW, halfW > 0 else { continue }
+                var b = distFade * (1 - dy / halfW)
+                b = (floor(b * 4) / 4)                           // posterize → pixel steps
+                guard b > 0 else { continue }
+                let a = b * 0.85
+                let i = (y * w + x) * 4
+                buf[i] = UInt8(255 * a); buf[i+1] = UInt8(248 * a); buf[i+2] = UInt8(205 * a)
+                buf[i+3] = UInt8(a * 255)
+            }
+        }
+        let space = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8,
+                            bytesPerRow: w * 4, space: space,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let t = SKTexture(cgImage: ctx.makeImage()!); t.filteringMode = .nearest
+        return t
+    }
+
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)

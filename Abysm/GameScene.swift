@@ -31,6 +31,8 @@ final class GameScene: SKScene {
     private let creatureInfo = CreatureInfoPanel()
     private let boostBtn = HoldButton(radius: 44, glyph: ">>", fontSize: 16, color: Palette.rgb(40, 150, 168))
     private let turboBtn = HoldButton(radius: 50, glyph: ">>>", fontSize: 15, color: Palette.rgb(225, 130, 50))
+    private let flashBtn = HoldButton(radius: 38, glyph: "*", fontSize: 22, color: Palette.rgb(232, 196, 64))
+    private var flashlightOn = true
 
     private var lastUpdateTime: TimeInterval = 0
     // Touches currently controlling each control (multi-touch).
@@ -103,6 +105,8 @@ final class GameScene: SKScene {
         cameraNode.addChild(joystick)
         cameraNode.addChild(boostBtn)
         cameraNode.addChild(turboBtn)
+        cameraNode.addChild(flashBtn)
+        flashBtn.setPressed(flashlightOn)   // reflect the default-on state
     }
 
     private func buildPlayer() {
@@ -142,6 +146,10 @@ final class GameScene: SKScene {
         let by = -viewport.height / 2 + safeBottom + turboBtn.radius + 24
         turboBtn.position = CGPoint(x: viewport.width / 2 - safeRight - turboBtn.radius - 26, y: by)
         boostBtn.position = CGPoint(x: turboBtn.position.x - turboBtn.radius - boostBtn.radius - 22, y: by)
+
+        // Flashlight toggle: top-right.
+        flashBtn.position = CGPoint(x: viewport.width / 2 - safeRight - flashBtn.radius - 18,
+                                    y: viewport.height / 2 - topInset - flashBtn.radius - 6)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -154,6 +162,12 @@ final class GameScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches {
             let p = t.location(in: cameraNode)
+            if flashBtn.hit(p) {   // tap to toggle the headlamp
+                flashlightOn.toggle()
+                player.setFlashlight(flashlightOn)
+                flashBtn.setPressed(flashlightOn)
+                continue
+            }
             if stickTouch == nil, joystick.engage(at: p) { stickTouch = t; continue }
             if boostTouch == nil, boostBtn.hit(p) { boostTouch = t; boostBtn.setPressed(true); continue }
             if turboTouch == nil, turboBtn.hit(p) { turboTouch = t; turboBtn.setPressed(true); continue }

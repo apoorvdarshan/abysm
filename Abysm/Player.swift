@@ -16,6 +16,7 @@ final class Player: SKNode {
     private let bodyRoot = SKNode()
     private let sprite: SKSpriteNode
     private let bubbles = Particles.bubbleTrail()
+    private let headlight = SKSpriteNode(texture: TextureFactory.lightCone())
 
     private var thrust: CGVector = .zero
     /// Speed/force multiplier from the boost buttons (1 = normal).
@@ -32,7 +33,24 @@ final class Player: SKNode {
         super.init()
         zPosition = GameConfig.Z.player
 
+        // Headlamp cone (additive) — points forward from the head; lights the
+        // dark water + creatures ahead. Behind the diver, above the creatures.
+        headlight.anchorPoint = CGPoint(x: 0, y: 0.5)
+        headlight.size = CGSize(width: 360, height: 270)
+        headlight.position = CGPoint(x: 46, y: -6)
+        headlight.blendMode = .add
+        headlight.zPosition = -0.5
+        bodyRoot.addChild(headlight)
+
         bodyRoot.addChild(sprite)
+        // A little lamp glow on the head.
+        let lamp = SKSpriteNode(texture: TextureFactory.pixelCircle(radius: 2, color: Palette.rgb(255, 250, 210)))
+        lamp.size = CGSize(width: GameConfig.pixel * 3, height: GameConfig.pixel * 3)
+        lamp.position = CGPoint(x: 50, y: 2)
+        lamp.blendMode = .add
+        lamp.zPosition = 1
+        bodyRoot.addChild(lamp)
+
         // Loop the flutter-kick swim cycle.
         sprite.run(.repeatForever(.animate(with: frames, timePerFrame: 0.14,
                                            resize: false, restore: true)), withKey: "swim")
@@ -63,6 +81,8 @@ final class Player: SKNode {
     }
 
     func attachBubbleTarget(_ node: SKNode) { bubbles.targetNode = node }
+
+    func setFlashlight(_ on: Bool) { headlight.isHidden = !on }
 
     // MARK: Steering
 
