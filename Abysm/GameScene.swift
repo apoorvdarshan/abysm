@@ -48,6 +48,20 @@ final class GameScene: SKScene {
         // Re-run once UIKit has finished its first layout pass and the real
         // safe-area insets are available (they can read 0 inside didMove).
         DispatchQueue.main.async { [weak self] in self?.layout() }
+
+        playIntroFade()
+    }
+
+    /// Gentle fade-in from black so the scene reveals softly on launch.
+    private func playIntroFade() {
+        let fade = SKSpriteNode(color: .black, size: CGSize(width: 2600, height: 3600))
+        fade.zPosition = GameConfig.Z.intro
+        cameraNode.addChild(fade)
+        fade.run(.sequence([
+            .wait(forDuration: 0.15),
+            .fadeOut(withDuration: 0.9),
+            .removeFromParent()
+        ]))
     }
 
     private func buildWorld() {

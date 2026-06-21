@@ -76,6 +76,7 @@ enum GameConfig {
         static let vignette: CGFloat   = 70
         static let hud: CGFloat        = 100
         static let joystick: CGFloat   = 110
+        static let intro: CGFloat      = 120
     }
 }
 
