@@ -13,20 +13,20 @@ import SpriteKit
 
 final class DepthHUD: SKNode {
 
-    private let value = SKLabelNode(fontNamed: "AvenirNext-Medium")
-    private let valueShadow = SKLabelNode(fontNamed: "AvenirNext-Medium")
-    private let caption = SKLabelNode(fontNamed: "AvenirNext-Medium")
-    private let captionShadow = SKLabelNode(fontNamed: "AvenirNext-Medium")
+    private let value = SKLabelNode(fontNamed: "PressStart2P-Regular")
+    private let valueShadow = SKLabelNode(fontNamed: "PressStart2P-Regular")
+    private let caption = SKLabelNode(fontNamed: "PressStart2P-Regular")
+    private let captionShadow = SKLabelNode(fontNamed: "PressStart2P-Regular")
     private var lastMeters = Int.min
 
     override init() {
         super.init()
         zPosition = GameConfig.Z.hud
 
-        configure(caption, size: 11, color: UIColor(white: 1, alpha: 0.55), y: 24, text: "D E P T H")
-        configure(captionShadow, size: 11, color: UIColor(white: 0, alpha: 0.28), y: 24 - 1.5, text: "D E P T H")
-        configure(value, size: 27, color: UIColor(white: 1, alpha: 0.85), y: 0, text: "0 m")
-        configure(valueShadow, size: 27, color: UIColor(white: 0, alpha: 0.30), y: -2, text: "0 m")
+        configure(caption, size: 9, color: UIColor(white: 1, alpha: 0.6), y: 22, text: "DEPTH")
+        configure(captionShadow, size: 9, color: UIColor(white: 0, alpha: 0.3), y: 22 - 3, text: "DEPTH")
+        configure(value, size: 18, color: UIColor(white: 1, alpha: 0.9), y: 0, text: "0M")
+        configure(valueShadow, size: 18, color: UIColor(white: 0, alpha: 0.35), y: -3, text: "0M")
 
         // Shadows behind their labels.
         addChild(captionShadow)
@@ -50,7 +50,7 @@ final class DepthHUD: SKNode {
         let m = max(0, Int(depthMeters.rounded()))
         guard m != lastMeters else { return }
         lastMeters = m
-        value.text = "\(m) m"
-        valueShadow.text = "\(m) m"
+        value.text = "\(m)M"
+        valueShadow.text = "\(m)M"
     }
 }

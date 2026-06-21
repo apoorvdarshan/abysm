@@ -2,9 +2,10 @@
 //  OceanSurface.swift
 //  Abysm
 //
-//  The wavy boundary between sky and sea. A translucent sunlit band whose top
-//  edge is a moving sum-of-sines, plus a bright foam highlight tracing the
-//  crest. Rebuilt every frame from the scene clock.
+//  The boundary between sky and sea, rendered as a BLOCKY pixel wave: the crest
+//  is a stepped staircase (sampled and quantized to the art-pixel grid), with a
+//  chunky foam line and a thin flat sunlit lip. Rebuilt each frame across the
+//  visible x-range only.
 //
 
 import SpriteKit
@@ -12,94 +13,75 @@ import SpriteKit
 final class OceanSurface: SKNode {
 
     private let band = SKShapeNode()
-    private let glowLine = SKShapeNode()
     private let foam = SKShapeNode()
     private let width: CGFloat
-    private let bandDepth: CGFloat = 230
+    private let bandDepth: CGFloat = 30
 
     init(width: CGFloat) {
         self.width = width
         super.init()
         zPosition = GameConfig.Z.surface
 
-        // Fade the sunlit band out toward its bottom (alpha-gradient fillTexture)
-        // so there's no hard horizontal seam where the fill stops.
-        band.fillTexture = TextureFactory.verticalGradient(
-            size: CGSize(width: 8, height: 128),
-            stops: [(UIColor(white: 1, alpha: 1), 0.0), (UIColor(white: 1, alpha: 0), 1.0)])
-        band.fillColor = Palette.surfaceBand.withAlphaComponent(0.5)
+        band.fillColor = Palette.surfaceBand.withAlphaComponent(0.4)
         band.strokeColor = .clear
         band.blendMode = .add
         band.zPosition = 0
         addChild(band)
 
-        // Soft wide glow under the crest — a sunlit sheen on the water line.
-        glowLine.fillColor = .clear
-        glowLine.strokeColor = Palette.surfaceBand.withAlphaComponent(0.5)
-        glowLine.lineWidth = 9
-        glowLine.lineCap = .round
-        glowLine.blendMode = .add
-        glowLine.zPosition = 1
-        addChild(glowLine)
-
-        // Crisp bright foam crest on top.
         foam.fillColor = .clear
         foam.strokeColor = Palette.foam
-        foam.lineWidth = 2.5
-        foam.lineCap = .round
+        foam.lineWidth = GameConfig.pixel        // chunky pixel foam
+        foam.lineCap = .butt
+        foam.lineJoin = .miter
         foam.blendMode = .add
-        foam.zPosition = 2
+        foam.zPosition = 1
         addChild(foam)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// Height of the wave crest at a given x and time — a layered sine.
+    /// Crest height at x/time, quantized to the pixel grid.
     private func waveY(_ x: CGFloat, _ t: CGFloat) -> CGFloat {
-        sin(x * 0.012 + t * 1.10) * 9
-        + sin(x * 0.005 - t * 0.70) * 6
-        + sin(x * 0.020 + t * 1.70) * 3
+        let y = sin(x * 0.012 + t * 1.10) * 9
+            + sin(x * 0.005 - t * 0.70) * 6
+            + sin(x * 0.020 + t * 1.70) * 3
+        let px = GameConfig.pixel
+        return (y / px).rounded() * px
     }
 
-    /// Rebuild the wavy band + foam for the current time, but ONLY across the
-    /// x-range currently on screen ([minX, maxX]) rather than the whole world.
-    /// The wave is a pure function of absolute x and time, so the visible
-    /// window stays seamless as the camera pans — this cuts the per-frame path
-    /// work ~5x versus rebuilding the full 2200pt band every frame.
+    /// Rebuild the blocky wave across the on-screen x-range [minX, maxX].
     func update(_ currentTime: TimeInterval, minX: CGFloat, maxX: CGFloat) {
         let t = CGFloat(currentTime)
         let half = width / 2
-        let step = GameConfig.surfaceWaveSampleStep
+        let px = GameConfig.pixel
+        // Snap the window to the pixel grid so steps don't shimmer as we pan.
+        let lo = max(-half, (minX / px).rounded(.down) * px)
+        let hi = min(half, (maxX / px).rounded(.up) * px)
+        guard hi > lo else { band.path = nil; foam.path = nil; return }
 
-        // Clamp the draw window to the band's own extent.
-        let lo = max(-half, minX)
-        let hi = min(half, maxX)
-        guard hi > lo else { band.path = nil; foam.path = nil; glowLine.path = nil; return }
+        let crest = CGMutablePath()
+        let fill = CGMutablePath()
+        var prevY = waveY(lo, t)
+        crest.move(to: CGPoint(x: lo, y: prevY))
+        fill.move(to: CGPoint(x: lo, y: -bandDepth))
+        fill.addLine(to: CGPoint(x: lo, y: prevY))
 
-        let bandPath = CGMutablePath()
-        let foamPath = CGMutablePath()
-
-        bandPath.move(to: CGPoint(x: lo, y: -bandDepth))
-        bandPath.addLine(to: CGPoint(x: lo, y: waveY(lo, t)))
-        foamPath.move(to: CGPoint(x: lo, y: waveY(lo, t)))
-
-        var x = lo + step
-        while x < hi {
+        var x = lo + px
+        while x <= hi {
             let y = waveY(x, t)
-            bandPath.addLine(to: CGPoint(x: x, y: y))
-            foamPath.addLine(to: CGPoint(x: x, y: y))
-            x += step
+            // Staircase: horizontal at the old height, then a vertical step.
+            crest.addLine(to: CGPoint(x: x, y: prevY))
+            crest.addLine(to: CGPoint(x: x, y: y))
+            fill.addLine(to: CGPoint(x: x, y: prevY))
+            fill.addLine(to: CGPoint(x: x, y: y))
+            prevY = y
+            x += px
         }
 
-        // Always finish exactly at hi so the edge is crisp.
-        let yEnd = waveY(hi, t)
-        bandPath.addLine(to: CGPoint(x: hi, y: yEnd))
-        foamPath.addLine(to: CGPoint(x: hi, y: yEnd))
-        bandPath.addLine(to: CGPoint(x: hi, y: -bandDepth))
-        bandPath.closeSubpath()
+        fill.addLine(to: CGPoint(x: hi, y: -bandDepth))
+        fill.closeSubpath()
 
-        band.path = bandPath
-        foam.path = foamPath
-        glowLine.path = foamPath
+        band.path = fill
+        foam.path = crest
     }
 }

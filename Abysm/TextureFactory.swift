@@ -235,6 +235,34 @@ enum TextureFactory {
         return t
     }
 
+    /// A hard-edged pixel circle. `ring > 0` makes a hollow outline of that
+    /// texel thickness; `ring == 0` is a filled disc. `radius` is in texels.
+    static func pixelCircle(radius r: Int, ring: Int = 0, color: UIColor) -> SKTexture {
+        let n = r * 2 + 2
+        let cx = CGFloat(n) / 2, cy = CGFloat(n) / 2
+        var cr: CGFloat = 0, cg: CGFloat = 0, cb: CGFloat = 0, ca: CGFloat = 0
+        color.getRed(&cr, green: &cg, blue: &cb, alpha: &ca)
+        var buf = [UInt8](repeating: 0, count: n * n * 4)
+        let rr = CGFloat(r)
+        for y in 0..<n {
+            for x in 0..<n {
+                let d = hypot(CGFloat(x) + 0.5 - cx, CGFloat(y) + 0.5 - cy)
+                let inside = ring > 0 ? (d <= rr && d >= rr - CGFloat(ring)) : (d <= rr)
+                if inside {
+                    let i = (y * n + x) * 4   // premultiplied
+                    buf[i] = UInt8(cr * ca * 255); buf[i+1] = UInt8(cg * ca * 255)
+                    buf[i+2] = UInt8(cb * ca * 255); buf[i+3] = UInt8(ca * 255)
+                }
+            }
+        }
+        let space = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(data: &buf, width: n, height: n, bitsPerComponent: 8,
+                            bytesPerRow: n * 4, space: space,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let t = SKTexture(cgImage: ctx.makeImage()!); t.filteringMode = .nearest
+        return t
+    }
+
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)
