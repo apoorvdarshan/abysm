@@ -20,7 +20,7 @@ final class DepthHUD: SKNode {
         super.init()
         zPosition = GameConfig.Z.hud
         let px = GameConfig.pixel
-        let w = 26 * px, h = 9 * px
+        let w = 38 * px, h = 9 * px
 
         border.color = Palette.rgb(180, 238, 236)
         border.size = CGSize(width: w + 2 * px, height: h + 2 * px)
@@ -37,7 +37,7 @@ final class DepthHUD: SKNode {
         caption.fontColor = Palette.rgb(150, 236, 232)
         caption.verticalAlignmentMode = .center
         caption.horizontalAlignmentMode = .center
-        caption.text = "DEPTH"
+        caption.text = "SUNLIGHT ZONE"
         caption.position = CGPoint(x: 0, y: h * 0.24)
         caption.zPosition = 2
         addChild(caption)
@@ -54,10 +54,17 @@ final class DepthHUD: SKNode {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func update(depthMeters: CGFloat) {
+    private var lastZone = ""
+
+    func update(depthMeters: CGFloat, zone: String) {
         let m = max(0, Int(depthMeters.rounded()))
-        guard m != lastMeters else { return }
-        lastMeters = m
-        value.text = "\(m)M"
+        if m != lastMeters {
+            lastMeters = m
+            value.text = "\(m)M"
+        }
+        if zone != lastZone {
+            lastZone = zone
+            caption.text = zone
+        }
     }
 }

@@ -20,8 +20,9 @@ final class GameScene: SKScene {
 
     // Camera & screen-space overlays (children of the camera)
     private let cameraNode = SKCameraNode()
-    private let blueTint = SKSpriteNode(color: Palette.blueTint, size: CGSize(width: 2400, height: 3400))
-    private let darkness = SKSpriteNode(color: .black, size: CGSize(width: 2400, height: 3400))
+    /// Full-screen water color driven by depth (replaces a giant gradient
+    /// texture — the descent reaches ~10,935 m, far too deep to texture).
+    private let waterBackground = SKSpriteNode(color: .black, size: CGSize(width: 2800, height: 3600))
     private let plankton = Particles.plankton()
     private let marineSnow = Particles.marineSnow()
     private let hud = DepthHUD()
@@ -64,7 +65,6 @@ final class GameScene: SKScene {
 
     private func buildWorld() {
         addChild(Environment.makeSky())
-        addChild(Environment.makeWater())
         addChild(Environment.makeSun())
         addChild(Environment.makeCaustics())
         addChild(oceanSurface)
@@ -74,9 +74,9 @@ final class GameScene: SKScene {
         addChild(cameraNode)
         camera = cameraNode
 
-        blueTint.zPosition = GameConfig.Z.blueTint
-        blueTint.alpha = 0.06
-        cameraNode.addChild(blueTint)
+        // Behind everything (incl. the world sky), filling the screen.
+        waterBackground.zPosition = -200
+        cameraNode.addChild(waterBackground)
 
         marineSnow.zPosition = GameConfig.Z.plankton - 1
         cameraNode.addChild(marineSnow)
@@ -89,10 +89,6 @@ final class GameScene: SKScene {
         // (parallax / suspended-in-water feel) instead of them riding the screen.
         plankton.targetNode = self
         plankton.advanceSimulationTime(12)   // pre-fill the screen so it isn't empty at launch
-
-        darkness.zPosition = GameConfig.Z.darkness
-        darkness.alpha = 0
-        cameraNode.addChild(darkness)
 
         cameraNode.addChild(hud)
         cameraNode.addChild(joystick)
@@ -184,14 +180,11 @@ final class GameScene: SKScene {
         let depthPoints = max(0, -player.position.y)
         let meters = depthPoints / GameConfig.pointsPerMeter
 
-        hud.update(depthMeters: meters)
+        hud.update(depthMeters: meters, zone: zoneName(meters))
 
-        // Color-grade the whole scene by depth: a faint teal wash near the
-        // sunny surface deepening to indigo, then the black overlay takes over.
-        let grade = smoothstep(2, 42, meters)
-        blueTint.color = lerpColor(Palette.tintShallow, Palette.tintDeep, grade)
-        blueTint.alpha = 0.05 + grade * 0.22
-        darkness.alpha = smoothstep(6, 52, meters) * 0.85
+        // Water color is driven directly by depth, progressing through the
+        // ocean zones from bright surface to the black trench.
+        waterBackground.color = depthColor(meters)
     }
 
     /// Smoothly follow the swimmer (after physics has settled), clamped so the

@@ -23,11 +23,14 @@ enum GameConfig {
     static let worldHalfWidth: CGFloat = 900
     /// Top of the sky region (how far above the surface the sky extends).
     static let skyTop: CGFloat = 1400
-    /// Deepest reachable point for Phase 1 (a soft floor). ~52 m down.
-    static let worldFloor: CGFloat = -4200
 
-    /// Points per in-world meter, used for the depth read-out.
-    static let pointsPerMeter: CGFloat = 80
+    /// Points per in-world meter. Tuned so the full descent is a journey of
+    /// minutes, not an hour (the real 10,935 m would be ~875k pt at 80 pt/m).
+    static let pointsPerMeter: CGFloat = 12
+    /// The deepest point of any ocean — the Challenger Deep (Mariana Trench).
+    static let maxDepthMeters: CGFloat = 10935
+    /// World floor in points (the trench floor).
+    static let worldFloor: CGFloat = -maxDepthMeters * pointsPerMeter
 
     /// Size of one "art pixel" in points — the global pixel scale for the
     /// whole pixel-art look (dithered gradients, caustics grid, etc.).
@@ -35,9 +38,9 @@ enum GameConfig {
 
     // MARK: Player (swimmer)
 
-    /// Where the swimmer starts — just below the surface (~1 m deep). Kept
-    /// shallow so the low sun & surface frame nicely in landscape's short height.
-    static let playerStartY: CGFloat = -90
+    /// Where the swimmer starts — just below the surface (~3 m). Kept shallow
+    /// so the low sun & surface frame nicely in landscape's short height.
+    static let playerStartY: CGFloat = -36
     /// Swim acceleration (target acceleration in points/sec², applied as force).
     static let playerAccel: CGFloat = 560
     /// Hard speed cap so the swimmer always feels controlled and floaty.
@@ -60,6 +63,29 @@ enum GameConfig {
     static let causticDepth: CGFloat = 1600
     /// Horizontal spacing of samples when rebuilding the wavy surface path.
     static let surfaceWaveSampleStep: CGFloat = 14
+
+    // MARK: Ocean depth zones (real metre boundaries)
+
+    struct Zone { let name: String; let topMeters: CGFloat }
+    static let zones: [Zone] = [
+        Zone(name: "SUNLIGHT ZONE", topMeters: 0),
+        Zone(name: "TWILIGHT ZONE", topMeters: 200),
+        Zone(name: "MIDNIGHT ZONE", topMeters: 1000),
+        Zone(name: "THE ABYSS",     topMeters: 4000),
+        Zone(name: "HADAL ZONE",    topMeters: 6000)
+    ]
+
+    /// Water background color by depth (metres): bright surface → black trench.
+    static let depthColorStops: [(CGFloat, UIColor)] = [
+        (0,     Palette.rgb(104, 198, 196)),
+        (60,    Palette.rgb(64, 162, 182)),
+        (200,   Palette.rgb(34, 104, 150)),
+        (700,   Palette.rgb(20, 60, 116)),
+        (1500,  Palette.rgb(13, 38, 84)),
+        (4000,  Palette.rgb(8, 22, 54)),
+        (6500,  Palette.rgb(5, 12, 32)),
+        (10935, Palette.rgb(2, 5, 14))
+    ]
 
     // MARK: Z ordering (global, since the view uses ignoresSiblingOrder)
 
@@ -152,6 +178,25 @@ func lerpColor(_ a: UIColor, _ b: UIColor, _ t: CGFloat) -> UIColor {
     let s = max(0, min(1, t))
     return UIColor(red: ar + (br - ar) * s, green: ag + (bg - ag) * s,
                    blue: ab + (bb - ab) * s, alpha: aa + (ba - aa) * s)
+}
+
+/// Water background color at a given depth in metres (lerp through the ramp).
+func depthColor(_ m: CGFloat) -> UIColor {
+    let stops = GameConfig.depthColorStops
+    if m <= stops.first!.0 { return stops.first!.1 }
+    if m >= stops.last!.0 { return stops.last!.1 }
+    for i in 1..<stops.count where m <= stops[i].0 {
+        let a = stops[i - 1], b = stops[i]
+        return lerpColor(a.1, b.1, (m - a.0) / (b.0 - a.0))
+    }
+    return stops.last!.1
+}
+
+/// Name of the ocean zone at a given depth in metres.
+func zoneName(_ m: CGFloat) -> String {
+    var name = GameConfig.zones.first!.name
+    for z in GameConfig.zones where m >= z.topMeters { name = z.name }
+    return name
 }
 
 /// Interpolate an angle toward a target along the shortest path (handles wrap).
