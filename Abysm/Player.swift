@@ -296,15 +296,17 @@ final class Player: SKNode {
     private func orient(velocity v: CGVector, speed: CGFloat) {
         if speed > GameConfig.orientSpeedThreshold {
             movingScale = v.dx < 0 ? -1 : 1
-            bodyRoot.yScale = movingScale
             bodyRoot.zRotation = atan2(v.dy, v.dx)
             bodyRoot.position.y *= 0.85
         } else {
-            bodyRoot.yScale = movingScale
             let level: CGFloat = movingScale < 0 ? .pi : 0
             bodyRoot.zRotation = lerpAngle(bodyRoot.zRotation, level, 0.12)
             bodyRoot.position.y = sin(clock * 1.6) * 2.5
         }
+        // Gentle, volume-preserving breathing keeps the diver feeling alive.
+        let breath = sin(clock * 1.3) * 0.02
+        bodyRoot.xScale = 1 - breath * 0.5
+        bodyRoot.yScale = movingScale * (1 + breath)
     }
 
     private func keepInsideWorld(_ body: SKPhysicsBody) {

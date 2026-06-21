@@ -28,13 +28,16 @@ enum Particles {
 
         e.particlePositionRange = CGVector(dx: 20, dy: 12)
 
-        e.particleScale = 0.5
-        e.particleScaleRange = 0.4
-        e.particleScaleSpeed = -0.06
+        e.particleScale = 0.46
+        e.particleScaleRange = 0.5          // mix of tiny and bigger bubbles
+        e.particleScaleSpeed = 0.04         // gently expand as they rise
 
         e.particleAlpha = 0.55
         e.particleAlphaRange = 0.2
         e.particleAlphaSpeed = -0.18
+
+        e.particleRotationRange = .pi
+        e.particleRotationSpeed = 0.4
 
         e.particleColorBlendFactor = 0
         e.particleBlendMode = .add
