@@ -56,31 +56,38 @@ enum Environment {
         node.position = sunPosition
         node.zPosition = GameConfig.Z.sunGlow
 
-        // Big soft halo.
-        let glow = SKSpriteNode(texture: TextureFactory.radialGlow(
-            diameter: 500,
-            inner: Palette.sunGlow.withAlphaComponent(0.52),
+        // Wide soft halo.
+        let halo = SKSpriteNode(texture: TextureFactory.radialGlow(
+            diameter: 560,
+            inner: Palette.sunGlow.withAlphaComponent(0.42),
             outer: Palette.sunGlow.withAlphaComponent(0)))
-        glow.blendMode = .add
-        node.addChild(glow)
+        halo.blendMode = .add
+        node.addChild(halo)
 
-        // Inner bright core.
+        // Tighter inner glow.
         let core = SKSpriteNode(texture: TextureFactory.radialGlow(
-            diameter: 190,
-            inner: UIColor(white: 1, alpha: 1),
+            diameter: 200,
+            inner: UIColor(white: 1, alpha: 0.95),
             outer: Palette.sunCore.withAlphaComponent(0)))
         core.blendMode = .add
         node.addChild(core)
 
-        // A gentle breathing pulse.
+        // A crisp, defined sun disc.
+        let disc = SKShapeNode(circleOfRadius: 27)
+        disc.fillColor = Palette.sunCore
+        disc.strokeColor = .clear
+        disc.blendMode = .add
+        node.addChild(disc)
+
+        // A gentle breathing pulse on the halo only (disc stays crisp).
         let pulse = SKAction.sequence([
-            SKAction.group([.scale(to: 1.05, duration: 3.0),
-                            .fadeAlpha(to: 0.92, duration: 3.0)]),
-            SKAction.group([.scale(to: 1.0, duration: 3.0),
-                            .fadeAlpha(to: 1.0, duration: 3.0)])
+            SKAction.group([.scale(to: 1.06, duration: 3.2),
+                            .fadeAlpha(to: 0.9, duration: 3.2)]),
+            SKAction.group([.scale(to: 1.0, duration: 3.2),
+                            .fadeAlpha(to: 1.0, duration: 3.2)])
         ])
         pulse.timingMode = .easeInEaseOut
-        glow.run(.repeatForever(pulse))
+        halo.run(.repeatForever(pulse))
         return node
     }
 
