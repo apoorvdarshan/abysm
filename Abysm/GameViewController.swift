@@ -21,6 +21,7 @@ final class GameViewController: UIViewController {
         skView.presentScene(scene)
 
         skView.ignoresSiblingOrder = true   // we rely on explicit zPosition
+        skView.isMultipleTouchEnabled = true // steer + boost at the same time
         skView.showsFPS = false
         skView.showsNodeCount = false
     }

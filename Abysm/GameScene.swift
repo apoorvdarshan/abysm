@@ -29,10 +29,14 @@ final class GameScene: SKScene {
     private let hud = DepthHUD()
     private let joystick = Joystick()
     private let creatureInfo = CreatureInfoPanel()
+    private let boostBtn = HoldButton(radius: 44, glyph: ">>", fontSize: 16, color: Palette.rgb(40, 150, 168))
+    private let turboBtn = HoldButton(radius: 50, glyph: ">>>", fontSize: 15, color: Palette.rgb(225, 130, 50))
 
     private var lastUpdateTime: TimeInterval = 0
-    /// The single touch currently controlling the joystick (if any).
+    // Touches currently controlling each control (multi-touch).
     private var stickTouch: UITouch?
+    private var boostTouch: UITouch?
+    private var turboTouch: UITouch?
 
     // MARK: Scene setup
 
@@ -97,6 +101,8 @@ final class GameScene: SKScene {
         cameraNode.addChild(hud)
         cameraNode.addChild(creatureInfo)
         cameraNode.addChild(joystick)
+        cameraNode.addChild(boostBtn)
+        cameraNode.addChild(turboBtn)
     }
 
     private func buildPlayer() {
@@ -127,8 +133,15 @@ final class GameScene: SKScene {
             x: -viewport.width / 2 + safeLeft + joystick.baseRadius + 28,
             y: -viewport.height / 2 + safeBottom + joystick.baseRadius + 24)
 
-        // Creature info card: bottom-center, above the safe area.
-        creatureInfo.position = CGPoint(x: 0, y: -viewport.height / 2 + safeBottom + creatureInfo.panelSize.height / 2 + 16)
+        // Creature info card: top-center, stacked just under the depth HUD
+        // (clear of the bottom joystick/boost controls).
+        creatureInfo.position = CGPoint(x: 0, y: hud.position.y - 27 - creatureInfo.panelSize.height / 2 - 10)
+
+        // Boost + turbo: bottom-right (turbo rightmost), mirroring the joystick.
+        let safeRight = view?.safeAreaInsets.right ?? 0
+        let by = -viewport.height / 2 + safeBottom + turboBtn.radius + 24
+        turboBtn.position = CGPoint(x: viewport.width / 2 - safeRight - turboBtn.radius - 26, y: by)
+        boostBtn.position = CGPoint(x: turboBtn.position.x - turboBtn.radius - boostBtn.radius - 22, y: by)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -139,27 +152,29 @@ final class GameScene: SKScene {
     // MARK: Touch steering (virtual joystick, bottom-left)
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard stickTouch == nil else { return }
         for t in touches {
-            if joystick.engage(at: t.location(in: cameraNode)) {
-                stickTouch = t
-                break
-            }
+            let p = t.location(in: cameraNode)
+            if stickTouch == nil, joystick.engage(at: p) { stickTouch = t; continue }
+            if boostTouch == nil, boostBtn.hit(p) { boostTouch = t; boostBtn.setPressed(true); continue }
+            if turboTouch == nil, turboBtn.hit(p) { turboTouch = t; turboBtn.setPressed(true); continue }
         }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let st = stickTouch, touches.contains(st) else { return }
-        joystick.drag(to: st.location(in: cameraNode))
+        if let st = stickTouch, touches.contains(st) {
+            joystick.drag(to: st.location(in: cameraNode))
+        }
     }
 
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) { endStick(touches) }
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { endStick(touches) }
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) { endTouches(touches) }
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { endTouches(touches) }
 
-    private func endStick(_ touches: Set<UITouch>) {
-        guard let st = stickTouch, touches.contains(st) else { return }
-        joystick.release()
-        stickTouch = nil
+    private func endTouches(_ touches: Set<UITouch>) {
+        for t in touches {
+            if t == stickTouch { joystick.release(); stickTouch = nil }
+            if t == boostTouch { boostBtn.setPressed(false); boostTouch = nil }
+            if t == turboTouch { turboBtn.setPressed(false); turboTouch = nil }
+        }
     }
 
     // MARK: Game loop
@@ -174,6 +189,7 @@ final class GameScene: SKScene {
         lastUpdateTime = currentTime
 
         player.setThrust(joystick.vector)
+        player.boostFactor = turboBtn.pressed ? 3.0 : (boostBtn.pressed ? 1.9 : 1.0)
         player.update(dt)
 
         // Show the info card for the nearest creature you're swimming by.

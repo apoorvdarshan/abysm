@@ -18,6 +18,8 @@ final class Player: SKNode {
     private let bubbles = Particles.bubbleTrail()
 
     private var thrust: CGVector = .zero
+    /// Speed/force multiplier from the boost buttons (1 = normal).
+    var boostFactor: CGFloat = 1
     private var clock: CGFloat = 0
     private var movingScale: CGFloat = 1   // vertical flip used to stay upright when facing left
 
@@ -74,14 +76,15 @@ final class Player: SKNode {
 
         let mag = hypot(thrust.dx, thrust.dy)
         if mag > 0.05 {
-            let f = GameConfig.playerAccel * body.mass
+            let f = GameConfig.playerAccel * body.mass * boostFactor
             body.applyForce(CGVector(dx: thrust.dx * f, dy: thrust.dy * f))
         }
 
         var v = body.velocity
         let speed = hypot(v.dx, v.dy)
-        if speed > GameConfig.playerMaxSpeed {
-            let s = GameConfig.playerMaxSpeed / speed
+        let cap = GameConfig.playerMaxSpeed * boostFactor
+        if speed > cap {
+            let s = cap / speed
             v = CGVector(dx: v.dx * s, dy: v.dy * s)
             body.velocity = v
         }
