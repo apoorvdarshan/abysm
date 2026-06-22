@@ -21,6 +21,22 @@ final class CreatureField: SKNode {
     private var infos: [SKNode] = []
     private var shownIndex: Int?
 
+    /// Per-creature horizontal drift + bob state, updated every frame so the
+    /// creatures wrap around the diver's column (see `update`).
+    private struct Mover {
+        let wrapper: SKNode
+        let vx: CGFloat          // horizontal drift (points/sec); 0 for anchored creatures
+        let depthY: CGFloat
+        let bobAmp: CGFloat
+        let bobSpeed: CGFloat
+        var phase: CGFloat
+    }
+    private var movers: [Mover] = []
+    /// Half-width of the window creatures wrap within, around the camera, so each
+    /// depth's creatures always populate the diver's column. Larger than the
+    /// screen half-width so the wrap happens off-screen (no visible pop).
+    private let wrapHalf: CGFloat = 640
+
     func populate() {
         for c in Creatures.all {
             let tex = SKTexture(imageNamed: "creature_\(c.key)")
@@ -34,9 +50,8 @@ final class CreatureField: SKNode {
 
             let wrapper = SKNode()
             wrapper.zPosition = GameConfig.Z.player - 1
-            let margin = c.width
-            let x = CGFloat.random(in: (-GameConfig.worldHalfWidth + margin)...(GameConfig.worldHalfWidth - margin))
-            wrapper.position = CGPoint(x: x, y: -c.depthM * GameConfig.pointsPerMeter)
+            let depthY = -c.depthM * GameConfig.pointsPerMeter
+            wrapper.position = CGPoint(x: CGFloat.random(in: -wrapHalf...wrapHalf), y: depthY)
             wrapper.addChild(container)
 
             let tag = makeNameTag(c.name)
@@ -51,7 +66,31 @@ final class CreatureField: SKNode {
             addChild(wrapper)
             placed.append((c, wrapper))
             infos.append(fact)
-            animate(wrapper: wrapper, container: container, sprite: sprite, c)
+
+            // Continuous horizontal drift (anchored creatures stay put); face it.
+            let vx: CGFloat = c.still ? 0 : (Bool.random() ? 1 : -1) * CGFloat.random(in: 16...44)
+            container.xScale = vx < 0 ? -1 : 1
+            movers.append(Mover(wrapper: wrapper, vx: vx, depthY: depthY,
+                                bobAmp: CGFloat.random(in: 4...9),
+                                bobSpeed: CGFloat.random(in: 1.0...1.6),
+                                phase: CGFloat.random(in: 0...6.28)))
+            setupWiggle(sprite: sprite, still: c.still)
+        }
+    }
+
+    /// Drift each creature horizontally and wrap it around the camera, plus a
+    /// gentle vertical bob. Wrapping keeps every depth's creatures in the diver's
+    /// column so they're always seen crossing as you descend the endless ocean.
+    func update(dt: CGFloat, cameraX: CGFloat) {
+        for i in movers.indices {
+            movers[i].phase += dt
+            let m = movers[i]
+            let w = m.wrapper
+            if m.vx != 0 { w.position.x += m.vx * dt }
+            let rel = w.position.x - cameraX
+            if rel > wrapHalf { w.position.x -= 2 * wrapHalf }
+            else if rel < -wrapHalf { w.position.x += 2 * wrapHalf }
+            w.position.y = m.depthY + sin(m.phase * m.bobSpeed) * m.bobAmp
         }
     }
 
@@ -150,16 +189,12 @@ final class CreatureField: SKNode {
 
     // MARK: Motion
 
-    private func animate(wrapper: SKNode, container: SKNode, sprite: SKSpriteNode, _ c: CreatureDef) {
+    /// Procedural swim wiggle (tail-wag + length pulse), or a slow sway for
+    /// anchored creatures. Horizontal drift + bob live in `update`.
+    private func setupWiggle(sprite: SKSpriteNode, still: Bool) {
         let phase = TimeInterval.random(in: 0...1)
 
-        let amt = CGFloat.random(in: 4...9)
-        let bob = SKAction.sequence([.moveBy(x: 0, y: amt, duration: 1.4),
-                                     .moveBy(x: 0, y: -amt, duration: 1.4)])
-        bob.timingMode = .easeInEaseOut
-        wrapper.run(.sequence([.wait(forDuration: phase), .repeatForever(bob)]))
-
-        if c.still {
+        if still {
             let sway = SKAction.sequence([.rotate(toAngle: 0.05, duration: 2.2),
                                           .rotate(toAngle: -0.05, duration: 2.2)])
             sway.timingMode = .easeInEaseOut
@@ -167,7 +202,6 @@ final class CreatureField: SKNode {
             return
         }
 
-        // Procedural swim wiggle on the sprite.
         let wag = CGFloat.random(in: 0.05...0.09)
         let beat = TimeInterval.random(in: 0.4...0.7)
         let wagAnim = SKAction.sequence([.rotate(toAngle: wag, duration: beat),
@@ -178,18 +212,5 @@ final class CreatureField: SKNode {
         pulse.timingMode = .easeInEaseOut
         sprite.run(.sequence([.wait(forDuration: phase), .repeatForever(wagAnim)]))
         sprite.run(.sequence([.wait(forDuration: phase * 0.5), .repeatForever(pulse)]))
-
-        // Slow horizontal patrol on the wrapper, flipping the container to face.
-        let range = CGFloat.random(in: 140...340)
-        let speed = CGFloat.random(in: 16...36)
-        let dur = TimeInterval(range / speed)
-        container.xScale = -1
-        let goLeft = SKAction.moveBy(x: -range, y: 0, duration: dur)
-        let goRight = SKAction.moveBy(x: range, y: 0, duration: dur)
-        goLeft.timingMode = .easeInEaseOut
-        goRight.timingMode = .easeInEaseOut
-        let faceRight = SKAction.run { container.xScale = 1 }
-        let faceLeft = SKAction.run { container.xScale = -1 }
-        wrapper.run(.repeatForever(.sequence([goLeft, faceRight, goRight, faceLeft])))
     }
 }

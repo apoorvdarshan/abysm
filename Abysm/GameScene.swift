@@ -18,6 +18,10 @@ final class GameScene: SKScene {
     private let oceanSurface = OceanSurface(width: GameConfig.worldHalfWidth * 2 + 400)
     private let player = Player()
     private let creatureField = CreatureField()
+    // Surface backdrop — followed horizontally so the world feels endless.
+    private var skyNode = SKNode()
+    private var sunNode = SKNode()
+    private var causticsNode = SKNode()
 
     // Camera & screen-space overlays (children of the camera)
     private let cameraNode = SKCameraNode()
@@ -83,9 +87,12 @@ final class GameScene: SKScene {
     }
 
     private func buildWorld() {
-        addChild(Environment.makeSky())
-        addChild(Environment.makeSun())
-        addChild(Environment.makeCaustics())
+        skyNode = Environment.makeSky()
+        sunNode = Environment.makeSun()
+        causticsNode = Environment.makeCaustics()
+        addChild(skyNode)
+        addChild(sunNode)
+        addChild(causticsNode)
         addChild(oceanSurface)
         creatureField.populate()
         addChild(creatureField)
@@ -254,6 +261,9 @@ final class GameScene: SKScene {
         }
         player.update(dt)
 
+        // Drift creatures and wrap them around the diver's column so each depth's
+        // creatures are always nearby and crossing the view as you descend.
+        creatureField.update(dt: dt, cameraX: cameraNode.position.x)
         // Fade in the nearest creature's in-world fact bubble (no screen overlay).
         creatureField.updateInfo(near: player.position, within: 230)
 
@@ -294,18 +304,21 @@ final class GameScene: SKScene {
             x: cam.position.x + (player.position.x - cam.position.x) * k,
             y: cam.position.y + (player.position.y - cam.position.y) * k)
 
-        let halfW = size.width / 2
         let halfH = size.height / 2
 
-        let minX = -GameConfig.worldHalfWidth + halfW
-        let maxX =  GameConfig.worldHalfWidth - halfW
-        p.x = minX <= maxX ? clamp(p.x, minX, maxX) : 0
-
+        // Horizontal is endless — follow freely; only the vertical column is clamped.
         let minY = GameConfig.worldFloor + halfH
         let maxY = GameConfig.skyTop - halfH
         p.y = minY <= maxY ? clamp(p.y, minY, maxY) : (minY + maxY) / 2
 
         cam.position = p
+
+        // Keep the surface backdrop centered on the diver so swimming sideways
+        // forever never reveals its edges.
+        let cx = cam.position.x
+        skyNode.position.x = cx
+        causticsNode.position.x = cx
+        sunNode.position.x = cx + Environment.sunPosition.x
 
         // Keep the lamp's clear disc centered on the diver (not the screen).
         darkness.position = CGPoint(x: player.position.x - cam.position.x,

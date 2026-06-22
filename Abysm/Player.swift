@@ -136,13 +136,10 @@ final class Player: SKNode {
     }
 
     private func keepInsideWorld(_ body: SKPhysicsBody) {
-        let minX = -GameConfig.worldHalfWidth + 40
-        let maxX =  GameConfig.worldHalfWidth - 40
+        // Horizontal is endless — only the vertical column (surface ↔ trench
+        // floor) is bounded.
         let minY =  GameConfig.worldFloor + 40
         let maxY: CGFloat = 30
-
-        if position.x < minX { position.x = minX; if body.velocity.dx < 0 { body.velocity.dx = 0 } }
-        if position.x > maxX { position.x = maxX; if body.velocity.dx > 0 { body.velocity.dx = 0 } }
         if position.y < minY { position.y = minY; if body.velocity.dy < 0 { body.velocity.dy = 0 } }
         if position.y > maxY { position.y = maxY; if body.velocity.dy > 0 { body.velocity.dy = 0 } }
     }
