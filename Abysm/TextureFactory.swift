@@ -371,6 +371,31 @@ enum TextureFactory {
         return t
     }
 
+    /// A clean horizontal "tide" strip: a gentle low-amplitude foam wave with a
+    /// thin sunlit highlight just beneath it — the soft separator between sky and
+    /// sea. `texelsWide` art-pixels across; meant to span the surface.
+    static func tideStrip(texelsWide w: Int) -> SKTexture {
+        let h = 8
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        func put(_ x: Int, _ y: Int, _ r: Double, _ g: Double, _ b: Double, _ a: Double) {
+            guard y >= 0, y < h else { return }
+            let i = (y * w + x) * 4
+            buf[i] = UInt8(r * a); buf[i+1] = UInt8(g * a); buf[i+2] = UInt8(b * a); buf[i+3] = UInt8(a * 255)
+        }
+        for x in 0..<w {
+            let crest = 3 + Int((sin(Double(x) * 0.10) * 2).rounded())   // gentle long wave
+            put(x, crest,     236, 252, 248, 1.0)   // foam crest
+            put(x, crest + 1, 236, 252, 248, 0.9)   // foam
+            put(x, crest + 2, 168, 228, 220, 0.7)   // sunlit lip just under the surface
+        }
+        let space = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8,
+                            bytesPerRow: w * 4, space: space,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let t = SKTexture(cgImage: ctx.makeImage()!); t.filteringMode = .nearest
+        return t
+    }
+
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)

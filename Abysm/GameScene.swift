@@ -25,7 +25,7 @@ final class GameScene: SKScene {
     private var skyNode = SKNode()
     private var sunNode = SKNode()
     private var godRaysNode = SKNode()
-    private var surfaceGlow = SKNode()
+    private var tideLine = SKNode()
     private let cloudField = CloudField()
 
     // Camera & screen-space overlays (children of the camera)
@@ -135,12 +135,12 @@ final class GameScene: SKScene {
     private func buildWorld() {
         skyNode = Environment.makeSky()
         sunNode = Environment.makeSun()
-        surfaceGlow = Environment.makeSurfaceGlow()
         godRaysNode = Environment.makeGodRays()
+        tideLine = Environment.makeTideLine()
         addChild(skyNode)
         addChild(sunNode)
-        addChild(surfaceGlow)
         addChild(godRaysNode)
+        addChild(tideLine)
         cloudField.populate()
         addChild(cloudField)
         scenicField.populate()
@@ -581,7 +581,7 @@ final class GameScene: SKScene {
         // forever never reveals its edges.
         let cx = cam.position.x
         skyNode.position.x = cx
-        surfaceGlow.position.x = cx
+        tideLine.position.x = cx
         sunNode.position.x = cx + Environment.sunPosition.x
         godRaysNode.position.x = cx + Environment.sunPosition.x
 
