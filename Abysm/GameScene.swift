@@ -26,6 +26,7 @@ final class GameScene: SKScene {
     private var sunNode = SKNode()
     private var underwaterGlow = SKNode()
     private var tideLine = SKNode()
+    private var trenchFloor = SKNode()
     private let cloudField = CloudField()
 
     // Camera & screen-space overlays (children of the camera)
@@ -137,10 +138,12 @@ final class GameScene: SKScene {
         sunNode = Environment.makeSun()
         underwaterGlow = Environment.makeUnderwaterGlow()
         tideLine = Environment.makeTideLine()
+        trenchFloor = Environment.makeTrenchFloor()
         addChild(skyNode)
         addChild(sunNode)
         addChild(underwaterGlow)
         addChild(tideLine)
+        addChild(trenchFloor)
         cloudField.populate()
         addChild(cloudField)
         scenicField.populate()
@@ -583,6 +586,7 @@ final class GameScene: SKScene {
         skyNode.position.x = cx
         tideLine.position.x = cx
         underwaterGlow.position.x = cx
+        trenchFloor.position.x = cx
         sunNode.position.x = cx + Environment.sunPosition.x
 
         // Keep the lamp's clear disc centered on the diver (not the screen).

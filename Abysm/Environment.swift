@@ -60,6 +60,20 @@ enum Environment {
         return line
     }
 
+    // MARK: Trench floor
+
+    /// The sediment seabed at the very bottom of the trench (Challenger Deep).
+    static func makeTrenchFloor() -> SKSpriteNode {
+        let px = GameConfig.pixel
+        let texels = max(1, Int(spanWidth / px))
+        let tex = TextureFactory.sedimentStrip(texelsWide: texels)
+        let floor = SKSpriteNode(texture: tex, size: CGSize(width: spanWidth, height: 18 * px))
+        floor.anchorPoint = CGPoint(x: 0.5, y: 1)             // top edge = floor line
+        floor.position = CGPoint(x: 0, y: GameConfig.worldFloor + 20)
+        floor.zPosition = GameConfig.Z.player - 25
+        return floor
+    }
+
     // MARK: Underwater sunlight glow
 
     /// A soft, wide pool of sunlight glowing through the upper water — diffuse,
