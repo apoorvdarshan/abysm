@@ -68,7 +68,7 @@ final class GameScene: SKScene {
     private var lastPlayerY: CGFloat = -1
 
     // Pause / main-menu.
-    private let pauseBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(150, 170, 200))
+    private let pauseBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(52, 92, 134))
     private let pauseIcon = SKSpriteNode()
     private let pauseOverlay = SKNode()
     private let resumeBtn = SKNode()
@@ -77,7 +77,7 @@ final class GameScene: SKScene {
     private let pBtnW: CGFloat = 260, pBtnH: CGFloat = 48
 
     // Sound + haptics.
-    private let muteBtn = HoldButton(radius: 28, glyph: "", fontSize: 1, color: Palette.rgb(150, 170, 200))
+    private let muteBtn = HoldButton(radius: 28, glyph: "", fontSize: 1, color: Palette.rgb(52, 92, 134))
     private let muteIcon = SKSpriteNode()
     private var soundMuted = false
     private var isBoosting = false
