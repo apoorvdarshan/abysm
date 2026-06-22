@@ -29,6 +29,10 @@ final class TitleScene: SKScene {
     private let diver = SKSpriteNode()
     private let fish1 = SKSpriteNode()
     private let fish2 = SKSpriteNode()
+    private let cloud1 = SKSpriteNode()
+    private let cloud2 = SKSpriteNode()
+    private let cloud3 = SKSpriteNode()
+    private let bigCreature = SKSpriteNode()
 
     private let continueBtn = SKNode()
     private let newGameBtn = SKNode()
@@ -104,6 +108,11 @@ final class TitleScene: SKScene {
         deco(pillar, "bg_pillar", width: 132, z: -6, anchorBottom: true)
         deco(fish1, "school_fish", width: 48, z: -4, anchorBottom: false)
         deco(fish2, "school_fish", width: 36, z: -5, anchorBottom: false)
+        deco(cloud1, "cloud_a", width: 200, z: -9, anchorBottom: false)
+        deco(cloud2, "cloud_b", width: 150, z: -9, anchorBottom: false)
+        deco(cloud3, "cloud_a", width: 168, z: -9, anchorBottom: false); cloud3.xScale = -1
+        deco(bigCreature, "creature_manatee", width: 250, z: -7, anchorBottom: false)
+        bigCreature.color = Palette.rgb(36, 86, 128); bigCreature.colorBlendFactor = 0.4; bigCreature.alpha = 0.7
 
         // Gentle life.
         let bob = SKAction.sequence([move(0, 8, 1.7), move(0, -8, 1.7)])
@@ -113,6 +122,11 @@ final class TitleScene: SKScene {
         kelpR.run(.repeatForever(.sequence([rot(-0.10, 2.4), rot(0.10, 2.4)])))
         fish1.run(.repeatForever(.sequence([move(150, 12, 5), move(-150, -12, 5)])))
         fish2.run(.repeatForever(.sequence([move(-120, -8, 6), move(120, 8, 6)])))
+        cloud1.run(.repeatForever(.sequence([move(60, 0, 9), move(-60, 0, 9)])))
+        cloud2.run(.repeatForever(.sequence([move(-50, 0, 11), move(50, 0, 11)])))
+        cloud3.run(.repeatForever(.sequence([move(70, 0, 12), move(-70, 0, 12)])))
+        bigCreature.run(.repeatForever(.sequence([move(90, 10, 15), move(-90, -10, 15)])))
+        bigCreature.run(.repeatForever(.sequence([rot(0.02, 3.2), rot(-0.02, 3.2)])))
     }
 
     private func deco(_ node: SKSpriteNode, _ name: String, width: CGFloat, z: CGFloat, anchorBottom: Bool) {
@@ -171,6 +185,10 @@ final class TitleScene: SKScene {
         diver.position  = CGPoint(x: -w * 0.31, y: h * 0.02)
         fish1.position  = CGPoint(x:  w * 0.20, y: -h * 0.02)
         fish2.position  = CGPoint(x:  w * 0.28, y: -h * 0.14)
+        cloud1.position = CGPoint(x: -w * 0.34, y: h * 0.34)
+        cloud2.position = CGPoint(x:  w * 0.08, y: h * 0.40)
+        cloud3.position = CGPoint(x:  w * 0.32, y: h * 0.30)
+        bigCreature.position = CGPoint(x: -w * 0.16, y: -h * 0.18)
 
         let gap = btnH + 18
         var y = -h * 0.06
