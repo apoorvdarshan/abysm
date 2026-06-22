@@ -52,6 +52,16 @@ enum GameConfig {
     /// Minimum speed before the swimmer re-orients to face its heading.
     static let orientSpeedThreshold: CGFloat = 16
 
+    // MARK: Device scaling
+
+    /// iPad's larger screen reveals more world, so creatures and their labels
+    /// read small there — scale them up. iPhone is unchanged (1.0).
+    static var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+    /// Multiplier for creature sprite size on iPad.
+    static var creatureScale: CGFloat { isPad ? 1.35 : 1.0 }
+    /// Multiplier for creature name-tag / fact-bubble text + plates on iPad.
+    static var labelScale: CGFloat { isPad ? 1.4 : 1.0 }
+
     // MARK: Camera
 
     /// Per-frame follow lerp factor (0 = frozen, 1 = instant snap).

@@ -47,7 +47,8 @@ final class CreatureField: SKNode {
             tex.filteringMode = .nearest
             let aspect = tex.size().width > 0 ? tex.size().height / tex.size().width : 1
             let sprite = SKSpriteNode(texture: tex)
-            sprite.size = CGSize(width: c.width, height: c.width * aspect)
+            let cs = GameConfig.creatureScale
+            sprite.size = CGSize(width: c.width * cs, height: c.width * aspect * cs)
 
             let container = SKNode()
             container.addChild(sprite)
@@ -124,17 +125,18 @@ final class CreatureField: SKNode {
     // MARK: Name tag (readable over any background)
 
     private func makeNameTag(_ name: String) -> SKNode {
+        let s = GameConfig.labelScale
         let node = SKNode()
         let label = SKLabelNode(fontNamed: "PressStart2P-Regular")
         label.text = name.uppercased()
-        label.fontSize = 7
+        label.fontSize = 7 * s
         label.fontColor = .white
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .center
         label.zPosition = 1
 
         let plate = SKSpriteNode(color: Palette.rgb(8, 20, 44),
-                                 size: CGSize(width: label.frame.width + 14, height: 18))
+                                 size: CGSize(width: label.frame.width + 14 * s, height: 18 * s))
         plate.alpha = 0.5
         plate.zPosition = 0
         node.addChild(plate)
@@ -146,33 +148,35 @@ final class CreatureField: SKNode {
     // MARK: Fact bubble (neal.fun-style info, in-world beside the creature)
 
     private func makeFactBubble(_ c: CreatureDef) -> SKNode {
+        let s = GameConfig.labelScale
         let node = SKNode()
-        let width: CGFloat = 212
+        let width: CGFloat = 212 * s
+        let topPad: CGFloat = 4 * s, gap: CGFloat = 7 * s, botPad: CGFloat = 8 * s
 
         let meta = SKLabelNode(fontNamed: "PressStart2P-Regular")
         meta.text = "\(Int(c.depthM))M  ·  \(zoneName(c.depthM))"
-        meta.fontSize = 6
+        meta.fontSize = 6 * s
         meta.fontColor = Palette.rgb(150, 236, 232)
         meta.horizontalAlignmentMode = .center
         meta.verticalAlignmentMode = .top
-        meta.position = CGPoint(x: 0, y: -4)
+        meta.position = CGPoint(x: 0, y: -topPad)
         meta.zPosition = 1
 
         let fact = SKLabelNode(fontNamed: "PressStart2P-Regular")
         fact.text = c.fact
-        fact.fontSize = 6
+        fact.fontSize = 6 * s
         fact.fontColor = Palette.rgb(212, 228, 238)
         fact.horizontalAlignmentMode = .center
         fact.verticalAlignmentMode = .top
         fact.numberOfLines = 0
-        fact.preferredMaxLayoutWidth = width - 18
+        fact.preferredMaxLayoutWidth = width - 18 * s
         fact.lineBreakMode = .byWordWrapping
         fact.zPosition = 1
 
         let metaH = meta.frame.height
-        fact.position = CGPoint(x: 0, y: -4 - metaH - 7)
+        fact.position = CGPoint(x: 0, y: -topPad - metaH - gap)
         let factH = fact.frame.height
-        let totalH = 4 + metaH + 7 + factH + 8   // top pad + content + bottom pad
+        let totalH = topPad + metaH + gap + factH + botPad   // top pad + content + bottom pad
 
         let plate = SKSpriteNode(color: Palette.rgb(8, 18, 40), size: CGSize(width: width, height: totalH))
         plate.alpha = 0.72
