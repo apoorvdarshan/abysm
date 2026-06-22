@@ -23,7 +23,6 @@ final class GameScene: SKScene {
     // Surface backdrop — followed horizontally so the world feels endless.
     private var skyNode = SKNode()
     private var sunNode = SKNode()
-    private var causticsNode = SKNode()
 
     // Camera & screen-space overlays (children of the camera)
     private let cameraNode = SKCameraNode()
@@ -122,10 +121,8 @@ final class GameScene: SKScene {
     private func buildWorld() {
         skyNode = Environment.makeSky()
         sunNode = Environment.makeSun()
-        causticsNode = Environment.makeCaustics()
         addChild(skyNode)
         addChild(sunNode)
-        addChild(causticsNode)
         addChild(oceanSurface)
         creatureField.populate()
         addChild(creatureField)
@@ -456,7 +453,6 @@ final class GameScene: SKScene {
         // forever never reveals its edges.
         let cx = cam.position.x
         skyNode.position.x = cx
-        causticsNode.position.x = cx
         sunNode.position.x = cx + Environment.sunPosition.x
 
         // Keep the lamp's clear disc centered on the diver (not the screen).
