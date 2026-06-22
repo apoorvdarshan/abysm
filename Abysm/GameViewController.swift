@@ -16,7 +16,7 @@ final class GameViewController: UIViewController {
         // Build the scene in code (we don't use GameScene.sks). .resizeFill
         // keeps 1 scene point == 1 screen point; the scene re-lays-out itself
         // via didChangeSize whenever the view's bounds settle.
-        let scene = GameScene(size: skView.bounds.size)
+        let scene = TitleScene(size: skView.bounds.size)
         scene.scaleMode = .resizeFill
         skView.presentScene(scene)
 

@@ -60,6 +60,12 @@ final class GameScene: SKScene {
     /// Token for the game-controller connect observer.
     private var controllerObserver: NSObjectProtocol?
 
+    /// Optional start point (set before presenting) — used by Continue.
+    var startDepthMeters: CGFloat?
+    var startX: CGFloat?
+    private var saveAccum: CGFloat = 0
+    private var saveObserver: NSObjectProtocol?
+
     // Sound + haptics.
     private let muteBtn = HoldButton(radius: 28, glyph: "", fontSize: 1, color: Palette.rgb(150, 170, 200))
     private let muteIcon = SKSpriteNode()
@@ -88,10 +94,17 @@ final class GameScene: SKScene {
         setupControllers()
         AudioManager.shared.start()
         playIntroFade()
+
+        // Save the resume point when the app goes to the background.
+        saveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.saveProgress()
+        }
     }
 
     deinit {
         if let o = controllerObserver { NotificationCenter.default.removeObserver(o) }
+        if let o = saveObserver { NotificationCenter.default.removeObserver(o) }
     }
 
     /// Gentle fade-in from black so the scene reveals softly on launch.
@@ -171,9 +184,16 @@ final class GameScene: SKScene {
     }
 
     private func buildPlayer() {
-        player.position = CGPoint(x: 0, y: GameConfig.playerStartY)
+        let y = startDepthMeters.map { -$0 * GameConfig.pointsPerMeter } ?? GameConfig.playerStartY
+        player.position = CGPoint(x: startX ?? 0, y: y)
         addChild(player)
         player.attachBubbleTarget(self)   // bubbles trail in world space
+    }
+
+    /// Persist the diver's current depth + x so the title can offer Continue.
+    private func saveProgress() {
+        let meters = max(0, -player.position.y) / GameConfig.pointsPerMeter
+        SaveManager.save(depthMeters: meters, x: player.position.x)
     }
 
     // MARK: Layout (re-run whenever the view size changes)
@@ -374,6 +394,9 @@ final class GameScene: SKScene {
 
         // Drift creatures and wrap them around the diver's column so each depth's
         // creatures are always nearby and crossing the view as you descend.
+        saveAccum += dt
+        if saveAccum >= 3 { saveAccum = 0; saveProgress() }
+
         creatureField.update(dt: dt, cameraX: cameraNode.position.x)
         landmarkField.update(cameraX: cameraNode.position.x)
         // Fade in the nearest creature's in-world fact bubble (no screen overlay).
