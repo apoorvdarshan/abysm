@@ -10,6 +10,7 @@
 //  Also answers `nearest(to:within:)` so the scene can show an info card.
 //
 
+import UIKit
 import SpriteKit
 
 final class CreatureField: SKNode {
@@ -39,6 +40,9 @@ final class CreatureField: SKNode {
 
     func populate() {
         for c in Creatures.all {
+            // Skip any creature whose sprite isn't bundled yet, so a missing
+            // asset never renders as SpriteKit's red ✗ placeholder box.
+            guard UIImage(named: "creature_\(c.key)") != nil else { continue }
             let tex = SKTexture(imageNamed: "creature_\(c.key)")
             tex.filteringMode = .nearest
             let aspect = tex.size().width > 0 ? tex.size().height / tex.size().width : 1

@@ -19,6 +19,7 @@ final class GameScene: SKScene {
     private let oceanSurface = OceanSurface(width: GameConfig.worldHalfWidth * 2 + 400)
     private let player = Player()
     private let creatureField = CreatureField()
+    private let landmarkField = LandmarkField()
     // Surface backdrop — followed horizontally so the world feels endless.
     private var skyNode = SKNode()
     private var sunNode = SKNode()
@@ -105,6 +106,8 @@ final class GameScene: SKScene {
         addChild(oceanSurface)
         creatureField.populate()
         addChild(creatureField)
+        landmarkField.populate()
+        addChild(landmarkField)
     }
 
     private func buildCamera() {
@@ -324,6 +327,7 @@ final class GameScene: SKScene {
         // Drift creatures and wrap them around the diver's column so each depth's
         // creatures are always nearby and crossing the view as you descend.
         creatureField.update(dt: dt, cameraX: cameraNode.position.x)
+        landmarkField.update(cameraX: cameraNode.position.x)
         // Fade in the nearest creature's in-world fact bubble (no screen overlay).
         creatureField.updateInfo(near: player.position, within: 230)
 
