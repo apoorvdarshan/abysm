@@ -51,6 +51,11 @@ enum GameConfig {
     static let playerMass: CGFloat = 0.5
     /// Minimum speed before the swimmer re-orients to face its heading.
     static let orientSpeedThreshold: CGFloat = 16
+    /// Gravity (points/sec²) applied when the diver breaches above the surface,
+    /// arcing it back down like a leaping dolphin.
+    static let breachGravity: CGFloat = 1100
+    /// Low drag while airborne so the breach keeps its momentum.
+    static let airDamping: CGFloat = 0.2
 
     // MARK: Device scaling
 

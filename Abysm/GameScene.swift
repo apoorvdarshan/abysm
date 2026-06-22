@@ -16,7 +16,6 @@ import GameController
 final class GameScene: SKScene {
 
     // World
-    private let oceanSurface = OceanSurface(width: GameConfig.worldHalfWidth * 2 + 400)
     private let player = Player()
     private let creatureField = CreatureField()
     private let landmarkField = LandmarkField()
@@ -66,6 +65,7 @@ final class GameScene: SKScene {
     var startX: CGFloat?
     private var saveAccum: CGFloat = 0
     private var saveObserver: NSObjectProtocol?
+    private var lastPlayerY: CGFloat = -1
 
     // Pause / main-menu.
     private let pauseBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(150, 170, 200))
@@ -134,7 +134,6 @@ final class GameScene: SKScene {
         sunNode = Environment.makeSun()
         addChild(skyNode)
         addChild(sunNode)
-        addChild(oceanSurface)
         scenicField.populate()
         addChild(scenicField)
         schoolField.populate()
@@ -494,11 +493,35 @@ final class GameScene: SKScene {
         // Fade in the nearest creature's in-world fact bubble (no screen overlay).
         creatureField.updateInfo(near: player.position, within: 230)
 
-        let halfW = size.width / 2 + 50
-        oceanSurface.update(currentTime,
-                            minX: cameraNode.position.x - halfW,
-                            maxX: cameraNode.position.x + halfW)
+        // Splash when the diver breaches out of, or drops back into, the surface.
+        let y = player.position.y
+        let vy = abs(player.physicsBody?.velocity.dy ?? 0)
+        if vy > 70, (lastPlayerY <= 0) != (y <= 0) {
+            spawnSplash(at: player.position.x)
+            AudioManager.shared.playSplash()
+        }
+        lastPlayerY = y
+
         updateDepthEffects()
+    }
+
+    /// A quick burst of white droplets at the surface (y = 0).
+    private func spawnSplash(at x: CGFloat) {
+        let tex = TextureFactory.pixelDot(2, color: .white)
+        for _ in 0..<14 {
+            let d = SKSpriteNode(texture: tex)
+            let s = CGFloat.random(in: 4...9)
+            d.size = CGSize(width: s, height: s)
+            d.position = CGPoint(x: x + CGFloat.random(in: -24...24), y: 2)
+            d.zPosition = GameConfig.Z.player + 1
+            addChild(d)
+            let dx = CGFloat.random(in: -90...90)
+            let up = CGFloat.random(in: 70...170)
+            let rise = SKAction.moveBy(x: dx, y: up, duration: 0.3); rise.timingMode = .easeOut
+            let fall = SKAction.moveBy(x: dx * 0.4, y: -up - 40, duration: 0.45); fall.timingMode = .easeIn
+            d.run(.sequence([rise, fall, .removeFromParent()]))
+            d.run(.fadeOut(withDuration: 0.72))
+        }
     }
 
     /// HUD read-out plus depth-driven darkening and tint.

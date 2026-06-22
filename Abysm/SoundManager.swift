@@ -27,6 +27,7 @@ final class AudioManager {
     private var rumble: AVAudioPlayer?
     private var bubbles: AVAudioPlayer?
     private var click: AVAudioPlayer?
+    private var splash: AVAudioPlayer?
     private var started = false
     private(set) var muted = false
 
@@ -45,6 +46,7 @@ final class AudioManager {
         if !muted { [ambient, waves, rumble, bubbles].forEach { $0?.play() } }
 
         click = make("click"); click?.volume = 0.7
+        splash = make("splash"); splash?.volume = 0.7
     }
 
     /// A one-shot UI click (e.g. toggling the lamp).
@@ -52,6 +54,13 @@ final class AudioManager {
         guard !muted, let c = click else { return }
         c.currentTime = 0
         c.play()
+    }
+
+    /// A one-shot water splash (breach / re-entry).
+    func playSplash() {
+        guard !muted, let s = splash else { return }
+        s.currentTime = 0
+        s.play()
     }
 
     /// Crossfade the surface/deep layers by depth and gate the boost bubbles.

@@ -100,24 +100,34 @@ final class Player: SKNode {
         guard let body = physicsBody else { return }
         clock += dt
 
+        let inAir = position.y > 0
         let mag = hypot(thrust.dx, thrust.dy)
-        if mag > 0.05 {
-            let f = GameConfig.playerAccel * body.mass * boostFactor
-            body.applyForce(CGVector(dx: thrust.dx * f, dy: thrust.dy * f))
+        if inAir {
+            // Breach: ballistic arc — gravity pulls back, little drag, no swimming.
+            body.linearDamping = GameConfig.airDamping
+            body.applyForce(CGVector(dx: 0, dy: -GameConfig.breachGravity * body.mass))
+        } else {
+            body.linearDamping = GameConfig.playerLinearDamping
+            if mag > 0.05 {
+                let f = GameConfig.playerAccel * body.mass * boostFactor
+                body.applyForce(CGVector(dx: thrust.dx * f, dy: thrust.dy * f))
+            }
         }
 
         var v = body.velocity
         let speed = hypot(v.dx, v.dy)
-        let cap = GameConfig.playerMaxSpeed * boostFactor
-        if speed > cap {
-            let s = cap / speed
-            v = CGVector(dx: v.dx * s, dy: v.dy * s)
-            body.velocity = v
+        if !inAir {
+            let cap = GameConfig.playerMaxSpeed * boostFactor   // no cap in the air, let it leap
+            if speed > cap {
+                let s = cap / speed
+                v = CGVector(dx: v.dx * s, dy: v.dy * s)
+                body.velocity = v
+            }
         }
 
         keepInsideWorld(body)
         orient(velocity: body.velocity, speed: speed)
-        bubbles.particleBirthRate = speed > 36 ? 22 : 3
+        bubbles.particleBirthRate = (!inAir && speed > 36) ? 22 : 3
     }
 
     /// Face the heading; flip vertically when facing left so the diver stays
@@ -139,7 +149,7 @@ final class Player: SKNode {
         // Horizontal is endless — only the vertical column (surface ↔ trench
         // floor) is bounded.
         let minY =  GameConfig.worldFloor + 40
-        let maxY: CGFloat = 30
+        let maxY = GameConfig.skyTop - 60   // high ceiling so the diver can breach
         if position.y < minY { position.y = minY; if body.velocity.dy < 0 { body.velocity.dy = 0 } }
         if position.y > maxY { position.y = maxY; if body.velocity.dy > 0 { body.velocity.dy = 0 } }
     }
