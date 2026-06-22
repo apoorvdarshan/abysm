@@ -11,6 +11,7 @@
 //
 
 import SpriteKit
+import GameController
 
 final class GameScene: SKScene {
 
@@ -55,6 +56,9 @@ final class GameScene: SKScene {
     private var turboTouch: UITouch?
     private var surfaceTouch: UITouch?
 
+    /// Token for the game-controller connect observer.
+    private var controllerObserver: NSObjectProtocol?
+
     // MARK: Scene setup
 
     override func didMove(to view: SKView) {
@@ -71,7 +75,12 @@ final class GameScene: SKScene {
         // safe-area insets are available (they can read 0 inside didMove).
         DispatchQueue.main.async { [weak self] in self?.layout() }
 
+        setupControllers()
         playIntroFade()
+    }
+
+    deinit {
+        if let o = controllerObserver { NotificationCenter.default.removeObserver(o) }
     }
 
     /// Gentle fade-in from black so the scene reveals softly on launch.
@@ -169,19 +178,17 @@ final class GameScene: SKScene {
             x: -viewport.width / 2 + safeLeft + joystick.baseRadius + 28,
             y: -viewport.height / 2 + safeBottom + joystick.baseRadius + 24)
 
-        // Speed buttons: bottom-right (turbo rightmost), mirroring the joystick.
+        // The four action buttons sit in a controller-style diamond, bottom-right
+        // (top = rise · bottom = lamp · left = boost · right = turbo), mirroring
+        // the joystick and freeing the top + center of the screen.
         let safeRight = view?.safeAreaInsets.right ?? 0
-        let by = -viewport.height / 2 + safeBottom + turboBtn.radius + 22
-        turboBtn.position = CGPoint(x: viewport.width / 2 - safeRight - turboBtn.radius - 22, y: by)
-        boostBtn.position = CGPoint(x: turboBtn.position.x - turboBtn.radius - boostBtn.radius - 16, y: by)
-
-        // Flashlight toggle: top-right.
-        flashBtn.position = CGPoint(x: viewport.width / 2 - safeRight - flashBtn.radius - 18,
-                                    y: viewport.height / 2 - topInset - flashBtn.radius - 6)
-
-        // Rise-to-surface: top-left, mirroring the flashlight.
-        surfaceBtn.position = CGPoint(x: -viewport.width / 2 + safeLeft + surfaceBtn.radius + 18,
-                                      y: viewport.height / 2 - topInset - surfaceBtn.radius - 6)
+        let arm: CGFloat = 54   // diamond arm length from the cluster center
+        let ccx = viewport.width / 2 - safeRight - turboBtn.radius - arm - 16
+        let ccy = -viewport.height / 2 + safeBottom + flashBtn.radius + arm + 16
+        surfaceBtn.position = CGPoint(x: ccx, y: ccy + arm)
+        flashBtn.position   = CGPoint(x: ccx, y: ccy - arm)
+        boostBtn.position   = CGPoint(x: ccx - arm, y: ccy)
+        turboBtn.position   = CGPoint(x: ccx + arm, y: ccy)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -194,16 +201,9 @@ final class GameScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches {
             let p = t.location(in: cameraNode)
-            if flashBtn.hit(p) {   // tap to toggle the headlamp
-                flashlightOn.toggle()
-                player.setFlashlight(flashlightOn)
-                flashBtn.setPressed(flashlightOn)
-                darkness.texture = flashlightOn ? veilOn : veilOff
-                continue
-            }
-            if surfaceTouch == nil, surfaceBtn.hit(p) {   // whisk up to the surface
-                surfaceTouch = t; surfaceBtn.setPressed(true); ascending = true
-                player.setThrust(.zero); joystick.release(); stickTouch = nil
+            if flashBtn.hit(p) { toggleFlashlight(); continue }   // tap to toggle the headlamp
+            if surfaceTouch == nil, surfaceBtn.hit(p) {           // whisk up to the surface
+                surfaceTouch = t; surfaceBtn.setPressed(true); beginAscent()
                 continue
             }
             if stickTouch == nil, joystick.engage(at: p) { stickTouch = t; ascending = false; continue }
@@ -230,6 +230,45 @@ final class GameScene: SKScene {
         }
     }
 
+    // MARK: Shared actions (used by both touch and the game controller)
+
+    private func toggleFlashlight() {
+        flashlightOn.toggle()
+        player.setFlashlight(flashlightOn)
+        flashBtn.setPressed(flashlightOn)
+        darkness.texture = flashlightOn ? veilOn : veilOff
+    }
+
+    private func beginAscent() {
+        ascending = true
+        player.setThrust(.zero)
+        joystick.release(); stickTouch = nil
+    }
+
+    // MARK: Game controller (optional — left stick/dpad to swim; see attach())
+
+    private func setupControllers() {
+        GCController.controllers().forEach(attach)
+        controllerObserver = NotificationCenter.default.addObserver(
+            forName: .GCControllerDidConnect, object: nil, queue: .main) { [weak self] note in
+            if let c = note.object as? GCController { self?.attach(c) }
+        }
+        GCController.startWirelessControllerDiscovery {}
+    }
+
+    /// Map the tap-style buttons. Hold-style boost/turbo + the sticks are polled
+    /// each frame in `update`. Layout matches the on-screen diamond:
+    ///   Y (top) = rise · A (bottom) = lamp · X (left) = boost · B (right) = turbo.
+    private func attach(_ controller: GCController) {
+        guard let gp = controller.extendedGamepad else { return }
+        gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
+            if pressed { self?.beginAscent() }
+        }
+        gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
+            if pressed { self?.toggleFlashlight() }
+        }
+    }
+
     // MARK: Game loop
 
     override func update(_ currentTime: TimeInterval) {
@@ -240,6 +279,25 @@ final class GameScene: SKScene {
             dt = CGFloat(min(currentTime - lastUpdateTime, 1.0 / 20.0))   // cap big hitches
         }
         lastUpdateTime = currentTime
+
+        // Gather input: on-screen joystick/buttons plus an optional game controller.
+        var moveVec = joystick.vector
+        var cBoost = false, cTurbo = false
+        if let gp = GCController.current?.extendedGamepad {
+            var dx = CGFloat(gp.leftThumbstick.xAxis.value)
+            var dy = CGFloat(gp.leftThumbstick.yAxis.value)
+            if gp.dpad.xAxis.value != 0 || gp.dpad.yAxis.value != 0 {
+                dx = CGFloat(gp.dpad.xAxis.value); dy = CGFloat(gp.dpad.yAxis.value)
+            }
+            let mag = hypot(dx, dy)
+            if mag > 0.18 {
+                let s = min(mag, 1) / mag
+                moveVec = CGVector(dx: dx * s, dy: dy * s)
+                ascending = false              // grabbing the stick cancels an auto-rise
+            }
+            cBoost = gp.buttonX.isPressed || gp.rightShoulder.isPressed
+            cTurbo = gp.buttonB.isPressed || gp.rightTrigger.value > 0.3
+        }
 
         if ascending {
             // Whisk straight up to the surface (ease-out, with a floor speed so
@@ -256,8 +314,10 @@ final class GameScene: SKScene {
             }
             player.setThrust(.zero)
         } else {
-            player.setThrust(joystick.vector)
-            player.boostFactor = turboBtn.pressed ? 16.0 : (boostBtn.pressed ? 6.0 : 1.0)
+            player.setThrust(moveVec)
+            let turbo = turboBtn.pressed || cTurbo
+            let boost = boostBtn.pressed || cBoost
+            player.boostFactor = turbo ? 16.0 : (boost ? 6.0 : 1.0)
         }
         player.update(dt)
 
