@@ -32,7 +32,6 @@ final class TitleScene: SKScene {
 
     private let continueBtn = SKNode()
     private let newGameBtn = SKNode()
-    private let photosBtn = SKNode()
     private let soundBtn = SKNode()
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
@@ -70,7 +69,6 @@ final class TitleScene: SKScene {
 
         buildButton(continueBtn, "CONTINUE")
         buildButton(newGameBtn, "NEW GAME")
-        buildButton(photosBtn, "PHOTOS")
         soundLbl = buildButton(soundBtn, soundText())
         continueBtn.isHidden = !SaveManager.hasSave
 
@@ -174,12 +172,11 @@ final class TitleScene: SKScene {
         fish1.position  = CGPoint(x:  w * 0.20, y: -h * 0.02)
         fish2.position  = CGPoint(x:  w * 0.28, y: -h * 0.14)
 
-        var items: [SKNode] = []
-        if !continueBtn.isHidden { items.append(continueBtn) }
-        items.append(newGameBtn); items.append(photosBtn); items.append(soundBtn)
-        let gap = btnH + 14
-        let firstY = CGFloat(items.count - 1) * gap / 2 - h * 0.20
-        for (i, b) in items.enumerated() { b.position = CGPoint(x: 0, y: firstY - CGFloat(i) * gap) }
+        let gap = btnH + 18
+        var y = -h * 0.06
+        if !continueBtn.isHidden { continueBtn.position = CGPoint(x: 0, y: y); y -= gap }
+        newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
+        soundBtn.position = CGPoint(x: 0, y: y)
     }
 
     override func didChangeSize(_ oldSize: CGSize) { super.didChangeSize(oldSize); layout() }
@@ -191,15 +188,7 @@ final class TitleScene: SKScene {
         let p = t.location(in: self)
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
-        else if hit(photosBtn, p) { openPhotos() }
         else if hit(soundBtn, p) { toggleSound() }
-    }
-
-    private func openPhotos() {
-        guard let v = view else { return }
-        let s = PhotosScene(size: v.bounds.size)
-        s.scaleMode = .resizeFill
-        v.presentScene(s, transition: .fade(with: .black, duration: 0.4))
     }
 
     private func hit(_ node: SKNode, _ p: CGPoint) -> Bool {

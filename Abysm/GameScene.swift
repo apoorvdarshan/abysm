@@ -79,11 +79,6 @@ final class GameScene: SKScene {
     private var menuPaused = false
     private let pBtnW: CGFloat = 260, pBtnH: CGFloat = 48
 
-    // Camera (photo mode).
-    private let photoBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(52, 92, 134))
-    private let photoIcon = SKSpriteNode()
-    private let flashNode = SKSpriteNode(color: .white, size: CGSize(width: 4200, height: 3200))
-
     // Sound + haptics.
     private let muteBtn = HoldButton(radius: 28, glyph: "", fontSize: 1, color: Palette.rgb(52, 92, 134))
     private let muteIcon = SKSpriteNode()
@@ -207,16 +202,6 @@ final class GameScene: SKScene {
         muteBtn.addChild(muteIcon)
         cameraNode.addChild(muteBtn)
 
-        // Camera button (top-right, beside mute) + a capture flash.
-        photoIcon.texture = TextureFactory.pixelCamera()
-        photoIcon.size = CGSize(width: 22, height: 16)
-        photoIcon.zPosition = 3
-        photoBtn.addChild(photoIcon)
-        cameraNode.addChild(photoBtn)
-        flashNode.zPosition = GameConfig.Z.intro + 2
-        flashNode.alpha = 0
-        cameraNode.addChild(flashNode)
-
         // Pause button (top-left) + the pause overlay.
         pauseIcon.texture = TextureFactory.pixelPause()
         pauseIcon.size = CGSize(width: 18, height: 21)
@@ -301,11 +286,9 @@ final class GameScene: SKScene {
         boostBtn.position   = CGPoint(x: ccx - arm, y: ccy)
         turboBtn.position   = CGPoint(x: ccx + arm, y: ccy)
 
-        // Mute toggle: top-right corner; camera just to its left.
+        // Mute toggle: top-right corner.
         muteBtn.position = CGPoint(x: viewport.width / 2 - safeRight - muteBtn.radius - 16,
                                    y: viewport.height / 2 - topInset - muteBtn.radius - 6)
-        photoBtn.position = CGPoint(x: muteBtn.position.x - muteBtn.radius - photoBtn.radius - 14,
-                                    y: muteBtn.position.y)
         // Pause: top-left corner.
         pauseBtn.position = CGPoint(x: -viewport.width / 2 + safeLeft + pauseBtn.radius + 16,
                                     y: viewport.height / 2 - topInset - pauseBtn.radius - 6)
@@ -331,7 +314,6 @@ final class GameScene: SKScene {
             let p = t.location(in: cameraNode)
             if pauseBtn.hit(p) { openPause(); continue }
             if muteBtn.hit(p) { toggleMute(); continue }          // tap to mute/unmute
-            if photoBtn.hit(p) { capturePhoto(); continue }       // snap a dive photo
             if flashBtn.hit(p) { toggleFlashlight(); continue }   // tap to toggle the headlamp
             if surfaceTouch == nil, surfaceBtn.hit(p) {           // whisk up to the surface
                 surfaceTouch = t; surfaceBtn.setPressed(true); beginAscent()
@@ -375,26 +357,6 @@ final class GameScene: SKScene {
         ascending = true
         player.setThrust(.zero)
         joystick.release(); stickTouch = nil
-    }
-
-    /// Snap a photo of the visible dive (without the on-screen UI), save it, flash.
-    private func capturePhoto() {
-        guard let v = view else { return }
-        let ui: [SKNode] = [hud, joystick, boostBtn, turboBtn, flashBtn, surfaceBtn,
-                            muteBtn, pauseBtn, photoBtn]
-        ui.forEach { $0.isHidden = true }
-        let rect = CGRect(x: cameraNode.position.x - size.width / 2,
-                          y: cameraNode.position.y - size.height / 2,
-                          width: size.width, height: size.height)
-        if let tex = v.texture(from: self, crop: rect) {
-            PhotoManager.save(UIImage(cgImage: tex.cgImage()), stamp: Int(Date().timeIntervalSince1970 * 1000))
-        }
-        ui.forEach { $0.isHidden = false }
-
-        flashNode.removeAllActions()
-        flashNode.alpha = 0
-        flashNode.run(.sequence([.fadeAlpha(to: 0.85, duration: 0.05), .fadeAlpha(to: 0, duration: 0.3)]))
-        AudioManager.shared.playClick()
     }
 
     private func toggleMute() {
