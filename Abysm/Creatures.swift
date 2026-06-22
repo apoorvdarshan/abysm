@@ -148,6 +148,32 @@ enum Creatures {
         CreatureDef(key: "cuskeel", name: "Cusk Eel", depthM: 8370, width: 100,
                     fact: "Among the deepest of all fishes ever caught."),
         CreatureDef(key: "amphipod", name: "Hadal Amphipod", depthM: 10322, width: 50,
-                    fact: "A shrimp-like scavenger thriving at the very bottom of the trenches.")
+                    fact: "A shrimp-like scavenger thriving at the very bottom of the trenches."),
+
+        // ── More neal.fun species (placed by depth) ──
+        CreatureDef(key: "stripedbass", name: "Striped Bass", depthM: 25, width: 110,
+                    fact: "A prized coastal fish that migrates along the shore in big schools."),
+        CreatureDef(key: "queensnapper", name: "Queen Snapper", depthM: 180, width: 110,
+                    fact: "A deep-reef snapper with a long forked tail and large eyes for the dim light."),
+        CreatureDef(key: "emperorpenguin", name: "Emperor Penguin", depthM: 530, width: 95,
+                    fact: "Dives over 500 m on a single breath — deeper than any other bird."),
+        CreatureDef(key: "orangeroughy", name: "Orange Roughy", depthM: 1100, width: 90,
+                    fact: "Can live around 250 years, one of the longest-lived fish known."),
+        CreatureDef(key: "leatherback", name: "Leatherback Turtle", depthM: 1280, width: 150,
+                    fact: "The largest turtle; it dives past 1,200 m chasing jellyfish."),
+        CreatureDef(key: "spermwhale", name: "Sperm Whale", depthM: 2250, width: 240,
+                    fact: "The largest toothed predator; it dives ~2 km to hunt giant squid."),
+        CreatureDef(key: "elephantseal", name: "Elephant Seal", depthM: 2400, width: 180,
+                    fact: "Holds its breath up to two hours, diving 2 km after fish and squid."),
+        CreatureDef(key: "chickenfish", name: "Headless Chicken Fish", depthM: 2500, width: 95,
+                    fact: "A swimming sea cucumber nicknamed for its odd, plucked-poultry shape."),
+        CreatureDef(key: "scalyfoot", name: "Scaly-foot Snail", depthM: 2800, width: 70,
+                    fact: "Armours its foot and shell with iron — the only animal known to do so.", still: true),
+        CreatureDef(key: "beakedwhale", name: "Cuvier's Beaked Whale", depthM: 2992, width: 200,
+                    fact: "The deepest-diving mammal, recorded almost 3 km down."),
+        CreatureDef(key: "cosmicjelly", name: "Cosmic Jellyfish", depthM: 3500, width: 85,
+                    fact: "A deep-sea jelly with glowing organs, filmed over the abyssal plain."),
+        CreatureDef(key: "zombieworm", name: "Zombie Worm", depthM: 4000, width: 70,
+                    fact: "Bores into whale bones on the seafloor and eats them — it has no mouth or gut.", still: true)
     ]
 }
