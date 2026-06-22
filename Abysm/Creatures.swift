@@ -174,6 +174,10 @@ enum Creatures {
         CreatureDef(key: "cosmicjelly", name: "Cosmic Jellyfish", depthM: 3500, width: 85,
                     fact: "A deep-sea jelly with glowing organs, filmed over the abyssal plain."),
         CreatureDef(key: "zombieworm", name: "Zombie Worm", depthM: 4000, width: 70,
-                    fact: "Bores into whale bones on the seafloor and eats them — it has no mouth or gut.", still: true)
+                    fact: "Bores into whale bones on the seafloor and eats them — it has no mouth or gut.", still: true),
+        CreatureDef(key: "giantsquid", name: "Giant Squid", depthM: 650, width: 200,
+                    fact: "A real sea monster — rarely seen alive, it can grow as long as a school bus."),
+        CreatureDef(key: "squidworm", name: "Squidworm", depthM: 2900, width: 95,
+                    fact: "Half-squid, half-worm in looks — it rows through the deep on feathery paddles.")
     ]
 }
