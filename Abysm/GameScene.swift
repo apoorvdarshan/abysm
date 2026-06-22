@@ -32,10 +32,10 @@ final class GameScene: SKScene {
     private let marineSnow = Particles.marineSnow()
     private let hud = DepthHUD()
     private let joystick = Joystick()
-    private let boostBtn = HoldButton(radius: 37, glyph: ">>", fontSize: 14, color: Palette.rgb(40, 150, 168))
-    private let turboBtn = HoldButton(radius: 42, glyph: ">>>", fontSize: 13, color: Palette.rgb(225, 130, 50))
-    private let flashBtn = HoldButton(radius: 32, glyph: "*", fontSize: 19, color: Palette.rgb(232, 196, 64))
-    private let surfaceBtn = HoldButton(radius: 30, glyph: "", fontSize: 1, color: Palette.rgb(92, 196, 226))
+    private let boostBtn = HoldButton(radius: 32, glyph: ">>", fontSize: 12, color: Palette.rgb(40, 150, 168))
+    private let turboBtn = HoldButton(radius: 36, glyph: ">>>", fontSize: 12, color: Palette.rgb(225, 130, 50))
+    private let flashBtn = HoldButton(radius: 28, glyph: "*", fontSize: 16, color: Palette.rgb(232, 196, 64))
+    private let surfaceBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(92, 196, 226))
     private var flashlightOn = true
 
     /// Depth darkness + headlamp reveal: a full-screen veil that's clear through
@@ -135,7 +135,7 @@ final class GameScene: SKScene {
 
         // "Rise to the surface" button (top-left) with a pixel up-arrow glyph.
         let upArrow = SKSpriteNode(texture: TextureFactory.pixelTriangleUp(half: 7, color: .white))
-        upArrow.size = CGSize(width: 22, height: 19)
+        upArrow.size = CGSize(width: 18, height: 15)
         upArrow.zPosition = 3
         surfaceBtn.addChild(upArrow)
         cameraNode.addChild(surfaceBtn)
@@ -152,11 +152,11 @@ final class GameScene: SKScene {
     private func layout() {
         guard camera != nil else { return }
         let viewport = size
-        // Enforce a minimum so the HUD always clears the Dynamic Island / notch,
-        // even before UIKit reports the real safe-area inset.
-        let topInset = max(view?.safeAreaInsets.top ?? 0, 59)
+        // Enforce a minimum so the top row clears the camera housing. (Landscape
+        // puts the Dynamic Island on a side edge, so the top can sit fairly high.)
+        let topInset = max(view?.safeAreaInsets.top ?? 0, 40)
 
-        hud.position = CGPoint(x: 0, y: viewport.height / 2 - (topInset + 26))
+        hud.position = CGPoint(x: 0, y: viewport.height / 2 - topInset - 14)
         plankton.particlePositionRange = CGVector(dx: viewport.width + 80,
                                                   dy: viewport.height + 80)
         marineSnow.particlePositionRange = CGVector(dx: viewport.width + 120,
