@@ -56,6 +56,9 @@ enum GameConfig {
     static let breachGravity: CGFloat = 1100
     /// Low drag while airborne so the breach keeps its momentum.
     static let airDamping: CGFloat = 0.2
+    /// Cap on upward speed once airborne, so breaches stay a modest hop (not a
+    /// rocket). Arc height ≈ speed² / (2·breachGravity).
+    static let maxBreachUpSpeed: CGFloat = 560
 
     // MARK: Device scaling
 

@@ -24,7 +24,7 @@ final class GameScene: SKScene {
     // Surface backdrop — followed horizontally so the world feels endless.
     private var skyNode = SKNode()
     private var sunNode = SKNode()
-    private var godRaysNode = SKNode()
+    private var underwaterGlow = SKNode()
     private var tideLine = SKNode()
     private let cloudField = CloudField()
 
@@ -135,11 +135,11 @@ final class GameScene: SKScene {
     private func buildWorld() {
         skyNode = Environment.makeSky()
         sunNode = Environment.makeSun()
-        godRaysNode = Environment.makeGodRays()
+        underwaterGlow = Environment.makeUnderwaterGlow()
         tideLine = Environment.makeTideLine()
         addChild(skyNode)
         addChild(sunNode)
-        addChild(godRaysNode)
+        addChild(underwaterGlow)
         addChild(tideLine)
         cloudField.populate()
         addChild(cloudField)
@@ -582,8 +582,8 @@ final class GameScene: SKScene {
         let cx = cam.position.x
         skyNode.position.x = cx
         tideLine.position.x = cx
+        underwaterGlow.position.x = cx
         sunNode.position.x = cx + Environment.sunPosition.x
-        godRaysNode.position.x = cx + Environment.sunPosition.x
 
         // Keep the lamp's clear disc centered on the diver (not the screen).
         darkness.position = CGPoint(x: player.position.x - cam.position.x,

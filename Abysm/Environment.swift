@@ -38,21 +38,43 @@ enum Environment {
 
     // MARK: Tide line (sky ↔ sea separator)
 
-    /// A clean pixel "tide" — a gentle foam wave on the surface that softly
-    /// separates sky and sea, with a slow rise-and-fall swell.
+    /// A clean pixel "tide" — a foam wave on the surface that softly separates
+    /// sky and sea. Its shape animates (drifting, morphing crests) and it gently
+    /// rises and falls. Fixed at the surface; only the wave shape moves.
     static func makeTideLine() -> SKSpriteNode {
         let px = GameConfig.pixel
         let texels = max(1, Int(spanWidth / px))
-        let tex = TextureFactory.tideStrip(texelsWide: texels)
-        let line = SKSpriteNode(texture: tex, size: CGSize(width: spanWidth, height: 8 * px))
+        let frameCount = 16
+        let frames = (0..<frameCount).map { f -> SKTexture in
+            TextureFactory.tideStrip(texelsWide: texels, phase: Double(f) / Double(frameCount) * 2 * .pi)
+        }
+        let line = SKSpriteNode(texture: frames[0], size: CGSize(width: spanWidth, height: 8 * px))
         line.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         line.position = .zero
         line.zPosition = GameConfig.Z.surface
+        line.run(.repeatForever(.animate(with: frames, timePerFrame: 0.11, resize: false, restore: false)))
         let bob = SKAction.sequence([.moveBy(x: 0, y: 4, duration: 2.3),
                                      .moveBy(x: 0, y: -4, duration: 2.3)])
         bob.timingMode = .easeInEaseOut
         line.run(.repeatForever(bob))
         return line
+    }
+
+    // MARK: Underwater sunlight glow
+
+    /// A soft, wide pool of sunlight glowing through the upper water — diffuse,
+    /// centered on the diver's column (not pinned to the sun).
+    static func makeUnderwaterGlow() -> SKSpriteNode {
+        let tex = TextureFactory.radialGlow(diameter: 512,
+                                            inner: Palette.rgb(222, 250, 244, 0.5),
+                                            outer: Palette.rgb(180, 236, 228, 0))
+        let glow = SKSpriteNode(texture: tex)
+        glow.size = CGSize(width: 1500, height: 620)
+        glow.position = CGPoint(x: 0, y: -210)   // upper water, below the surface
+        glow.zPosition = GameConfig.Z.water
+        glow.blendMode = .add
+        glow.alpha = 0.45
+        return glow
     }
 
     // MARK: Water column

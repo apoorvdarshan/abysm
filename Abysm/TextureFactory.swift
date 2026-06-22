@@ -374,7 +374,7 @@ enum TextureFactory {
     /// A clean horizontal "tide" strip: a gentle low-amplitude foam wave with a
     /// thin sunlit highlight just beneath it — the soft separator between sky and
     /// sea. `texelsWide` art-pixels across; meant to span the surface.
-    static func tideStrip(texelsWide w: Int) -> SKTexture {
+    static func tideStrip(texelsWide w: Int, phase: Double = 0) -> SKTexture {
         let h = 8
         var buf = [UInt8](repeating: 0, count: w * h * 4)
         func put(_ x: Int, _ y: Int, _ r: Double, _ g: Double, _ b: Double, _ a: Double) {
@@ -383,7 +383,9 @@ enum TextureFactory {
             buf[i] = UInt8(r * a); buf[i+1] = UInt8(g * a); buf[i+2] = UInt8(b * a); buf[i+3] = UInt8(a * 255)
         }
         for x in 0..<w {
-            let crest = 3 + Int((sin(Double(x) * 0.10) * 2).rounded())   // gentle long wave
+            // Two summed waves so the crest shape morphs as `phase` advances.
+            let wave = sin(Double(x) * 0.10 + phase) * 1.4 + sin(Double(x) * 0.043 - phase * 0.6) * 1.0
+            let crest = 3 + Int(wave.rounded())
             put(x, crest,     236, 252, 248, 1.0)   // foam crest
             put(x, crest + 1, 236, 252, 248, 0.9)   // foam
             put(x, crest + 2, 168, 228, 220, 0.7)   // sunlit lip just under the surface

@@ -106,6 +106,9 @@ final class Player: SKNode {
             // Breach: ballistic arc — gravity pulls back, little drag, no swimming.
             body.linearDamping = GameConfig.airDamping
             body.applyForce(CGVector(dx: 0, dy: -GameConfig.breachGravity * body.mass))
+            if body.velocity.dy > GameConfig.maxBreachUpSpeed {   // keep the hop modest
+                body.velocity.dy = GameConfig.maxBreachUpSpeed
+            }
         } else {
             body.linearDamping = GameConfig.playerLinearDamping
             if mag > 0.05 {
