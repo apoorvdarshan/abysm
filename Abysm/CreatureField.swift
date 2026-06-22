@@ -51,6 +51,23 @@ final class CreatureField: SKNode {
             sprite.size = CGSize(width: c.width * cs, height: c.width * aspect * cs)
 
             let container = SKNode()
+            // Bioluminescence: a soft pulsing glow behind the real glowers.
+            if Creatures.glowing.contains(c.key) {
+                let glow = SKSpriteNode(texture: TextureFactory.radialGlow(
+                    diameter: 128,
+                    inner: Palette.rgb(120, 224, 255, 0.55),
+                    outer: Palette.rgb(120, 224, 255, 0)))
+                let g = c.width * cs * 1.8
+                glow.size = CGSize(width: g, height: g)
+                glow.blendMode = .add
+                glow.zPosition = -0.5
+                glow.alpha = 0.35
+                let pulse = SKAction.sequence([.fadeAlpha(to: 0.6, duration: 1.3),
+                                               .fadeAlpha(to: 0.28, duration: 1.3)])
+                pulse.timingMode = .easeInEaseOut
+                glow.run(.repeatForever(pulse))
+                container.addChild(glow)
+            }
             container.addChild(sprite)
 
             let wrapper = SKNode()
