@@ -36,6 +36,22 @@ enum Environment {
         return sky
     }
 
+    // MARK: Sunlit surface glow
+
+    /// A bright sunlit band just under the surface — softens the horizon line and
+    /// gives the shallows a warm glow. Top sits on the surface (y = 0).
+    static func makeSurfaceGlow() -> SKSpriteNode {
+        let tex = TextureFactory.verticalGradient(size: CGSize(width: 64, height: 256), stops: [
+            (Palette.rgb(204, 248, 240, 0.55), 0.0),
+            (Palette.rgb(150, 226, 216, 0.0), 1.0),
+        ])
+        let glow = SKSpriteNode(texture: tex, size: CGSize(width: spanWidth, height: 360))
+        glow.anchorPoint = CGPoint(x: 0.5, y: 1)   // top edge on the surface
+        glow.position = .zero
+        glow.zPosition = GameConfig.Z.surface
+        return glow
+    }
+
     // MARK: Water column
 
     static func makeWater() -> SKSpriteNode {

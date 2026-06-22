@@ -24,6 +24,9 @@ final class GameScene: SKScene {
     // Surface backdrop — followed horizontally so the world feels endless.
     private var skyNode = SKNode()
     private var sunNode = SKNode()
+    private var godRaysNode = SKNode()
+    private var surfaceGlow = SKNode()
+    private let cloudField = CloudField()
 
     // Camera & screen-space overlays (children of the camera)
     private let cameraNode = SKCameraNode()
@@ -132,8 +135,14 @@ final class GameScene: SKScene {
     private func buildWorld() {
         skyNode = Environment.makeSky()
         sunNode = Environment.makeSun()
+        surfaceGlow = Environment.makeSurfaceGlow()
+        godRaysNode = Environment.makeGodRays()
         addChild(skyNode)
         addChild(sunNode)
+        addChild(surfaceGlow)
+        addChild(godRaysNode)
+        cloudField.populate()
+        addChild(cloudField)
         scenicField.populate()
         addChild(scenicField)
         schoolField.populate()
@@ -490,6 +499,7 @@ final class GameScene: SKScene {
         landmarkField.update(cameraX: cameraNode.position.x)
         scenicField.update(cameraX: cameraNode.position.x)
         schoolField.update(dt: dt, cameraX: cameraNode.position.x)
+        cloudField.update(dt: dt, cameraX: cameraNode.position.x)
         // Fade in the nearest creature's in-world fact bubble (no screen overlay).
         creatureField.updateInfo(near: player.position, within: 230)
 
@@ -571,7 +581,9 @@ final class GameScene: SKScene {
         // forever never reveals its edges.
         let cx = cam.position.x
         skyNode.position.x = cx
+        surfaceGlow.position.x = cx
         sunNode.position.x = cx + Environment.sunPosition.x
+        godRaysNode.position.x = cx + Environment.sunPosition.x
 
         // Keep the lamp's clear disc centered on the diver (not the screen).
         darkness.position = CGPoint(x: player.position.x - cam.position.x,

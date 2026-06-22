@@ -70,6 +70,42 @@ final class ScenicField: SKNode {
     }
 }
 
+final class CloudField: SKNode {
+
+    private var clouds: [(node: SKNode, vx: CGFloat)] = []
+    private let wrapHalf: CGFloat = 1150
+
+    func populate() {
+        let keys = ["cloud_a", "cloud_b"]
+        for i in 0..<8 {
+            let key = keys[i % keys.count]
+            guard UIImage(named: key) != nil else { continue }
+            let tex = SKTexture(imageNamed: key); tex.filteringMode = .nearest
+            let aspect = tex.size().width > 0 ? tex.size().height / tex.size().width : 1
+            let w = CGFloat.random(in: 190...320)
+            let sprite = SKSpriteNode(texture: tex)
+            sprite.size = CGSize(width: w, height: w * aspect)
+            sprite.alpha = CGFloat.random(in: 0.78...0.96)
+            let node = SKNode()
+            node.addChild(sprite)
+            node.position = CGPoint(x: CGFloat.random(in: -wrapHalf...wrapHalf),
+                                    y: CGFloat.random(in: 70...165))
+            node.zPosition = GameConfig.Z.sky + 5     // in front of the sky gradient
+            addChild(node)
+            clouds.append((node, CGFloat.random(in: 4...11) * (Bool.random() ? 1 : -1)))
+        }
+    }
+
+    func update(dt: CGFloat, cameraX: CGFloat) {
+        for c in clouds {
+            c.node.position.x += c.vx * dt
+            let rel = c.node.position.x - cameraX
+            if rel > wrapHalf { c.node.position.x -= 2 * wrapHalf }
+            else if rel < -wrapHalf { c.node.position.x += 2 * wrapHalf }
+        }
+    }
+}
+
 final class SchoolField: SKNode {
 
     private struct Fish {
