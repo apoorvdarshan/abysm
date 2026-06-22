@@ -38,15 +38,19 @@ final class LandmarkField: SKNode {
                     note: "The bottom of the ocean. You made it all the way down.",
                     image: "landmark_submersible", width: 150),
 
-        // Record markers (text only — no art).
+        // Record markers (with pixel art).
         LandmarkDef(name: "DEEPEST FREE-DIVE", depthM: 253,
-                    note: "Herbert Nitsch, 2012 — 253 m on a single breath.", image: nil, width: 0),
+                    note: "Herbert Nitsch, 2012 — 253 m on a single breath.",
+                    image: "landmark_freediver", width: 85),
         LandmarkDef(name: "DEEPEST SUBMARINE DIVE", depthM: 1020,
-                    note: "The K-278 Komsomolets reached 1,020 m in 1984.", image: nil, width: 0),
+                    note: "The K-278 Komsomolets reached 1,020 m in 1984.",
+                    image: "landmark_submarine", width: 200),
         LandmarkDef(name: "AVERAGE OCEAN DEPTH", depthM: 3682,
-                    note: "The whole ocean averages about 3,682 m deep.", image: nil, width: 0),
+                    note: "The whole ocean averages about 3,682 m deep.",
+                    image: "landmark_buoy", width: 80),
         LandmarkDef(name: "DEEPEST FISH EVER FILMED", depthM: 8336,
-                    note: "A snailfish at 8,336 m — near the limit life can survive.", image: nil, width: 0)
+                    note: "A snailfish at 8,336 m — near the limit life can survive.",
+                    image: "creature_snailfish", width: 95)
     ]
 
     private var nodes: [SKNode] = []

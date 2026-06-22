@@ -46,7 +46,6 @@ final class GameScene: SKScene {
     private let bannerPlate = SKSpriteNode()
     private let bannerTitle = SKLabelNode(fontNamed: "PressStart2P-Regular")
     private let bannerBody = SKLabelNode(fontNamed: "PressStart2P-Regular")
-    private var lastZoneName = ""
     private var lastDepthMeters: CGFloat = 0
     private var shownTrivia: Set<Int> = []
 
@@ -425,21 +424,13 @@ final class GameScene: SKScene {
         darkness.alpha = dark
         player.setLampIntensity(dark)
 
-        // Banners: announce a new zone, else surface a "deeper than X" fact as
-        // you first pass its depth (at most one banner per frame).
-        var shownBanner = false
-        if zone != lastZoneName {
-            lastZoneName = zone
-            showBanner(title: zone, body: zoneBlurb(zone), accent: Palette.rgb(150, 236, 232))
-            shownBanner = true
-        }
-        if !shownBanner {
-            for (i, t) in GameScene.trivia.enumerated()
-            where !shownTrivia.contains(i) && lastDepthMeters < t.depth && meters >= t.depth {
-                shownTrivia.insert(i)
-                showBanner(title: "", body: t.text, accent: Palette.rgb(150, 210, 240))
-                break
-            }
+        // Surface a "deeper than X" fact the first time you pass its depth.
+        // (Zone changes aren't banner'd — the HUD tile already shows the zone.)
+        for (i, t) in GameScene.trivia.enumerated()
+        where !shownTrivia.contains(i) && lastDepthMeters < t.depth && meters >= t.depth {
+            shownTrivia.insert(i)
+            showBanner(title: "", body: t.text, accent: Palette.rgb(150, 210, 240))
+            break
         }
         lastDepthMeters = meters
     }
