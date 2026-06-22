@@ -21,12 +21,6 @@ struct CreatureDef {
 
 enum Creatures {
 
-    /// Real bioluminescent species — given a soft pulsing glow in the dark.
-    static let glowing: Set<String> = [
-        "anglerfish", "lanternfish", "fireflysquid", "hatchetfish", "dragonfish",
-        "viperfish", "atollajelly", "cosmicjelly", "vampiresquid", "cookiecutter", "gulpereel",
-    ]
-
     static let all: [CreatureDef] = [
         // ── Sunlight Zone (0–200 m) ──
         CreatureDef(key: "salmon", name: "Atlantic Salmon", depthM: 3, width: 95,
