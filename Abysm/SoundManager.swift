@@ -26,6 +26,7 @@ final class AudioManager {
     private var waves: AVAudioPlayer?
     private var rumble: AVAudioPlayer?
     private var bubbles: AVAudioPlayer?
+    private var click: AVAudioPlayer?
     private var started = false
     private(set) var muted = false
 
@@ -42,6 +43,15 @@ final class AudioManager {
         [ambient, waves, rumble, bubbles].forEach { $0?.numberOfLoops = -1 }
         ambient?.volume = 0.5; waves?.volume = 0.5; rumble?.volume = 0; bubbles?.volume = 0
         if !muted { [ambient, waves, rumble, bubbles].forEach { $0?.play() } }
+
+        click = make("click"); click?.volume = 0.7
+    }
+
+    /// A one-shot UI click (e.g. toggling the lamp).
+    func playClick() {
+        guard !muted, let c = click else { return }
+        c.currentTime = 0
+        c.play()
     }
 
     /// Crossfade the surface/deep layers by depth and gate the boost bubbles.

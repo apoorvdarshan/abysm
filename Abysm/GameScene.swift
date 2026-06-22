@@ -262,6 +262,7 @@ final class GameScene: SKScene {
         player.setFlashlight(flashlightOn)
         flashBtn.setPressed(flashlightOn)
         darkness.texture = flashlightOn ? veilOn : veilOff
+        AudioManager.shared.playClick()
     }
 
     private func beginAscent() {
