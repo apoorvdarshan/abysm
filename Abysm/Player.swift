@@ -20,7 +20,7 @@ final class Player: SKNode {
     /// wide reveal of the dark deep is handled by the scene's darkness veil.
     private let lampGlow = SKSpriteNode(texture: TextureFactory.radialGlow(
         diameter: 256,
-        inner: Palette.rgb(255, 243, 198, 0.6),
+        inner: Palette.rgb(255, 243, 198, 0.5),
         outer: Palette.rgb(255, 243, 198, 0)))
 
     private var thrust: CGVector = .zero
@@ -40,8 +40,8 @@ final class Player: SKNode {
 
         // Warm lamp glow (additive) — sits just ahead of the diver and brightens
         // the water right around the swimmer. Behind the body so it haloes it.
-        lampGlow.size = CGSize(width: 330, height: 330)
-        lampGlow.position = CGPoint(x: 34, y: -2)
+        lampGlow.size = CGSize(width: 120, height: 120)   // small halo only — the blue reveal does the seeing
+        lampGlow.position = CGPoint(x: 18, y: -2)
         lampGlow.blendMode = .add
         lampGlow.zPosition = -0.5
         lampGlow.alpha = 0          // grows with depth (set by the scene)
