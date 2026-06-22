@@ -30,7 +30,6 @@ final class GameScene: SKScene {
     private let joystick = Joystick()
     private let boostBtn = HoldButton(radius: 37, glyph: ">>", fontSize: 14, color: Palette.rgb(40, 150, 168))
     private let turboBtn = HoldButton(radius: 42, glyph: ">>>", fontSize: 13, color: Palette.rgb(225, 130, 50))
-    private let hyperBtn = HoldButton(radius: 46, glyph: ">>>>", fontSize: 11, color: Palette.rgb(232, 64, 56))
     private let flashBtn = HoldButton(radius: 32, glyph: "*", fontSize: 19, color: Palette.rgb(232, 196, 64))
     private let surfaceBtn = HoldButton(radius: 30, glyph: "", fontSize: 1, color: Palette.rgb(92, 196, 226))
     private var flashlightOn = true
@@ -50,7 +49,6 @@ final class GameScene: SKScene {
     private var stickTouch: UITouch?
     private var boostTouch: UITouch?
     private var turboTouch: UITouch?
-    private var hyperTouch: UITouch?
     private var surfaceTouch: UITouch?
 
     // MARK: Scene setup
@@ -125,7 +123,6 @@ final class GameScene: SKScene {
         cameraNode.addChild(joystick)
         cameraNode.addChild(boostBtn)
         cameraNode.addChild(turboBtn)
-        cameraNode.addChild(hyperBtn)
         cameraNode.addChild(flashBtn)
         flashBtn.setPressed(flashlightOn)   // reflect the default-on state
 
@@ -165,12 +162,10 @@ final class GameScene: SKScene {
             x: -viewport.width / 2 + safeLeft + joystick.baseRadius + 28,
             y: -viewport.height / 2 + safeBottom + joystick.baseRadius + 24)
 
-        // Speed buttons: bottom-right, in increasing speed toward the edge
-        // (boost · turbo · hyper), mirroring the joystick.
+        // Speed buttons: bottom-right (turbo rightmost), mirroring the joystick.
         let safeRight = view?.safeAreaInsets.right ?? 0
-        let by = -viewport.height / 2 + safeBottom + hyperBtn.radius + 22
-        hyperBtn.position = CGPoint(x: viewport.width / 2 - safeRight - hyperBtn.radius - 22, y: by)
-        turboBtn.position = CGPoint(x: hyperBtn.position.x - hyperBtn.radius - turboBtn.radius - 16, y: by)
+        let by = -viewport.height / 2 + safeBottom + turboBtn.radius + 22
+        turboBtn.position = CGPoint(x: viewport.width / 2 - safeRight - turboBtn.radius - 22, y: by)
         boostBtn.position = CGPoint(x: turboBtn.position.x - turboBtn.radius - boostBtn.radius - 16, y: by)
 
         // Flashlight toggle: top-right.
@@ -205,7 +200,6 @@ final class GameScene: SKScene {
                 continue
             }
             if stickTouch == nil, joystick.engage(at: p) { stickTouch = t; ascending = false; continue }
-            if hyperTouch == nil, hyperBtn.hit(p) { hyperTouch = t; hyperBtn.setPressed(true); continue }
             if turboTouch == nil, turboBtn.hit(p) { turboTouch = t; turboBtn.setPressed(true); continue }
             if boostTouch == nil, boostBtn.hit(p) { boostTouch = t; boostBtn.setPressed(true); continue }
         }
@@ -225,7 +219,6 @@ final class GameScene: SKScene {
             if t == stickTouch { joystick.release(); stickTouch = nil }
             if t == boostTouch { boostBtn.setPressed(false); boostTouch = nil }
             if t == turboTouch { turboBtn.setPressed(false); turboTouch = nil }
-            if t == hyperTouch { hyperBtn.setPressed(false); hyperTouch = nil }
             if t == surfaceTouch { surfaceBtn.setPressed(false); surfaceTouch = nil }
         }
     }
@@ -257,7 +250,7 @@ final class GameScene: SKScene {
             player.setThrust(.zero)
         } else {
             player.setThrust(joystick.vector)
-            player.boostFactor = hyperBtn.pressed ? 16.0 : (turboBtn.pressed ? 8.0 : (boostBtn.pressed ? 2.4 : 1.0))
+            player.boostFactor = turboBtn.pressed ? 16.0 : (boostBtn.pressed ? 6.0 : 1.0)
         }
         player.update(dt)
 
