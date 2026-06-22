@@ -40,30 +40,6 @@ final class GameScene: SKScene {
     private let surfaceBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(92, 196, 226))
     private var flashlightOn = true
 
-    // Zone-entry / "did you know" banner (a brief centered toast).
-    private let banner = SKNode()
-    private let bannerBorder = SKSpriteNode()
-    private let bannerPlate = SKSpriteNode()
-    private let bannerTitle = SKLabelNode(fontNamed: "PressStart2P-Regular")
-    private let bannerBody = SKLabelNode(fontNamed: "PressStart2P-Regular")
-    private var lastDepthMeters: CGFloat = 0
-    private var shownTrivia: Set<Int> = []
-
-    /// "You are now deeper than X" comparisons, shown once as you pass each depth.
-    private static let trivia: [(depth: CGFloat, text: String)] = [
-        (30,  "Deeper than a blue whale is long (30 m) — the largest animal ever"),
-        (93,  "Deeper than the Statue of Liberty is tall (93 m)"),
-        (96,  "Deeper than Big Ben's Elizabeth Tower (96 m)"),
-        (111, "Deeper than the Saturn V rocket is tall (111 m)"),
-        (147, "Deeper than the Great Pyramid of Giza (147 m)"),
-        (169, "Deeper than the Washington Monument (169 m)"),
-        (227, "Deeper than a Golden Gate Bridge tower (227 m)"),
-        (330, "Deeper than the Eiffel Tower is tall (330 m)"),
-        (443, "Deeper than the Empire State Building (443 m)"),
-        (452, "Deeper than the Petronas Towers (452 m)"),
-        (828, "Deeper than the Burj Khalifa (828 m) — the tallest building"),
-    ]
-
     /// Depth darkness + headlamp reveal: a full-screen veil that's clear through
     /// a soft disc around the diver (wide when the lamp is on, tiny when off)
     /// and dark beyond. Its opacity fades in with depth.
@@ -175,49 +151,6 @@ final class GameScene: SKScene {
         upArrow.zPosition = 3
         surfaceBtn.addChild(upArrow)
         cameraNode.addChild(surfaceBtn)
-
-        // Zone / trivia banner (centered toast, hidden until shown).
-        bannerBorder.zPosition = 0
-        bannerPlate.color = Palette.rgb(9, 20, 44); bannerPlate.alpha = 0.92; bannerPlate.zPosition = 1
-        for l in [bannerTitle, bannerBody] {
-            l.horizontalAlignmentMode = .center; l.verticalAlignmentMode = .top; l.zPosition = 2
-        }
-        bannerTitle.fontSize = 13
-        bannerBody.fontSize = 8
-        bannerBody.numberOfLines = 0
-        bannerBody.lineBreakMode = .byWordWrapping
-        banner.addChild(bannerBorder); banner.addChild(bannerPlate)
-        banner.addChild(bannerTitle); banner.addChild(bannerBody)
-        banner.zPosition = GameConfig.Z.hud + 1
-        banner.alpha = 0
-        cameraNode.addChild(banner)
-    }
-
-    /// Show a brief centered banner (zone entry or a depth fact), then fade it out.
-    private func showBanner(title: String, body: String, accent: UIColor) {
-        let w: CGFloat = 380, pad: CGFloat = 13
-        bannerTitle.text = title
-        bannerBody.text = body
-        bannerBody.preferredMaxLayoutWidth = w - 30
-        bannerTitle.fontColor = accent
-        bannerBody.fontColor = Palette.rgb(214, 226, 236)
-
-        let th = title.isEmpty ? 0 : bannerTitle.frame.height
-        let gap: CGFloat = title.isEmpty ? 0 : 7
-        let bh = bannerBody.frame.height
-        let totalH = pad + th + gap + bh + pad
-        bannerTitle.position = CGPoint(x: 0, y: totalH / 2 - pad)
-        bannerBody.position = CGPoint(x: 0, y: totalH / 2 - pad - th - gap)
-        bannerPlate.size = CGSize(width: w, height: totalH)
-        bannerBorder.color = accent
-        bannerBorder.alpha = 0.55
-        bannerBorder.size = CGSize(width: w + 6, height: totalH + 6)
-
-        banner.removeAllActions()
-        banner.alpha = 0
-        banner.run(.sequence([.fadeAlpha(to: 1, duration: 0.4),
-                              .wait(forDuration: 2.6),
-                              .fadeAlpha(to: 0, duration: 0.8)]))
     }
 
     private func buildPlayer() {
@@ -236,7 +169,6 @@ final class GameScene: SKScene {
         let topInset = max(view?.safeAreaInsets.top ?? 0, 40)
 
         hud.position = CGPoint(x: 0, y: viewport.height / 2 - topInset - 14)
-        banner.position = CGPoint(x: 0, y: viewport.height * 0.16)
         plankton.particlePositionRange = CGVector(dx: viewport.width + 80,
                                                   dy: viewport.height + 80)
         marineSnow.particlePositionRange = CGVector(dx: viewport.width + 120,
@@ -423,16 +355,6 @@ final class GameScene: SKScene {
         let dark = smoothstep(150, 950, meters)
         darkness.alpha = dark
         player.setLampIntensity(dark)
-
-        // Surface a "deeper than X" fact the first time you pass its depth.
-        // (Zone changes aren't banner'd — the HUD tile already shows the zone.)
-        for (i, t) in GameScene.trivia.enumerated()
-        where !shownTrivia.contains(i) && lastDepthMeters < t.depth && meters >= t.depth {
-            shownTrivia.insert(i)
-            showBanner(title: "", body: t.text, accent: Palette.rgb(150, 210, 240))
-            break
-        }
-        lastDepthMeters = meters
     }
 
     /// Smoothly follow the swimmer (after physics has settled), clamped so the
