@@ -398,33 +398,6 @@ enum TextureFactory {
         return t
     }
 
-    /// A sediment seabed strip for the trench floor — a bumpy top edge over
-    /// layered grey-tan silt. `texelsWide` art-pixels across.
-    static func sedimentStrip(texelsWide w: Int) -> SKTexture {
-        let h = 18
-        var buf = [UInt8](repeating: 0, count: w * h * 4)
-        func put(_ x: Int, _ y: Int, _ r: Double, _ g: Double, _ b: Double) {
-            guard y >= 0, y < h else { return }
-            let i = (y * w + x) * 4
-            buf[i] = UInt8(r); buf[i+1] = UInt8(g); buf[i+2] = UInt8(b); buf[i+3] = 255
-        }
-        for x in 0..<w {
-            let top = 4 + Int((sin(Double(x) * 0.07) * 1.6 + sin(Double(x) * 0.23) * 1.0).rounded())
-            for y in top..<h {
-                let d = y - top
-                if d < 2 { put(x, y, 122, 114, 98) }        // lit sediment lip
-                else if d < 5 { put(x, y, 96, 90, 76) }
-                else { put(x, y, 72, 68, 58) }              // deeper silt
-            }
-        }
-        let space = CGColorSpaceCreateDeviceRGB()
-        let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8,
-                            bytesPerRow: w * 4, space: space,
-                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-        let t = SKTexture(cgImage: ctx.makeImage()!); t.filteringMode = .nearest
-        return t
-    }
-
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)
