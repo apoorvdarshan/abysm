@@ -2,9 +2,10 @@
 //  TitleScene.swift
 //  Abysm
 //
-//  The start screen: the ABYSM title over a sunlit-surface gradient, with
-//  CONTINUE (resume the saved dive), NEW GAME, and a SOUND toggle. Works by
-//  touch or game controller.
+//  The start screen: the ABYSM title over a sunlit-surface scene with a little
+//  pixel-art reef (coral, kelp, a rock spire), the diver drifting, and fish.
+//  CONTINUE (resume the saved dive), NEW GAME, and a SOUND toggle. Touch or
+//  game controller.
 //
 
 import UIKit
@@ -16,7 +17,19 @@ final class TitleScene: SKScene {
     private let bg = SKSpriteNode()
     private let sun = SKSpriteNode(texture: TextureFactory.pixelSun(radius: 11))
     private let title = SKLabelNode(fontNamed: "PressStart2P-Regular")
+    private let titleShadow = SKLabelNode(fontNamed: "PressStart2P-Regular")
     private let tagline = SKLabelNode(fontNamed: "PressStart2P-Regular")
+    private let taglineShadow = SKLabelNode(fontNamed: "PressStart2P-Regular")
+
+    // Reef diorama.
+    private let coral = SKSpriteNode()
+    private let kelpL = SKSpriteNode()
+    private let kelpR = SKSpriteNode()
+    private let pillar = SKSpriteNode()
+    private let diver = SKSpriteNode()
+    private let fish1 = SKSpriteNode()
+    private let fish2 = SKSpriteNode()
+
     private let continueBtn = SKNode()
     private let newGameBtn = SKNode()
     private let soundBtn = SKNode()
@@ -42,14 +55,17 @@ final class TitleScene: SKScene {
         bg.zPosition = -10; addChild(bg)
         sun.zPosition = -8; addChild(sun)
 
-        title.text = "ABYSM"; title.fontSize = 54; title.fontColor = .white
-        title.verticalAlignmentMode = .center; title.horizontalAlignmentMode = .center
-        title.zPosition = 5; addChild(title)
+        buildReef()
 
-        tagline.text = "A DIVE TO THE BOTTOM OF THE SEA"; tagline.fontSize = 9
-        tagline.fontColor = Palette.rgb(180, 238, 236)
-        tagline.verticalAlignmentMode = .center; tagline.horizontalAlignmentMode = .center
-        tagline.zPosition = 5; addChild(tagline)
+        // Title with a soft shadow.
+        configureLabel(titleShadow, size: 54, color: Palette.rgb(8, 28, 56), z: 4)
+        configureLabel(title, size: 54, color: .white, z: 5)
+        title.text = "ABYSM"; titleShadow.text = "ABYSM"
+
+        configureLabel(taglineShadow, size: 11, color: Palette.rgb(6, 22, 44), z: 4)
+        configureLabel(tagline, size: 11, color: .white, z: 5)
+        tagline.text = "A DIVE TO THE BOTTOM OF THE SEA"
+        taglineShadow.text = tagline.text
 
         buildButton(continueBtn, "CONTINUE")
         buildButton(newGameBtn, "NEW GAME")
@@ -72,6 +88,50 @@ final class TitleScene: SKScene {
         if let o = controllerObserver { NotificationCenter.default.removeObserver(o) }
     }
 
+    private func configureLabel(_ l: SKLabelNode, size: CGFloat, color: UIColor, z: CGFloat) {
+        l.fontSize = size; l.fontColor = color
+        l.verticalAlignmentMode = .center; l.horizontalAlignmentMode = .center
+        l.zPosition = z; addChild(l)
+    }
+
+    // MARK: Reef diorama
+
+    private func buildReef() {
+        deco(diver, "diver0", width: 132, z: -3, anchorBottom: false)
+        deco(coral, "bg_coral", width: 150, z: -4, anchorBottom: true)
+        deco(kelpL, "bg_kelp", width: 82, z: -3, anchorBottom: true)
+        deco(kelpR, "bg_kelp", width: 68, z: -6, anchorBottom: true); kelpR.xScale = -1
+        deco(pillar, "bg_pillar", width: 132, z: -6, anchorBottom: true)
+        deco(fish1, "school_fish", width: 48, z: -4, anchorBottom: false)
+        deco(fish2, "school_fish", width: 36, z: -5, anchorBottom: false)
+
+        // Gentle life.
+        let bob = SKAction.sequence([move(0, 8, 1.7), move(0, -8, 1.7)])
+        diver.run(.repeatForever(bob))
+        diver.run(.repeatForever(.sequence([rot(0.06, 2.3), rot(-0.06, 2.3)])))
+        kelpL.run(.repeatForever(.sequence([rot(0.10, 2.1), rot(-0.10, 2.1)])))
+        kelpR.run(.repeatForever(.sequence([rot(-0.10, 2.4), rot(0.10, 2.4)])))
+        fish1.run(.repeatForever(.sequence([move(150, 12, 5), move(-150, -12, 5)])))
+        fish2.run(.repeatForever(.sequence([move(-120, -8, 6), move(120, 8, 6)])))
+    }
+
+    private func deco(_ node: SKSpriteNode, _ name: String, width: CGFloat, z: CGFloat, anchorBottom: Bool) {
+        let t = SKTexture(imageNamed: name); t.filteringMode = .nearest
+        node.texture = t
+        let aspect = t.size().width > 0 ? t.size().height / t.size().width : 1
+        node.size = CGSize(width: width, height: width * aspect)
+        if anchorBottom { node.anchorPoint = CGPoint(x: 0.5, y: 0) }
+        node.zPosition = z
+        addChild(node)
+    }
+
+    private func move(_ x: CGFloat, _ y: CGFloat, _ d: TimeInterval) -> SKAction {
+        let a = SKAction.moveBy(x: x, y: y, duration: d); a.timingMode = .easeInEaseOut; return a
+    }
+    private func rot(_ a: CGFloat, _ d: TimeInterval) -> SKAction {
+        let r = SKAction.rotate(toAngle: a, duration: d); r.timingMode = .easeInEaseOut; return r
+    }
+
     @discardableResult
     private func buildButton(_ node: SKNode, _ text: String) -> SKLabelNode {
         let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: btnW + 6, height: btnH + 6))
@@ -82,7 +142,7 @@ final class TitleScene: SKScene {
         label.text = text; label.fontSize = 14; label.fontColor = .white
         label.verticalAlignmentMode = .center; label.horizontalAlignmentMode = .center; label.zPosition = 2
         node.addChild(border); node.addChild(plate); node.addChild(label)
-        node.zPosition = 5
+        node.zPosition = 6
         addChild(node)
         return label
     }
@@ -95,13 +155,25 @@ final class TitleScene: SKScene {
                                                   pixel: GameConfig.pixel, stops: titleStops)
         bg.size = CGSize(width: w, height: h)
         sun.size = CGSize(width: 150, height: 150)
-        sun.position = CGPoint(x: w * 0.30, y: h * 0.28)
+        sun.position = CGPoint(x: w * 0.31, y: h * 0.30)
 
-        title.position = CGPoint(x: 0, y: h * 0.24)
-        tagline.position = CGPoint(x: 0, y: h * 0.24 - 46)
+        title.position = CGPoint(x: 0, y: h * 0.26)
+        titleShadow.position = CGPoint(x: 3, y: h * 0.26 - 3)
+        tagline.position = CGPoint(x: 0, y: h * 0.26 - 48)
+        taglineShadow.position = CGPoint(x: 2, y: h * 0.26 - 48 - 2)
+
+        // Reef along the bottom edges (clear of the centered buttons).
+        let floor = -h / 2 - 6
+        coral.position  = CGPoint(x: -w * 0.40, y: floor)
+        kelpL.position  = CGPoint(x: -w * 0.29, y: floor)
+        pillar.position = CGPoint(x:  w * 0.43, y: floor)
+        kelpR.position  = CGPoint(x:  w * 0.33, y: floor)
+        diver.position  = CGPoint(x: -w * 0.31, y: h * 0.02)
+        fish1.position  = CGPoint(x:  w * 0.20, y: -h * 0.02)
+        fish2.position  = CGPoint(x:  w * 0.28, y: -h * 0.14)
 
         let gap = btnH + 18
-        var y = -h * 0.04
+        var y = -h * 0.06
         if !continueBtn.isHidden { continueBtn.position = CGPoint(x: 0, y: y); y -= gap }
         newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
         soundBtn.position = CGPoint(x: 0, y: y)
