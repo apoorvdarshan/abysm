@@ -60,6 +60,51 @@ enum Environment {
         return line
     }
 
+    // MARK: Day / night
+
+    /// A dark overlay over the sky region; its opacity is driven by "nightness".
+    static func makeNightOverlay() -> SKSpriteNode {
+        let h = GameConfig.skyTop + 400
+        let o = SKSpriteNode(color: Palette.rgb(6, 14, 34), size: CGSize(width: spanWidth, height: h))
+        o.anchorPoint = CGPoint(x: 0.5, y: 0)   // bottom on the surface, covering the sky
+        o.position = .zero
+        o.zPosition = GameConfig.Z.sunGlow - 2
+        o.alpha = 0
+        return o
+    }
+
+    /// A field of twinkling stars in the sky (node alpha = nightness).
+    static func makeStars() -> SKNode {
+        let node = SKNode()
+        node.zPosition = GameConfig.Z.sunGlow - 1
+        node.alpha = 0
+        let tex = TextureFactory.pixelDot(2, color: .white)
+        for _ in 0..<70 {
+            let s = SKSpriteNode(texture: tex)
+            let sz = [4, 4, 6, 6, 8].randomElement()!
+            s.size = CGSize(width: CGFloat(sz), height: CGFloat(sz))
+            s.position = CGPoint(x: CGFloat.random(in: -spanWidth / 2...spanWidth / 2),
+                                 y: CGFloat.random(in: 40...440))
+            s.alpha = CGFloat.random(in: 0.5...1.0)
+            let twinkle = SKAction.sequence([.fadeAlpha(to: 0.3, duration: .random(in: 0.8...1.8)),
+                                             .fadeAlpha(to: 1.0, duration: .random(in: 0.8...1.8))])
+            s.run(.repeatForever(twinkle))
+            node.addChild(s)
+        }
+        return node
+    }
+
+    /// A pale moon that fades in at night (positioned like the sun).
+    static func makeMoon() -> SKSpriteNode {
+        let r = 9
+        let moon = SKSpriteNode(texture: TextureFactory.pixelCircle(radius: r, color: Palette.rgb(226, 230, 240)))
+        let d = CGFloat(r * 2 + 2) * GameConfig.pixel
+        moon.size = CGSize(width: d, height: d)
+        moon.zPosition = GameConfig.Z.sunGlow + 1
+        moon.alpha = 0
+        return moon
+    }
+
     // MARK: Trench floor
 
     /// The sediment seabed at the very bottom of the trench (Challenger Deep).

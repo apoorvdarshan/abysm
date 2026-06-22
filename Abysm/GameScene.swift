@@ -27,6 +27,11 @@ final class GameScene: SKScene {
     private var underwaterGlow = SKNode()
     private var tideLine = SKNode()
     private var trenchFloor = SKNode()
+    private var nightOverlay = SKNode()
+    private var stars = SKNode()
+    private var moon = SKNode()
+    private var dayClock: CGFloat = 0
+    private var nightness: CGFloat = 0
     private let cloudField = CloudField()
 
     // Camera & screen-space overlays (children of the camera)
@@ -139,11 +144,17 @@ final class GameScene: SKScene {
         underwaterGlow = Environment.makeUnderwaterGlow()
         tideLine = Environment.makeTideLine()
         trenchFloor = Environment.makeTrenchFloor()
+        nightOverlay = Environment.makeNightOverlay()
+        stars = Environment.makeStars()
+        moon = Environment.makeMoon()
         addChild(skyNode)
         addChild(sunNode)
         addChild(underwaterGlow)
         addChild(tideLine)
         addChild(trenchFloor)
+        addChild(nightOverlay)
+        addChild(stars)
+        addChild(moon)
         cloudField.populate()
         addChild(cloudField)
         scenicField.populate()
@@ -438,6 +449,14 @@ final class GameScene: SKScene {
         }
         lastUpdateTime = currentTime
 
+        // Day/night: a slow cycle (~4 min) over the surface sky.
+        dayClock += dt
+        nightness = max(0, min(1, sin(dayClock * 0.025 - .pi / 2) * 0.5 + 0.5))
+        nightOverlay.alpha = nightness * 0.82
+        stars.alpha = nightness
+        moon.alpha = nightness
+        sunNode.alpha = 1 - nightness * 0.9
+
         // Gather input: on-screen joystick/buttons plus an optional game controller.
         var moveVec = joystick.vector
         var cBoost = false, cTurbo = false
@@ -545,9 +564,13 @@ final class GameScene: SKScene {
 
         hud.update(depthMeters: meters, zone: zone)
 
-        // Water color is driven directly by depth, progressing through the
-        // ocean zones from bright surface to the black trench.
-        waterBackground.color = depthColor(meters)
+        // Water color is driven directly by depth; near the surface it also
+        // darkens at night.
+        var col = depthColor(meters)
+        if meters < 320 {
+            col = lerpColor(col, Palette.rgb(18, 44, 78), nightness * (1 - meters / 320) * 0.55)
+        }
+        waterBackground.color = col
 
         // Darkness closes in below the sunlit zone; the headlamp keeps a clear
         // disc around the diver so the lit deep stays explorable.
@@ -587,7 +610,10 @@ final class GameScene: SKScene {
         tideLine.position.x = cx
         underwaterGlow.position.x = cx
         trenchFloor.position.x = cx
+        nightOverlay.position.x = cx
+        stars.position.x = cx
         sunNode.position.x = cx + Environment.sunPosition.x
+        moon.position.x = cx + Environment.sunPosition.x
 
         // Keep the lamp's clear disc centered on the diver (not the screen).
         darkness.position = CGPoint(x: player.position.x - cam.position.x,
