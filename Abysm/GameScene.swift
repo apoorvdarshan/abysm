@@ -60,6 +60,15 @@ final class GameScene: SKScene {
     /// Token for the game-controller connect observer.
     private var controllerObserver: NSObjectProtocol?
 
+    // Sound + haptics.
+    private let muteBtn = HoldButton(radius: 28, glyph: "", fontSize: 1, color: Palette.rgb(150, 170, 200))
+    private let muteIcon = SKSpriteNode()
+    private var soundMuted = false
+    private var isBoosting = false
+    private var prevBoost = false
+    private var prevTurbo = false
+    private var floorThudDone = false
+
     // MARK: Scene setup
 
     override func didMove(to view: SKView) {
@@ -77,6 +86,7 @@ final class GameScene: SKScene {
         DispatchQueue.main.async { [weak self] in self?.layout() }
 
         setupControllers()
+        AudioManager.shared.start()
         playIntroFade()
     }
 
@@ -151,6 +161,13 @@ final class GameScene: SKScene {
         upArrow.zPosition = 3
         surfaceBtn.addChild(upArrow)
         cameraNode.addChild(surfaceBtn)
+
+        // Mute toggle (top-right) with a pixel speaker icon.
+        muteIcon.texture = TextureFactory.pixelSpeaker(crossed: false)
+        muteIcon.size = CGSize(width: 24, height: 16)
+        muteIcon.zPosition = 3
+        muteBtn.addChild(muteIcon)
+        cameraNode.addChild(muteBtn)
     }
 
     private func buildPlayer() {
@@ -192,6 +209,10 @@ final class GameScene: SKScene {
         flashBtn.position   = CGPoint(x: ccx, y: ccy - arm)
         boostBtn.position   = CGPoint(x: ccx - arm, y: ccy)
         turboBtn.position   = CGPoint(x: ccx + arm, y: ccy)
+
+        // Mute toggle: top-right corner.
+        muteBtn.position = CGPoint(x: viewport.width / 2 - safeRight - muteBtn.radius - 16,
+                                   y: viewport.height / 2 - topInset - muteBtn.radius - 6)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -204,6 +225,7 @@ final class GameScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches {
             let p = t.location(in: cameraNode)
+            if muteBtn.hit(p) { toggleMute(); continue }          // tap to mute/unmute
             if flashBtn.hit(p) { toggleFlashlight(); continue }   // tap to toggle the headlamp
             if surfaceTouch == nil, surfaceBtn.hit(p) {           // whisk up to the surface
                 surfaceTouch = t; surfaceBtn.setPressed(true); beginAscent()
@@ -248,6 +270,13 @@ final class GameScene: SKScene {
         joystick.release(); stickTouch = nil
     }
 
+    private func toggleMute() {
+        soundMuted.toggle()
+        AudioManager.shared.setMuted(soundMuted)
+        HapticsManager.shared.enabled = !soundMuted
+        muteIcon.texture = TextureFactory.pixelSpeaker(crossed: soundMuted)
+    }
+
     // MARK: Game controller (optional — left stick/dpad to swim; see attach())
 
     private func setupControllers() {
@@ -263,12 +292,16 @@ final class GameScene: SKScene {
     /// each frame in `update`. Layout matches the on-screen diamond:
     ///   Y (top) = rise · A (bottom) = lamp · X (left) = boost · B (right) = turbo.
     private func attach(_ controller: GCController) {
+        HapticsManager.shared.attach(controller)
         guard let gp = controller.extendedGamepad else { return }
         gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
             if pressed { self?.beginAscent() }
         }
         gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             if pressed { self?.toggleFlashlight() }
+        }
+        gp.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
+            if pressed { self?.toggleMute() }
         }
     }
 
@@ -316,13 +349,27 @@ final class GameScene: SKScene {
                 player.position.y += max(dy * 0.13, 1100 * dt)
             }
             player.setThrust(.zero)
+            isBoosting = false
+            prevBoost = false; prevTurbo = false
         } else {
             player.setThrust(moveVec)
             let turbo = turboBtn.pressed || cTurbo
             let boost = boostBtn.pressed || cBoost
             player.boostFactor = turbo ? 16.0 : (boost ? 6.0 : 1.0)
+            isBoosting = turbo || boost
+            // A haptic kick when boost/turbo first engages.
+            if turbo && !prevTurbo { HapticsManager.shared.pulse(intensity: 1.0, sharpness: 0.6) }
+            else if boost && !prevBoost { HapticsManager.shared.pulse(intensity: 0.5, sharpness: 0.4) }
+            prevBoost = boost; prevTurbo = turbo
         }
         player.update(dt)
+
+        // A heavy thud the first time you reach the trench floor.
+        if player.position.y <= GameConfig.worldFloor + 60 {
+            if !floorThudDone { floorThudDone = true; HapticsManager.shared.pulse(intensity: 0.9, sharpness: 0.7) }
+        } else if player.position.y > GameConfig.worldFloor + 500 {
+            floorThudDone = false
+        }
 
         // Drift creatures and wrap them around the diver's column so each depth's
         // creatures are always nearby and crossing the view as you descend.
@@ -355,6 +402,9 @@ final class GameScene: SKScene {
         let dark = smoothstep(150, 950, meters)
         darkness.alpha = dark
         player.setLampIntensity(dark)
+
+        // Crossfade the surface/deep audio layers by depth; bubbles while boosting.
+        AudioManager.shared.update(depthMeters: meters, boosting: isBoosting)
     }
 
     /// Smoothly follow the swimmer (after physics has settled), clamped so the

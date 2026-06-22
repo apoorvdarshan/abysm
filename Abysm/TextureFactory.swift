@@ -321,6 +321,35 @@ enum TextureFactory {
         return t
     }
 
+    /// A small pixel speaker icon for the mute button. `crossed` draws a slash
+    /// (muted); otherwise two sound-wave bars.
+    static func pixelSpeaker(crossed: Bool, color: UIColor = .white) -> SKTexture {
+        let w = 18, h = 12
+        var cr: CGFloat = 0, cg: CGFloat = 0, cb: CGFloat = 0, ca: CGFloat = 0
+        color.getRed(&cr, green: &cg, blue: &cb, alpha: &ca)
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        func set(_ x: Int, _ y: Int) {
+            guard x >= 0, x < w, y >= 0, y < h else { return }
+            let i = (y * w + x) * 4
+            buf[i] = UInt8(cr * ca * 255); buf[i+1] = UInt8(cg * ca * 255)
+            buf[i+2] = UInt8(cb * ca * 255); buf[i+3] = UInt8(ca * 255)
+        }
+        for x in 2...5 { for y in 4...7 { set(x, y) } }          // speaker box
+        for x in 6...9 { let hh = x - 5; for y in (5 - hh)...(6 + hh) { set(x, y) } }  // cone
+        if crossed {
+            for x in 1...16 { let y = Int((Double(x) * 0.6).rounded()); set(x, y); set(x, y + 1) }
+        } else {
+            for y in 3...8 { set(12, y) }
+            for y in 2...9 { set(14, y) }
+        }
+        let space = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8,
+                            bytesPerRow: w * 4, space: space,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let t = SKTexture(cgImage: ctx.makeImage()!); t.filteringMode = .nearest
+        return t
+    }
+
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)
