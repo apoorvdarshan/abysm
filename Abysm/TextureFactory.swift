@@ -398,6 +398,32 @@ enum TextureFactory {
         return t
     }
 
+    /// A small pixel camera icon for the photo button.
+    static func pixelCamera(color: UIColor = .white) -> SKTexture {
+        let w = 16, h = 12
+        var cr: CGFloat = 0, cg: CGFloat = 0, cb: CGFloat = 0, ca: CGFloat = 0
+        color.getRed(&cr, green: &cg, blue: &cb, alpha: &ca)
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        func set(_ x: Int, _ y: Int, _ on: Bool) {
+            guard x >= 0, x < w, y >= 0, y < h else { return }
+            let i = (y * w + x) * 4
+            if on { buf[i] = UInt8(cr*ca*255); buf[i+1] = UInt8(cg*ca*255); buf[i+2] = UInt8(cb*ca*255); buf[i+3] = UInt8(ca*255) }
+            else  { buf[i] = 0; buf[i+1] = 0; buf[i+2] = 0; buf[i+3] = 0 }
+        }
+        for x in 1...14 { for y in 4...10 { set(x, y, true) } }   // body
+        for x in 3...6  { for y in 2...3  { set(x, y, true) } }   // viewfinder bump
+        for x in 0..<w { for y in 0..<h {                         // lens hole
+            if hypot(Double(x) - 8, Double(y) - 7) <= 3 { set(x, y, false) }
+        } }
+        set(8, 7, true)   // lens glint
+        let space = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8,
+                            bytesPerRow: w * 4, space: space,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let t = SKTexture(cgImage: ctx.makeImage()!); t.filteringMode = .nearest
+        return t
+    }
+
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)
