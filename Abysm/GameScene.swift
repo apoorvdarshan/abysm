@@ -28,17 +28,28 @@ final class GameScene: SKScene {
     private let marineSnow = Particles.marineSnow()
     private let hud = DepthHUD()
     private let joystick = Joystick()
-    private let creatureInfo = CreatureInfoPanel()
     private let boostBtn = HoldButton(radius: 44, glyph: ">>", fontSize: 16, color: Palette.rgb(40, 150, 168))
     private let turboBtn = HoldButton(radius: 50, glyph: ">>>", fontSize: 15, color: Palette.rgb(225, 130, 50))
     private let flashBtn = HoldButton(radius: 38, glyph: "*", fontSize: 22, color: Palette.rgb(232, 196, 64))
+    private let surfaceBtn = HoldButton(radius: 36, glyph: "", fontSize: 1, color: Palette.rgb(92, 196, 226))
     private var flashlightOn = true
+
+    /// Depth darkness + headlamp reveal: a full-screen veil that's clear through
+    /// a soft disc around the diver (wide when the lamp is on, tiny when off)
+    /// and dark beyond. Its opacity fades in with depth.
+    private let darkness = SKSpriteNode()
+    private let veilOn  = TextureFactory.darknessVeil(holeFrac: 0.18, featherFrac: 0.12, tint: Palette.rgb(1, 4, 12))
+    private let veilOff = TextureFactory.darknessVeil(holeFrac: 0.05, featherFrac: 0.07, tint: Palette.rgb(1, 4, 12))
+
+    /// True while the "rise to surface" button is whisking the diver up.
+    private var ascending = false
 
     private var lastUpdateTime: TimeInterval = 0
     // Touches currently controlling each control (multi-touch).
     private var stickTouch: UITouch?
     private var boostTouch: UITouch?
     private var turboTouch: UITouch?
+    private var surfaceTouch: UITouch?
 
     // MARK: Scene setup
 
@@ -88,6 +99,14 @@ final class GameScene: SKScene {
         waterBackground.zPosition = -200
         cameraNode.addChild(waterBackground)
 
+        // Darkness veil — above the world/creatures, below the HUD. Clear disc
+        // (the lamp's reach) follows the diver; opacity grows with depth.
+        darkness.size = CGSize(width: 4200, height: 4200)
+        darkness.texture = flashlightOn ? veilOn : veilOff
+        darkness.zPosition = GameConfig.Z.darkness
+        darkness.alpha = 0
+        cameraNode.addChild(darkness)
+
         marineSnow.zPosition = GameConfig.Z.plankton - 1
         cameraNode.addChild(marineSnow)
         marineSnow.targetNode = self
@@ -101,12 +120,18 @@ final class GameScene: SKScene {
         plankton.advanceSimulationTime(12)   // pre-fill the screen so it isn't empty at launch
 
         cameraNode.addChild(hud)
-        cameraNode.addChild(creatureInfo)
         cameraNode.addChild(joystick)
         cameraNode.addChild(boostBtn)
         cameraNode.addChild(turboBtn)
         cameraNode.addChild(flashBtn)
         flashBtn.setPressed(flashlightOn)   // reflect the default-on state
+
+        // "Rise to the surface" button (top-left) with a pixel up-arrow glyph.
+        let upArrow = SKSpriteNode(texture: TextureFactory.pixelTriangleUp(half: 7, color: .white))
+        upArrow.size = CGSize(width: 28, height: 24)
+        upArrow.zPosition = 3
+        surfaceBtn.addChild(upArrow)
+        cameraNode.addChild(surfaceBtn)
     }
 
     private func buildPlayer() {
@@ -137,10 +162,6 @@ final class GameScene: SKScene {
             x: -viewport.width / 2 + safeLeft + joystick.baseRadius + 28,
             y: -viewport.height / 2 + safeBottom + joystick.baseRadius + 24)
 
-        // Creature info card: top-center, stacked just under the depth HUD
-        // (clear of the bottom joystick/boost controls).
-        creatureInfo.position = CGPoint(x: 0, y: hud.position.y - 27 - creatureInfo.panelSize.height / 2 - 10)
-
         // Boost + turbo: bottom-right (turbo rightmost), mirroring the joystick.
         let safeRight = view?.safeAreaInsets.right ?? 0
         let by = -viewport.height / 2 + safeBottom + turboBtn.radius + 24
@@ -150,6 +171,10 @@ final class GameScene: SKScene {
         // Flashlight toggle: top-right.
         flashBtn.position = CGPoint(x: viewport.width / 2 - safeRight - flashBtn.radius - 18,
                                     y: viewport.height / 2 - topInset - flashBtn.radius - 6)
+
+        // Rise-to-surface: top-left, mirroring the flashlight.
+        surfaceBtn.position = CGPoint(x: -viewport.width / 2 + safeLeft + surfaceBtn.radius + 18,
+                                      y: viewport.height / 2 - topInset - surfaceBtn.radius - 6)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -166,9 +191,15 @@ final class GameScene: SKScene {
                 flashlightOn.toggle()
                 player.setFlashlight(flashlightOn)
                 flashBtn.setPressed(flashlightOn)
+                darkness.texture = flashlightOn ? veilOn : veilOff
                 continue
             }
-            if stickTouch == nil, joystick.engage(at: p) { stickTouch = t; continue }
+            if surfaceTouch == nil, surfaceBtn.hit(p) {   // whisk up to the surface
+                surfaceTouch = t; surfaceBtn.setPressed(true); ascending = true
+                player.setThrust(.zero); joystick.release(); stickTouch = nil
+                continue
+            }
+            if stickTouch == nil, joystick.engage(at: p) { stickTouch = t; ascending = false; continue }
             if boostTouch == nil, boostBtn.hit(p) { boostTouch = t; boostBtn.setPressed(true); continue }
             if turboTouch == nil, turboBtn.hit(p) { turboTouch = t; turboBtn.setPressed(true); continue }
         }
@@ -188,6 +219,7 @@ final class GameScene: SKScene {
             if t == stickTouch { joystick.release(); stickTouch = nil }
             if t == boostTouch { boostBtn.setPressed(false); boostTouch = nil }
             if t == turboTouch { turboBtn.setPressed(false); turboTouch = nil }
+            if t == surfaceTouch { surfaceBtn.setPressed(false); surfaceTouch = nil }
         }
     }
 
@@ -202,16 +234,28 @@ final class GameScene: SKScene {
         }
         lastUpdateTime = currentTime
 
-        player.setThrust(joystick.vector)
-        player.boostFactor = turboBtn.pressed ? 3.0 : (boostBtn.pressed ? 1.9 : 1.0)
+        if ascending {
+            // Whisk straight up to the surface (ease-out, with a floor speed so
+            // even a trench-deep ascent only takes a moment).
+            let target = GameConfig.playerStartY
+            player.physicsBody?.velocity = .zero
+            let dy = target - player.position.y
+            if dy <= 8 {
+                player.position.y = target
+                ascending = false
+                surfaceBtn.setPressed(false)
+            } else {
+                player.position.y += max(dy * 0.13, 1100 * dt)
+            }
+            player.setThrust(.zero)
+        } else {
+            player.setThrust(joystick.vector)
+            player.boostFactor = turboBtn.pressed ? 8.0 : (boostBtn.pressed ? 2.4 : 1.0)
+        }
         player.update(dt)
 
-        // Show the info card for the nearest creature you're swimming by.
-        if let def = creatureField.nearest(to: player.position, within: 210) {
-            creatureInfo.show(def)
-        } else {
-            creatureInfo.hide()
-        }
+        // Fade in the nearest creature's in-world fact bubble (no screen overlay).
+        creatureField.updateInfo(near: player.position, within: 230)
 
         let halfW = size.width / 2 + 50
         oceanSurface.update(currentTime,
@@ -230,6 +274,12 @@ final class GameScene: SKScene {
         // Water color is driven directly by depth, progressing through the
         // ocean zones from bright surface to the black trench.
         waterBackground.color = depthColor(meters)
+
+        // Darkness closes in below the sunlit zone; the headlamp keeps a clear
+        // disc around the diver so the lit deep stays explorable.
+        let dark = smoothstep(150, 950, meters)
+        darkness.alpha = dark
+        player.setLampIntensity(dark)
     }
 
     /// Smoothly follow the swimmer (after physics has settled), clamped so the
@@ -237,9 +287,11 @@ final class GameScene: SKScene {
     override func didFinishUpdate() {
         guard let cam = camera else { return }
 
+        // Snap tightly while rising so the diver stays framed during the rush.
+        let k = ascending ? 1.0 : GameConfig.cameraSmoothing
         var p = CGPoint(
-            x: cam.position.x + (player.position.x - cam.position.x) * GameConfig.cameraSmoothing,
-            y: cam.position.y + (player.position.y - cam.position.y) * GameConfig.cameraSmoothing)
+            x: cam.position.x + (player.position.x - cam.position.x) * k,
+            y: cam.position.y + (player.position.y - cam.position.y) * k)
 
         let halfW = size.width / 2
         let halfH = size.height / 2
@@ -253,5 +305,9 @@ final class GameScene: SKScene {
         p.y = minY <= maxY ? clamp(p.y, minY, maxY) : (minY + maxY) / 2
 
         cam.position = p
+
+        // Keep the lamp's clear disc centered on the diver (not the screen).
+        darkness.position = CGPoint(x: player.position.x - cam.position.x,
+                                    y: player.position.y - cam.position.y)
     }
 }

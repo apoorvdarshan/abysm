@@ -269,27 +269,48 @@ enum TextureFactory {
         return t
     }
 
-    /// A warm light cone for the diver's headlamp: apex at the LEFT edge
-    /// (anchor 0,0.5), widening and fading to the right, posterized into a few
-    /// steps for a pixel look. Additive — it lights the dark water ahead.
-    static func lightCone(length: Int = 72, spread: Int = 58) -> SKTexture {
-        let w = length, h = spread
-        let cy = CGFloat(h) / 2
+    /// A full-screen DARKNESS veil for the deep sea: fully CLEAR through a soft
+    /// central disc (the lamp's reach) and ramping to a solid dark tint toward
+    /// the edges. Smooth (not pixelated) so the lamp reads as real light, not a
+    /// hard pixel shape. The scene fades this in with depth and swaps the hole
+    /// size when the headlamp toggles — a wide reveal on, a tiny bubble off.
+    /// `holeFrac`/`featherFrac` are fractions of the texture's radius.
+    static func darknessVeil(holeFrac: CGFloat, featherFrac: CGFloat,
+                             tint: UIColor = .black) -> SKTexture {
+        let d: CGFloat = 512
+        let size = CGSize(width: d, height: d)
+        let image = UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            let space = CGColorSpaceCreateDeviceRGB()
+            let clear = tint.withAlphaComponent(0).cgColor
+            let solid = tint.withAlphaComponent(1).cgColor
+            let colors = [clear, clear, solid] as CFArray
+            let locs: [CGFloat] = [0, holeFrac, min(1, holeFrac + featherFrac)]
+            guard let grad = CGGradient(colorsSpace: space, colors: colors, locations: locs) else { return }
+            let c = CGPoint(x: d / 2, y: d / 2)
+            cg.drawRadialGradient(grad, startCenter: c, startRadius: 0,
+                                  endCenter: c, endRadius: d / 2,
+                                  options: [.drawsAfterEndLocation])
+        }
+        let t = SKTexture(image: image); t.filteringMode = .linear
+        return t
+    }
+
+    /// A hard-edged pixel up-arrow (apex at the top, widening downward). `half`
+    /// is half the base width in texels. Used as the "rise to the surface" glyph.
+    static func pixelTriangleUp(half: Int, color: UIColor) -> SKTexture {
+        let w = half * 2 + 2
+        let h = half + 2
+        let cx = CGFloat(w) / 2
+        var cr: CGFloat = 0, cg: CGFloat = 0, cb: CGFloat = 0, ca: CGFloat = 0
+        color.getRed(&cr, green: &cg, blue: &cb, alpha: &ca)
         var buf = [UInt8](repeating: 0, count: w * h * 4)
-        for x in 0..<w {
-            let fx = CGFloat(x) / CGFloat(max(1, w - 1))        // 0 apex → 1 far
-            let halfW = (0.10 + fx * 0.9) * cy                   // narrow at head, wide far
-            let distFade = pow(1 - fx, 1.3)                      // brightest near the lamp
-            for y in 0..<h {
-                let dy = abs(CGFloat(y) - cy)
-                guard dy <= halfW, halfW > 0 else { continue }
-                var b = distFade * (1 - dy / halfW)
-                b = (floor(b * 4) / 4)                           // posterize → pixel steps
-                guard b > 0 else { continue }
-                let a = b * 0.85
-                let i = (y * w + x) * 4
-                buf[i] = UInt8(255 * a); buf[i+1] = UInt8(248 * a); buf[i+2] = UInt8(205 * a)
-                buf[i+3] = UInt8(a * 255)
+        for y in 0..<h {
+            let halfWidth = CGFloat(y)            // apex at the top row, widening down
+            for x in 0..<w where abs(CGFloat(x) + 0.5 - cx) <= halfWidth {
+                let i = (y * w + x) * 4           // premultiplied
+                buf[i] = UInt8(cr * ca * 255); buf[i+1] = UInt8(cg * ca * 255)
+                buf[i+2] = UInt8(cb * ca * 255); buf[i+3] = UInt8(ca * 255)
             }
         }
         let space = CGColorSpaceCreateDeviceRGB()

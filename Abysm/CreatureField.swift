@@ -15,6 +15,11 @@ import SpriteKit
 final class CreatureField: SKNode {
 
     private(set) var placed: [(def: CreatureDef, node: SKNode)] = []
+    /// One fact bubble per creature (same order as `placed`), hidden until the
+    /// diver is the nearest creature — shown in-world beside the creature so it
+    /// never covers the screen.
+    private var infos: [SKNode] = []
+    private var shownIndex: Int?
 
     func populate() {
         for c in Creatures.all {
@@ -38,21 +43,39 @@ final class CreatureField: SKNode {
             tag.position = CGPoint(x: 0, y: -sprite.size.height / 2 - 16)
             wrapper.addChild(tag)
 
+            let fact = makeFactBubble(c)
+            fact.position = CGPoint(x: 0, y: tag.position.y - 16)
+            fact.alpha = 0
+            wrapper.addChild(fact)
+
             addChild(wrapper)
             placed.append((c, wrapper))
+            infos.append(fact)
             animate(wrapper: wrapper, container: container, sprite: sprite, c)
         }
     }
 
-    /// The creature closest to `point` within `d`, or nil.
-    func nearest(to point: CGPoint, within d: CGFloat) -> CreatureDef? {
-        var best: CreatureDef?
+    /// Show the fact bubble for the creature nearest `point` (within `d`), and
+    /// fade out the previously-shown one. No screen overlay — the info lives in
+    /// the water next to its creature.
+    func updateInfo(near point: CGPoint, within d: CGFloat) {
+        var best = -1
         var bestDist = d
-        for (def, node) in placed {
-            let dist = hypot(node.position.x - point.x, node.position.y - point.y)
-            if dist < bestDist { bestDist = dist; best = def }
+        for (i, p) in placed.enumerated() {
+            let dist = hypot(p.node.position.x - point.x, p.node.position.y - point.y)
+            if dist < bestDist { bestDist = dist; best = i }
         }
-        return best
+        let newIndex = best >= 0 ? best : nil
+        guard newIndex != shownIndex else { return }
+        if let old = shownIndex {
+            infos[old].removeAllActions()
+            infos[old].run(.fadeAlpha(to: 0, duration: 0.25))
+        }
+        if let n = newIndex {
+            infos[n].removeAllActions()
+            infos[n].run(.fadeAlpha(to: 1, duration: 0.18))
+        }
+        shownIndex = newIndex
     }
 
     // MARK: Name tag (readable over any background)
@@ -74,6 +97,54 @@ final class CreatureField: SKNode {
         node.addChild(plate)
         node.addChild(label)
         node.alpha = 0.82
+        return node
+    }
+
+    // MARK: Fact bubble (neal.fun-style info, in-world beside the creature)
+
+    private func makeFactBubble(_ c: CreatureDef) -> SKNode {
+        let node = SKNode()
+        let width: CGFloat = 212
+
+        let meta = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        meta.text = "\(Int(c.depthM))M  ·  \(zoneName(c.depthM))"
+        meta.fontSize = 6
+        meta.fontColor = Palette.rgb(150, 236, 232)
+        meta.horizontalAlignmentMode = .center
+        meta.verticalAlignmentMode = .top
+        meta.position = CGPoint(x: 0, y: -4)
+        meta.zPosition = 1
+
+        let fact = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        fact.text = c.fact
+        fact.fontSize = 6
+        fact.fontColor = Palette.rgb(212, 228, 238)
+        fact.horizontalAlignmentMode = .center
+        fact.verticalAlignmentMode = .top
+        fact.numberOfLines = 0
+        fact.preferredMaxLayoutWidth = width - 18
+        fact.lineBreakMode = .byWordWrapping
+        fact.zPosition = 1
+
+        let metaH = meta.frame.height
+        fact.position = CGPoint(x: 0, y: -4 - metaH - 7)
+        let factH = fact.frame.height
+        let totalH = 4 + metaH + 7 + factH + 8   // top pad + content + bottom pad
+
+        let plate = SKSpriteNode(color: Palette.rgb(8, 18, 40), size: CGSize(width: width, height: totalH))
+        plate.alpha = 0.72
+        plate.position = CGPoint(x: 0, y: -totalH / 2)
+
+        let border = SKSpriteNode(color: Palette.rgb(96, 184, 198),
+                                  size: CGSize(width: width + 4, height: totalH + 4))
+        border.alpha = 0.5
+        border.position = plate.position
+        border.zPosition = -1
+
+        node.addChild(border)
+        node.addChild(plate)
+        node.addChild(meta)
+        node.addChild(fact)
         return node
     }
 

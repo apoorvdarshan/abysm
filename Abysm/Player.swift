@@ -16,7 +16,12 @@ final class Player: SKNode {
     private let bodyRoot = SKNode()
     private let sprite: SKSpriteNode
     private let bubbles = Particles.bubbleTrail()
-    private let headlight = SKSpriteNode(texture: TextureFactory.lightCone())
+    /// Soft warm glow around the swimmer — a real (non-pixel) lamp light. The
+    /// wide reveal of the dark deep is handled by the scene's darkness veil.
+    private let lampGlow = SKSpriteNode(texture: TextureFactory.radialGlow(
+        diameter: 256,
+        inner: Palette.rgb(255, 243, 198, 0.6),
+        outer: Palette.rgb(255, 243, 198, 0)))
 
     private var thrust: CGVector = .zero
     /// Speed/force multiplier from the boost buttons (1 = normal).
@@ -33,23 +38,16 @@ final class Player: SKNode {
         super.init()
         zPosition = GameConfig.Z.player
 
-        // Headlamp cone (additive) — points forward from the head; lights the
-        // dark water + creatures ahead. Behind the diver, above the creatures.
-        headlight.anchorPoint = CGPoint(x: 0, y: 0.5)
-        headlight.size = CGSize(width: 360, height: 270)
-        headlight.position = CGPoint(x: 46, y: -6)
-        headlight.blendMode = .add
-        headlight.zPosition = -0.5
-        bodyRoot.addChild(headlight)
+        // Warm lamp glow (additive) — sits just ahead of the diver and brightens
+        // the water right around the swimmer. Behind the body so it haloes it.
+        lampGlow.size = CGSize(width: 330, height: 330)
+        lampGlow.position = CGPoint(x: 34, y: -2)
+        lampGlow.blendMode = .add
+        lampGlow.zPosition = -0.5
+        lampGlow.alpha = 0          // grows with depth (set by the scene)
+        bodyRoot.addChild(lampGlow)
 
         bodyRoot.addChild(sprite)
-        // A little lamp glow on the head.
-        let lamp = SKSpriteNode(texture: TextureFactory.pixelCircle(radius: 2, color: Palette.rgb(255, 250, 210)))
-        lamp.size = CGSize(width: GameConfig.pixel * 3, height: GameConfig.pixel * 3)
-        lamp.position = CGPoint(x: 50, y: 2)
-        lamp.blendMode = .add
-        lamp.zPosition = 1
-        bodyRoot.addChild(lamp)
 
         // Loop the flutter-kick swim cycle.
         sprite.run(.repeatForever(.animate(with: frames, timePerFrame: 0.14,
@@ -82,7 +80,10 @@ final class Player: SKNode {
 
     func attachBubbleTarget(_ node: SKNode) { bubbles.targetNode = node }
 
-    func setFlashlight(_ on: Bool) { headlight.isHidden = !on }
+    func setFlashlight(_ on: Bool) { lampGlow.isHidden = !on }
+
+    /// Fade the lamp glow in with depth so it never washes the bright surface.
+    func setLampIntensity(_ k: CGFloat) { lampGlow.alpha = k }
 
     // MARK: Steering
 
