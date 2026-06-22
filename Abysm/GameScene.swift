@@ -20,6 +20,8 @@ final class GameScene: SKScene {
     private let player = Player()
     private let creatureField = CreatureField()
     private let landmarkField = LandmarkField()
+    private let scenicField = ScenicField()
+    private let schoolField = SchoolField()
     // Surface backdrop — followed horizontally so the world feels endless.
     private var skyNode = SKNode()
     private var sunNode = SKNode()
@@ -64,6 +66,15 @@ final class GameScene: SKScene {
     var startX: CGFloat?
     private var saveAccum: CGFloat = 0
     private var saveObserver: NSObjectProtocol?
+
+    // Pause / main-menu.
+    private let pauseBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(150, 170, 200))
+    private let pauseIcon = SKSpriteNode()
+    private let pauseOverlay = SKNode()
+    private let resumeBtn = SKNode()
+    private let menuBtn = SKNode()
+    private var menuPaused = false
+    private let pBtnW: CGFloat = 260, pBtnH: CGFloat = 48
 
     // Sound + haptics.
     private let muteBtn = HoldButton(radius: 28, glyph: "", fontSize: 1, color: Palette.rgb(150, 170, 200))
@@ -124,6 +135,10 @@ final class GameScene: SKScene {
         addChild(skyNode)
         addChild(sunNode)
         addChild(oceanSurface)
+        scenicField.populate()
+        addChild(scenicField)
+        schoolField.populate()
+        addChild(schoolField)
         creatureField.populate()
         addChild(creatureField)
         landmarkField.populate()
@@ -178,6 +193,42 @@ final class GameScene: SKScene {
         muteIcon.zPosition = 3
         muteBtn.addChild(muteIcon)
         cameraNode.addChild(muteBtn)
+
+        // Pause button (top-left) + the pause overlay.
+        pauseIcon.texture = TextureFactory.pixelPause()
+        pauseIcon.size = CGSize(width: 18, height: 21)
+        pauseIcon.zPosition = 3
+        pauseBtn.addChild(pauseIcon)
+        cameraNode.addChild(pauseBtn)
+        buildPauseOverlay()
+    }
+
+    private func buildPauseOverlay() {
+        let dim = SKSpriteNode(color: .black, size: CGSize(width: 4200, height: 3200))
+        dim.alpha = 0.66; dim.zPosition = 0
+        let titleL = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        titleL.text = "PAUSED"; titleL.fontSize = 26; titleL.fontColor = .white
+        titleL.verticalAlignmentMode = .center; titleL.horizontalAlignmentMode = .center
+        titleL.zPosition = 2; titleL.position = CGPoint(x: 0, y: 96)
+        pauseOverlay.addChild(dim); pauseOverlay.addChild(titleL)
+        plateButton(resumeBtn, "RESUME", y: 20)
+        plateButton(menuBtn, "MAIN MENU", y: 20 - (pBtnH + 18))
+        pauseOverlay.zPosition = GameConfig.Z.intro + 1
+        pauseOverlay.isHidden = true
+        cameraNode.addChild(pauseOverlay)
+    }
+
+    private func plateButton(_ node: SKNode, _ text: String, y: CGFloat) {
+        let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: pBtnW + 6, height: pBtnH + 6))
+        border.alpha = 0.8
+        let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: pBtnW, height: pBtnH))
+        plate.alpha = 0.95; plate.zPosition = 1
+        let label = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        label.text = text; label.fontSize = 15; label.fontColor = .white
+        label.verticalAlignmentMode = .center; label.horizontalAlignmentMode = .center; label.zPosition = 2
+        node.addChild(border); node.addChild(plate); node.addChild(label)
+        node.position = CGPoint(x: 0, y: y); node.zPosition = 1
+        pauseOverlay.addChild(node)
     }
 
     private func buildPlayer() {
@@ -230,6 +281,9 @@ final class GameScene: SKScene {
         // Mute toggle: top-right corner.
         muteBtn.position = CGPoint(x: viewport.width / 2 - safeRight - muteBtn.radius - 16,
                                    y: viewport.height / 2 - topInset - muteBtn.radius - 6)
+        // Pause: top-left corner.
+        pauseBtn.position = CGPoint(x: -viewport.width / 2 + safeLeft + pauseBtn.radius + 16,
+                                    y: viewport.height / 2 - topInset - pauseBtn.radius - 6)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -240,8 +294,17 @@ final class GameScene: SKScene {
     // MARK: Touch steering (virtual joystick, bottom-left)
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // While paused, only the overlay buttons are live.
+        if menuPaused {
+            guard let t = touches.first else { return }
+            let p = t.location(in: cameraNode)
+            if hitPlate(resumeBtn, p) { resumeGame() }
+            else if hitPlate(menuBtn, p) { toMainMenu() }
+            return
+        }
         for t in touches {
             let p = t.location(in: cameraNode)
+            if pauseBtn.hit(p) { openPause(); continue }
             if muteBtn.hit(p) { toggleMute(); continue }          // tap to mute/unmute
             if flashBtn.hit(p) { toggleFlashlight(); continue }   // tap to toggle the headlamp
             if surfaceTouch == nil, surfaceBtn.hit(p) {           // whisk up to the surface
@@ -293,6 +356,36 @@ final class GameScene: SKScene {
         AudioManager.shared.setMuted(soundMuted)
         HapticsManager.shared.enabled = !soundMuted
         muteIcon.texture = TextureFactory.pixelSpeaker(crossed: soundMuted)
+    }
+
+    private func hitPlate(_ node: SKNode, _ p: CGPoint) -> Bool {
+        abs(p.x - node.position.x) <= pBtnW / 2 && abs(p.y - node.position.y) <= pBtnH / 2
+    }
+
+    private func openPause() {
+        guard !menuPaused else { return }
+        menuPaused = true
+        saveProgress()
+        joystick.release(); stickTouch = nil
+        boostBtn.setPressed(false); boostTouch = nil
+        turboBtn.setPressed(false); turboTouch = nil
+        pauseOverlay.isHidden = false
+        isPaused = true                 // freeze the dive
+    }
+
+    private func resumeGame() {
+        menuPaused = false
+        pauseOverlay.isHidden = true
+        isPaused = false
+    }
+
+    private func toMainMenu() {
+        isPaused = false
+        saveProgress()
+        guard let v = view else { return }
+        let t = TitleScene(size: v.bounds.size)
+        t.scaleMode = .resizeFill
+        v.presentScene(t, transition: .fade(with: .black, duration: 0.6))
     }
 
     // MARK: Game controller (optional — left stick/dpad to swim; see attach())
@@ -396,6 +489,8 @@ final class GameScene: SKScene {
 
         creatureField.update(dt: dt, cameraX: cameraNode.position.x)
         landmarkField.update(cameraX: cameraNode.position.x)
+        scenicField.update(cameraX: cameraNode.position.x)
+        schoolField.update(dt: dt, cameraX: cameraNode.position.x)
         // Fade in the nearest creature's in-world fact bubble (no screen overlay).
         creatureField.updateInfo(near: player.position, within: 230)
 

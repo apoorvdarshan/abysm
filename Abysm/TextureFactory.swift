@@ -350,6 +350,27 @@ enum TextureFactory {
         return t
     }
 
+    /// A small pixel pause icon (two vertical bars) for the in-game menu button.
+    static func pixelPause(color: UIColor = .white) -> SKTexture {
+        let w = 12, h = 14
+        var cr: CGFloat = 0, cg: CGFloat = 0, cb: CGFloat = 0, ca: CGFloat = 0
+        color.getRed(&cr, green: &cg, blue: &cb, alpha: &ca)
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        for y in 1...12 {
+            for x in [2, 3, 4, 7, 8, 9] {
+                let i = (y * w + x) * 4
+                buf[i] = UInt8(cr * ca * 255); buf[i+1] = UInt8(cg * ca * 255)
+                buf[i+2] = UInt8(cb * ca * 255); buf[i+3] = UInt8(ca * 255)
+            }
+        }
+        let space = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8,
+                            bytesPerRow: w * 4, space: space,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let t = SKTexture(cgImage: ctx.makeImage()!); t.filteringMode = .nearest
+        return t
+    }
+
     /// A plain white texture — base for shader-driven sprites (e.g. caustics).
     static func white(size: CGFloat = 8) -> SKTexture {
         let s = CGSize(width: size, height: size)
