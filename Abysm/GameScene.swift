@@ -28,10 +28,11 @@ final class GameScene: SKScene {
     private let marineSnow = Particles.marineSnow()
     private let hud = DepthHUD()
     private let joystick = Joystick()
-    private let boostBtn = HoldButton(radius: 44, glyph: ">>", fontSize: 16, color: Palette.rgb(40, 150, 168))
-    private let turboBtn = HoldButton(radius: 50, glyph: ">>>", fontSize: 15, color: Palette.rgb(225, 130, 50))
-    private let flashBtn = HoldButton(radius: 38, glyph: "*", fontSize: 22, color: Palette.rgb(232, 196, 64))
-    private let surfaceBtn = HoldButton(radius: 36, glyph: "", fontSize: 1, color: Palette.rgb(92, 196, 226))
+    private let boostBtn = HoldButton(radius: 37, glyph: ">>", fontSize: 14, color: Palette.rgb(40, 150, 168))
+    private let turboBtn = HoldButton(radius: 42, glyph: ">>>", fontSize: 13, color: Palette.rgb(225, 130, 50))
+    private let hyperBtn = HoldButton(radius: 46, glyph: ">>>>", fontSize: 11, color: Palette.rgb(232, 64, 56))
+    private let flashBtn = HoldButton(radius: 32, glyph: "*", fontSize: 19, color: Palette.rgb(232, 196, 64))
+    private let surfaceBtn = HoldButton(radius: 30, glyph: "", fontSize: 1, color: Palette.rgb(92, 196, 226))
     private var flashlightOn = true
 
     /// Depth darkness + headlamp reveal: a full-screen veil that's clear through
@@ -49,6 +50,7 @@ final class GameScene: SKScene {
     private var stickTouch: UITouch?
     private var boostTouch: UITouch?
     private var turboTouch: UITouch?
+    private var hyperTouch: UITouch?
     private var surfaceTouch: UITouch?
 
     // MARK: Scene setup
@@ -123,12 +125,13 @@ final class GameScene: SKScene {
         cameraNode.addChild(joystick)
         cameraNode.addChild(boostBtn)
         cameraNode.addChild(turboBtn)
+        cameraNode.addChild(hyperBtn)
         cameraNode.addChild(flashBtn)
         flashBtn.setPressed(flashlightOn)   // reflect the default-on state
 
         // "Rise to the surface" button (top-left) with a pixel up-arrow glyph.
         let upArrow = SKSpriteNode(texture: TextureFactory.pixelTriangleUp(half: 7, color: .white))
-        upArrow.size = CGSize(width: 28, height: 24)
+        upArrow.size = CGSize(width: 22, height: 19)
         upArrow.zPosition = 3
         surfaceBtn.addChild(upArrow)
         cameraNode.addChild(surfaceBtn)
@@ -162,11 +165,13 @@ final class GameScene: SKScene {
             x: -viewport.width / 2 + safeLeft + joystick.baseRadius + 28,
             y: -viewport.height / 2 + safeBottom + joystick.baseRadius + 24)
 
-        // Boost + turbo: bottom-right (turbo rightmost), mirroring the joystick.
+        // Speed buttons: bottom-right, in increasing speed toward the edge
+        // (boost · turbo · hyper), mirroring the joystick.
         let safeRight = view?.safeAreaInsets.right ?? 0
-        let by = -viewport.height / 2 + safeBottom + turboBtn.radius + 24
-        turboBtn.position = CGPoint(x: viewport.width / 2 - safeRight - turboBtn.radius - 26, y: by)
-        boostBtn.position = CGPoint(x: turboBtn.position.x - turboBtn.radius - boostBtn.radius - 22, y: by)
+        let by = -viewport.height / 2 + safeBottom + hyperBtn.radius + 22
+        hyperBtn.position = CGPoint(x: viewport.width / 2 - safeRight - hyperBtn.radius - 22, y: by)
+        turboBtn.position = CGPoint(x: hyperBtn.position.x - hyperBtn.radius - turboBtn.radius - 16, y: by)
+        boostBtn.position = CGPoint(x: turboBtn.position.x - turboBtn.radius - boostBtn.radius - 16, y: by)
 
         // Flashlight toggle: top-right.
         flashBtn.position = CGPoint(x: viewport.width / 2 - safeRight - flashBtn.radius - 18,
@@ -200,8 +205,9 @@ final class GameScene: SKScene {
                 continue
             }
             if stickTouch == nil, joystick.engage(at: p) { stickTouch = t; ascending = false; continue }
-            if boostTouch == nil, boostBtn.hit(p) { boostTouch = t; boostBtn.setPressed(true); continue }
+            if hyperTouch == nil, hyperBtn.hit(p) { hyperTouch = t; hyperBtn.setPressed(true); continue }
             if turboTouch == nil, turboBtn.hit(p) { turboTouch = t; turboBtn.setPressed(true); continue }
+            if boostTouch == nil, boostBtn.hit(p) { boostTouch = t; boostBtn.setPressed(true); continue }
         }
     }
 
@@ -219,6 +225,7 @@ final class GameScene: SKScene {
             if t == stickTouch { joystick.release(); stickTouch = nil }
             if t == boostTouch { boostBtn.setPressed(false); boostTouch = nil }
             if t == turboTouch { turboBtn.setPressed(false); turboTouch = nil }
+            if t == hyperTouch { hyperBtn.setPressed(false); hyperTouch = nil }
             if t == surfaceTouch { surfaceBtn.setPressed(false); surfaceTouch = nil }
         }
     }
@@ -250,7 +257,7 @@ final class GameScene: SKScene {
             player.setThrust(.zero)
         } else {
             player.setThrust(joystick.vector)
-            player.boostFactor = turboBtn.pressed ? 8.0 : (boostBtn.pressed ? 2.4 : 1.0)
+            player.boostFactor = hyperBtn.pressed ? 16.0 : (turboBtn.pressed ? 8.0 : (boostBtn.pressed ? 2.4 : 1.0))
         }
         player.update(dt)
 
@@ -287,8 +294,9 @@ final class GameScene: SKScene {
     override func didFinishUpdate() {
         guard let cam = camera else { return }
 
-        // Snap tightly while rising so the diver stays framed during the rush.
-        let k = ascending ? 1.0 : GameConfig.cameraSmoothing
+        // Snap tightly while rising; otherwise tighten the follow as the diver
+        // speeds up (boost/turbo) so it never outruns the camera off-screen.
+        let k = ascending ? 1.0 : min(0.5, GameConfig.cameraSmoothing + player.currentSpeed / 5200)
         var p = CGPoint(
             x: cam.position.x + (player.position.x - cam.position.x) * k,
             y: cam.position.y + (player.position.y - cam.position.y) * k)

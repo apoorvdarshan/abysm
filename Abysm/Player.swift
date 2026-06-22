@@ -80,6 +80,11 @@ final class Player: SKNode {
 
     func attachBubbleTarget(_ node: SKNode) { bubbles.targetNode = node }
 
+    /// Current speed (points/sec) — the camera uses it to tighten its follow at
+    /// high speed so the fast-moving diver stays framed instead of outrunning it.
+    /// (Named `currentSpeed` to avoid SKNode's own `speed` action multiplier.)
+    var currentSpeed: CGFloat { hypot(physicsBody?.velocity.dx ?? 0, physicsBody?.velocity.dy ?? 0) }
+
     func setFlashlight(_ on: Bool) { lampGlow.isHidden = !on }
 
     /// Fade the lamp glow in with depth so it never washes the bright surface.
