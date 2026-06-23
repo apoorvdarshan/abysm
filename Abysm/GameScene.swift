@@ -211,6 +211,7 @@ final class GameScene: SKScene {
         cameraNode.addChild(turboBtn)
         cameraNode.addChild(flashBtn)
         flashBtn.setPressed(flashlightOn)   // reflect the default-on state
+        flashBtn.isHidden = true            // shown once below the sunlit zone (updateDepthEffects)
 
         // "Rise to the surface" button (top-left) with a pixel up-arrow glyph.
         let upArrow = SKSpriteNode(texture: TextureFactory.pixelTriangleUp(half: 7, color: .white))
@@ -324,6 +325,10 @@ final class GameScene: SKScene {
         // Pause: top-left corner.
         pauseBtn.position = CGPoint(x: -viewport.width / 2 + safeLeft + pauseBtn.radius + 16,
                                     y: viewport.height / 2 - topInset - pauseBtn.radius - 6)
+
+        // Shrink the paywall plaque only if the screen is too small to fit it.
+        paywall.setScale(min(1, min((viewport.width - 24) / Paywall.panelW,
+                                    (viewport.height - 24) / Paywall.panelH)))
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -731,6 +736,10 @@ final class GameScene: SKScene {
         let zone = zoneName(meters)
 
         hud.update(depthMeters: meters, zone: zone)
+
+        // The headlamp button only matters once you leave the sunlit zone — hide
+        // it up top (where it does nothing), show it from the Twilight zone down.
+        flashBtn.isHidden = meters < GameConfig.zones[1].topMeters
 
         // Water color is driven directly by depth, surface → black trench. It
         // shifts imperceptibly within a meter, so only rebuild the UIColor when
