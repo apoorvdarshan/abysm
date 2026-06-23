@@ -60,11 +60,9 @@ final class GameScene: SKScene {
     private var turboTouch: UITouch?
     private var surfaceTouch: UITouch?
 
-    /// Token for the game-controller connect/disconnect observers, plus the
-    /// controllers we've wired up (so we can clear their handlers on teardown).
+    /// Tokens for the game-controller connect/disconnect observers.
     private var controllerObserver: NSObjectProtocol?
     private var controllerDisconnectObserver: NSObjectProtocol?
-    private var attachedControllers: [GCController] = []
 
     /// Optional start point (set before presenting) — used by Continue.
     var startDepthMeters: CGFloat?
@@ -126,9 +124,10 @@ final class GameScene: SKScene {
         if let o = controllerObserver { NotificationCenter.default.removeObserver(o) }
         if let o = controllerDisconnectObserver { NotificationCenter.default.removeObserver(o) }
         if let o = saveObserver { NotificationCenter.default.removeObserver(o) }
-        // Drop our handlers off the shared controllers so this dead scene's
-        // closures don't linger on them after the transition.
-        for c in attachedControllers { clearHandlers(c) }
+        // NB: we deliberately do NOT clear the controller's pressedChangedHandlers
+        // here. They use [weak self] (so a dead scene's closures are harmless
+        // no-ops) and the next scene overwrites them on attach. Clearing them in
+        // deinit raced the next scene's setup and wiped its just-installed handler.
     }
 
     /// Gentle fade-in from black so the scene reveals softly on launch.
@@ -437,18 +436,8 @@ final class GameScene: SKScene {
 
     /// A controller dropped: stop steering with it and un-stick the pause cursor.
     private func detach(_ controller: GCController) {
-        attachedControllers.removeAll { $0 === controller }
         player.setThrust(.zero)
         if menuPaused { highlightPause() }
-    }
-
-    /// Remove the handlers we installed on a controller.
-    private func clearHandlers(_ controller: GCController) {
-        guard let gp = controller.extendedGamepad else { return }
-        gp.buttonY.pressedChangedHandler = nil
-        gp.buttonA.pressedChangedHandler = nil
-        gp.buttonMenu.pressedChangedHandler = nil
-        gp.leftShoulder.pressedChangedHandler = nil
     }
 
     /// Map the tap-style buttons. Hold-style boost/turbo + the sticks are polled
@@ -457,9 +446,6 @@ final class GameScene: SKScene {
     private func attach(_ controller: GCController) {
         HapticsManager.shared.attach(controller)
         guard let gp = controller.extendedGamepad else { return }
-        if !attachedControllers.contains(where: { $0 === controller }) {
-            attachedControllers.append(controller)
-        }
         GCController.stopWirelessControllerDiscovery()   // found one; stop scanning
         gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self, !self.menuPaused else { return }

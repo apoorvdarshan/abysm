@@ -43,7 +43,6 @@ final class TitleScene: SKScene {
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private var soundOn = true
     private var controllerObserver: NSObjectProtocol?
-    private var attachedControllers: [GCController] = []
 
     // Controller menu navigation.
     private var items: [(node: SKNode, run: () -> Void)] = []
@@ -103,12 +102,7 @@ final class TitleScene: SKScene {
 
     deinit {
         if let o = controllerObserver { NotificationCenter.default.removeObserver(o) }
-        for c in attachedControllers {
-            guard let gp = c.extendedGamepad else { continue }
-            gp.buttonA.pressedChangedHandler = nil
-            gp.dpad.up.pressedChangedHandler = nil
-            gp.dpad.down.pressedChangedHandler = nil
-        }
+        // NB: do NOT clear the controller's handlers here — see GameScene.deinit.
     }
 
     private func configureLabel(_ l: SKLabelNode, size: CGFloat, color: UIColor, z: CGFloat) {
@@ -242,9 +236,6 @@ final class TitleScene: SKScene {
 
     private func attach(_ controller: GCController) {
         guard let gp = controller.extendedGamepad else { return }
-        if !attachedControllers.contains(where: { $0 === controller }) {
-            attachedControllers.append(controller)
-        }
         gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self, self.selectedIndex < self.items.count else { return }
             self.items[self.selectedIndex].run()
