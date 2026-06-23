@@ -97,6 +97,13 @@ final class GameScene: SKScene {
     /// Last integer depth the water color was set for (skip per-frame UIColor work).
     private var lastColorMeters = Int.min
 
+    // Paywall — the free dive ends at the 1,000 m gate until "Unlock the Deep".
+    private let gateMeters: CGFloat = 1000
+    private var gateY: CGFloat { -gateMeters * GameConfig.pointsPerMeter }
+    private let paywall = Paywall()
+    private var paywalled = false
+    private var gateCooldown: CGFloat = 0
+
     // MARK: Scene setup
 
     override func didMove(to view: SKView) {
@@ -116,6 +123,9 @@ final class GameScene: SKScene {
         setupControllers()
         AudioManager.shared.start()
         playIntroFade()
+
+        // Sync the unlock entitlement (and load the product/price) for the gate.
+        Task { await StoreManager.shared.refresh() }
 
         // Save the resume point when the app goes to the background.
         saveObserver = NotificationCenter.default.addObserver(
@@ -223,6 +233,13 @@ final class GameScene: SKScene {
         pauseBtn.addChild(pauseIcon)
         cameraNode.addChild(pauseBtn)
         buildPauseOverlay()
+
+        // Paywall modal — hidden until the diver reaches the 1,000 m gate.
+        paywall.isHidden = true
+        paywall.onUnlock  = { [weak self] in self?.buyUnlock() }
+        paywall.onRestore = { [weak self] in self?.restorePurchase() }
+        paywall.onDismiss = { [weak self] in self?.closePaywall(lift: true) }
+        cameraNode.addChild(paywall)
     }
 
     private func buildPauseOverlay() {
@@ -317,6 +334,12 @@ final class GameScene: SKScene {
     // MARK: Touch steering (virtual joystick, bottom-left)
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        // While the paywall is up, only its buttons are live.
+        if paywalled {
+            guard let t = touches.first else { return }
+            paywall.handleTap(t.location(in: paywall))
+            return
+        }
         // While paused, only the overlay buttons are live.
         if menuPaused {
             guard let t = touches.first else { return }
@@ -414,6 +437,85 @@ final class GameScene: SKScene {
         v.presentScene(t, transition: .fade(with: .black, duration: 0.6))
     }
 
+    // MARK: Paywall ("Unlock the Deep")
+
+    /// Freeze the diver and raise the purchase modal at the 1,000 m gate.
+    private func presentPaywall() {
+        guard !paywalled else { return }
+        paywalled = true
+        // Clear every input, same as opening the pause menu.
+        joystick.release(); stickTouch = nil
+        boostBtn.setPressed(false); boostTouch = nil
+        turboBtn.setPressed(false); turboTouch = nil
+        ascending = false; surfaceBtn.setPressed(false); surfaceTouch = nil
+        isBoosting = false; prevBoost = false; prevTurbo = false
+        player.setThrust(.zero)
+        player.physicsBody?.velocity = .zero
+        saveProgress()
+        paywall.reset(price: StoreManager.shared.displayPrice)
+        paywall.isHidden = false
+        // Pull the real localized price in case it wasn't loaded yet.
+        Task { @MainActor in
+            await StoreManager.shared.loadProduct()
+            paywall.setPrice(StoreManager.shared.displayPrice)
+        }
+        HapticsManager.shared.pulse(intensity: 0.4, sharpness: 0.3)
+    }
+
+    /// Hide the modal. `lift` nudges the diver back above the gate so dismissing
+    /// ("keep exploring") doesn't immediately re-trigger it.
+    private func closePaywall(lift: Bool) {
+        paywalled = false
+        paywall.isHidden = true
+        paywall.setBusy(false)
+        if lift {
+            gateCooldown = 0.8
+            if player.position.y <= gateY {
+                player.position.y = gateY + 120
+                player.physicsBody?.velocity = .zero
+            }
+        }
+    }
+
+    private func buyUnlock() {
+        guard !paywall.isBusy else { return }
+        paywall.setBusy(true)
+        paywall.setStatus(L("paywall.purchasing", "PURCHASING…"))
+        Task { @MainActor in
+            switch await StoreManager.shared.purchase() {
+            case .success:
+                paywall.setStatus(L("paywall.unlocked", "THE DEEP IS YOURS"))
+                HapticsManager.shared.pulse(intensity: 1.0, sharpness: 0.6)
+                try? await Task.sleep(nanoseconds: 1_100_000_000)
+                closePaywall(lift: false)   // unlocked — let them keep descending
+            case .pending:
+                paywall.setBusy(false)
+                paywall.setStatus(L("paywall.purchasing", "PURCHASING…"))
+            case .cancelled:
+                paywall.setBusy(false); paywall.setStatus(nil)
+            case .failed:
+                paywall.setBusy(false)
+                paywall.setStatus(L("paywall.failed", "PURCHASE FAILED"))
+            }
+        }
+    }
+
+    private func restorePurchase() {
+        guard !paywall.isBusy else { return }
+        paywall.setBusy(true)
+        paywall.setStatus(L("paywall.restoring", "RESTORING…"))
+        Task { @MainActor in
+            if await StoreManager.shared.restore() {
+                paywall.setStatus(L("paywall.unlocked", "THE DEEP IS YOURS"))
+                try? await Task.sleep(nanoseconds: 900_000_000)
+                closePaywall(lift: false)
+            } else {
+                paywall.setBusy(false)
+                paywall.setStatus(L("paywall.nothing_restored", "NOTHING TO RESTORE"))
+            }
+        }
+    }
+
     /// Highlight the selected pause button (controller only).
     private func highlightPause() {
         let hasController = GCController.current != nil
@@ -452,22 +554,31 @@ final class GameScene: SKScene {
         guard let gp = controller.extendedGamepad else { return }
         GCController.stopWirelessControllerDiscovery()   // found one; stop scanning
         gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed, let self = self, !self.menuPaused else { return }
+            guard pressed, let self = self, !self.menuPaused, !self.paywalled else { return }
             self.beginAscent()
         }
-        // A activates the highlighted pause choice while paused, else toggles lamp.
+        // A buys the unlock while the paywall is up, activates the highlighted
+        // pause choice while paused, else toggles the lamp.
         gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self else { return }
-            if self.menuPaused {
+            if self.paywalled {
+                self.buyUnlock()
+            } else if self.menuPaused {
                 if self.pauseIndex == 0 { self.resumeGame() } else { self.toMainMenu() }
             } else {
                 self.toggleFlashlight()
             }
         }
-        // Options/Menu toggles pause; L1 toggles mute.
+        // B dismisses the paywall ("keep exploring"); otherwise it's polled for turbo.
+        gp.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
+            guard pressed, let self = self, self.paywalled else { return }
+            self.closePaywall(lift: true)
+        }
+        // Options/Menu toggles pause (or dismisses the paywall); L1 toggles mute.
         gp.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self else { return }
-            if self.menuPaused { self.resumeGame() } else { self.openPause() }
+            if self.paywalled { self.closePaywall(lift: true) }
+            else if self.menuPaused { self.resumeGame() } else { self.openPause() }
         }
         gp.leftShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
             if pressed { self?.toggleMute() }
@@ -484,6 +595,9 @@ final class GameScene: SKScene {
             dt = CGFloat(min(currentTime - lastUpdateTime, 1.0 / 20.0))   // cap big hitches
         }
         lastUpdateTime = currentTime
+
+        // While the "Unlock the Deep" modal is up, the game is frozen.
+        if paywalled { return }
 
         // While paused, the game is frozen; only drive the pause-menu cursor.
         if menuPaused {
@@ -543,6 +657,21 @@ final class GameScene: SKScene {
             prevBoost = boost; prevTurbo = turbo
         }
         player.update(dt)
+
+        // Depth gate: the free dive ends at 1,000 m until "Unlock the Deep".
+        // Clamp the diver at the gate and, when they actively press deeper,
+        // raise the purchase modal.
+        if !StoreManager.shared.isUnlocked {
+            gateCooldown = max(0, gateCooldown - dt)
+            if player.position.y < gateY {
+                player.position.y = gateY
+                if let b = player.physicsBody, b.velocity.dy < 0 { b.velocity.dy = 0 }
+            }
+            if player.position.y <= gateY + 2, moveVec.dy < -0.15, gateCooldown == 0 {
+                presentPaywall()
+                return
+            }
+        }
 
         // A heavy thud the first time you reach the trench floor.
         if player.position.y <= GameConfig.worldFloor + 60 {

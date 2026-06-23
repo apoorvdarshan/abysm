@@ -1,0 +1,30 @@
+{
+  "identifier" : "A1B2C3D4-ABCD-4000-8000-ABYSMSTORE01",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "A1B2C3D4-0001-4000-8000-000000000001",
+      "localizations" : [
+        {
+          "description" : "Unlock the full descent below 1,000 m to the trench floor.",
+          "displayName" : "Unlock the Deep",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.apoorvdarshan.Abysm.unlockdeep",
+      "referenceName" : "Unlock the Deep",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

@@ -46,6 +46,9 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     DIVE IN YOUR LANGUAGE
     English, Spanish, French, German, Italian, Brazilian Portuguese, Russian, Polish, Dutch, Turkish, Hindi, Japanese, Korean, Simplified Chinese, Traditional Chinese, and Arabic.
 
+    FREE TO START
+    Dive free from the surface down to 1,000 m - the Sunlight and Twilight zones, with around 30 creatures to meet. A one-time purchase, "Unlock the Deep," opens the rest of the descent: the Midnight, Abyss, and Hadal zones down to the 10,935 m trench floor, with about 45 more creatures and the deep landmarks. One purchase, forever. No subscriptions, no ads.
+
     PRIVATE BY DESIGN
     - No account or login
     - No ads and no tracking
@@ -54,6 +57,19 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
     Support: https://github.com/apoorvdarshan/abysm
     Contact: ad13dtu@gmail.com
+
+## In-App Purchases
+
+    Unlock the Deep
+    - Product ID: com.apoorvdarshan.Abysm.unlockdeep
+    - Type: Non-Consumable
+    - Price: $2.99 (USD tier; localized by App Store)
+    - Display Name: Unlock the Deep
+    - Description: Descend past 1,000m: 45 more creatures & the trench.
+
+    The app is free to download and play to 1,000 m. This single non-consumable
+    unlocks the descent below 1,000 m to the trench floor. Restorable. No
+    subscriptions or consumables.
 
 ## What's New (v1.0)
 
@@ -81,7 +97,8 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
 ## Reviewer Notes
 
-    ABYSM is a single-player, offline exploration game. There is no account, no login, and no network use.
+    ABYSM is a single-player exploration game. There is no account or login. The
+    only network use is Apple's StoreKit, for the in-app purchase.
 
     To test:
     1. Launch the app. Tap NEW GAME on the title screen (or CONTINUE to resume a saved dive).
@@ -89,7 +106,15 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     3. Swim straight down to descend through the zones; creatures and landmarks appear at their real depths.
     4. Top-left is Pause; top-right is the sound mute toggle.
 
-    Game controllers are supported: left stick / d-pad to swim, A toggles the headlamp, B turbo, X boost, Y rise to surface, Menu pauses, L1 mutes.
+    In-app purchase ("Unlock the Deep"):
+    - Keep swimming down to ~1,000 m. The diver stops at the gate and the
+      "Unlock the Deep" modal appears.
+    - Tap UNLOCK to buy (sandbox). After it completes, the gate is removed and
+      you can continue descending past 1,000 m.
+    - "RESTORE" restores the unlock on a fresh install / another device.
+    - "KEEP EXPLORING" dismisses the modal and stays in the free zones.
+
+    Game controllers are supported: left stick / d-pad to swim, A toggles the headlamp (or buys the unlock while the paywall is up), B turbo (or dismisses the paywall), X boost, Y rise to surface, Menu pauses, L1 mutes.
 
     Data: the app stores only the current dive depth and horizontal position locally (UserDefaults) so it can offer "Continue." Nothing is collected, transmitted, or shared. Privacy nutrition label: Data Not Collected.
 
