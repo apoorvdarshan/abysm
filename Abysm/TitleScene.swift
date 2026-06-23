@@ -44,6 +44,12 @@ final class TitleScene: SKScene {
     private var soundOn = true
     private var controllerObserver: NSObjectProtocol?
 
+    // Controller menu navigation.
+    private var items: [(node: SKNode, run: () -> Void)] = []
+    private var selectedIndex = 0
+    private var lastT: TimeInterval = 0
+    private var navCooldown: CGFloat = 0
+
     private let titleStops: [(UIColor, CGFloat)] = [
         (Palette.rgb(56, 150, 226), 0.0),
         (Palette.rgb(150, 206, 238), 0.34),
@@ -75,6 +81,12 @@ final class TitleScene: SKScene {
         buildButton(newGameBtn, "NEW GAME")
         soundLbl = buildButton(soundBtn, soundText())
         continueBtn.isHidden = !SaveManager.hasSave
+
+        // Ordered list for controller navigation (matches the visible buttons).
+        if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
+        items.append((newGameBtn, { [weak self] in self?.newGame() }))
+        items.append((soundBtn, { [weak self] in self?.toggleSound() }))
+        highlightSelected()
 
         plankton.zPosition = 2
         plankton.targetNode = self
@@ -224,14 +236,39 @@ final class TitleScene: SKScene {
     private func attach(_ controller: GCController) {
         guard let gp = controller.extendedGamepad else { return }
         gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed, let self = self else { return }
-            if SaveManager.hasSave { self.continueGame() } else { self.newGame() }
+            guard pressed, let self = self, self.selectedIndex < self.items.count else { return }
+            self.items[self.selectedIndex].run()
         }
-        gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            if pressed { self?.newGame() }
+        gp.dpad.up.pressedChangedHandler   = { [weak self] _, _, p in if p { self?.moveSelection(-1) } }
+        gp.dpad.down.pressedChangedHandler = { [weak self] _, _, p in if p { self?.moveSelection(1) } }
+    }
+
+    // MARK: Controller menu navigation
+
+    override func update(_ currentTime: TimeInterval) {
+        let dt = lastT == 0 ? 0 : currentTime - lastT
+        lastT = currentTime
+        navCooldown = max(0, navCooldown - CGFloat(dt))
+        if let gp = GCController.current?.extendedGamepad, navCooldown == 0 {
+            let y = gp.leftThumbstick.yAxis.value
+            if y > 0.5 { moveSelection(-1); navCooldown = 0.22 }
+            else if y < -0.5 { moveSelection(1); navCooldown = 0.22 }
         }
-        gp.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
-            if pressed { self?.toggleSound() }
+        highlightSelected()
+    }
+
+    private func moveSelection(_ d: Int) {
+        guard !items.isEmpty else { return }
+        selectedIndex = (selectedIndex + d + items.count) % items.count
+        highlightSelected()
+    }
+
+    private func highlightSelected() {
+        let hasController = GCController.current != nil
+        for (i, it) in items.enumerated() {
+            let sel = i == selectedIndex
+            it.node.setScale(hasController && sel ? 1.07 : 1.0)
+            it.node.alpha = (!hasController || sel) ? 1.0 : 0.8
         }
     }
 

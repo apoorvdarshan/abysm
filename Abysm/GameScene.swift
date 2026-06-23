@@ -413,13 +413,21 @@ final class GameScene: SKScene {
     private func attach(_ controller: GCController) {
         HapticsManager.shared.attach(controller)
         guard let gp = controller.extendedGamepad else { return }
+        // A / Y double as the pause-menu choices while paused.
         gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            if pressed { self?.beginAscent() }
+            guard pressed, let self = self else { return }
+            if self.menuPaused { self.toMainMenu() } else { self.beginAscent() }
         }
         gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
-            if pressed { self?.toggleFlashlight() }
+            guard pressed, let self = self else { return }
+            if self.menuPaused { self.resumeGame() } else { self.toggleFlashlight() }
         }
+        // Options/Menu toggles pause; L1 toggles mute.
         gp.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
+            guard pressed, let self = self else { return }
+            if self.menuPaused { self.resumeGame() } else { self.openPause() }
+        }
+        gp.leftShoulder.pressedChangedHandler = { [weak self] _, _, pressed in
             if pressed { self?.toggleMute() }
         }
     }
