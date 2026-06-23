@@ -3,13 +3,14 @@
 //  Abysm
 //
 //  The "Unlock the Deep" modal shown at the 1,000 m gate. Framed in a pixel-art
-//  sunken-treasure wooden plaque (rope corners) with a glowing pixel anglerfish,
-//  warm brass lettering, and a carved gold UNLOCK button. Every element — title,
-//  body, UNLOCK, RESTORE, KEEP EXPLORING — sits inside the plaque's dark center
-//  window (measured from the art). Three choices: buy, restore, or dismiss.
+//  sunken-treasure wooden plaque (rope corners) with a glowing pixel anglerfish
+//  and warm brass lettering. Three carved buttons stacked in the dark center —
+//  UNLOCK (gold), KEEP EXPLORING and RESTORE (bronze). Touch or game controller
+//  (stick/d-pad highlights, A activates).
 //
 
 import SpriteKit
+import GameController
 
 final class Paywall: SKNode {
 
@@ -17,20 +18,22 @@ final class Paywall: SKNode {
     var onRestore: () -> Void = {}
     var onDismiss: () -> Void = {}
 
-    /// While a purchase/restore is in flight, taps are ignored.
+    /// While a purchase/restore is in flight, taps/clicks are ignored.
     private(set) var isBusy = false
 
-    // Plaque = 2× the 288×176 frame texture (crisp integer scaling). The dark
-    // center window measured from the art is x[-236,234], y[-102,104].
+    // Plaque = 2× the 288×176 frame texture (crisp integer scaling). Dark center
+    // window measured from the art: x[-235,235], y[-102,104].
     static let panelW: CGFloat = 576, panelH: CGFloat = 352
-    private let winTop: CGFloat = 104, winBottom: CGFloat = -102
+
+    private let brass = Palette.rgb(244, 212, 132)
+    private let cream = Palette.rgb(228, 214, 184)
 
     private let unlockLabel = GameFont.label()
     private let statusLabel = GameFont.label()
 
-    private let brass = Palette.rgb(244, 212, 132)
-    private let cream = Palette.rgb(228, 214, 184)
-    private let muted = Palette.rgb(156, 140, 104)
+    // Controller navigation: [UNLOCK, KEEP EXPLORING, RESTORE].
+    private var buttons: [SKNode] = []
+    private var selected = 0
 
     private var unlockRect = CGRect.zero
     private var restoreRect = CGRect.zero
@@ -51,7 +54,8 @@ final class Paywall: SKNode {
         dim.alpha = 0.72; dim.zPosition = 0
         addChild(dim)
 
-        // Wooden treasure-plaque frame (pixel art, integer-scaled, dark center).
+        // Wooden treasure-plaque frame (pixel art, integer-scaled, transparent
+        // outside the wood, dark center).
         let frameTex = SKTexture(imageNamed: "paywall_frame")
         frameTex.filteringMode = .nearest
         let frame = SKSpriteNode(texture: frameTex)
@@ -59,24 +63,24 @@ final class Paywall: SKNode {
         frame.zPosition = 1
         addChild(frame)
 
-        // Pixel anglerfish hero (top of the window).
+        // Pixel anglerfish hero.
         let heroTex = SKTexture(imageNamed: "paywall_hero")
         heroTex.filteringMode = .nearest
         let hero = SKSpriteNode(texture: heroTex)
-        hero.size = CGSize(width: 40, height: 40)
-        hero.position = CGPoint(x: 0, y: 80)
+        hero.size = CGSize(width: 30, height: 30)
+        hero.position = CGPoint(x: 0, y: 88)
         hero.zPosition = 3
         addChild(hero)
 
         // Title — carved brass.
         let title = GameFont.label()
         title.text = L("paywall.title", "UNLOCK THE DEEP")
-        title.fontSize = 14; title.fontColor = brass
+        title.fontSize = 13; title.fontColor = brass
         title.horizontalAlignmentMode = .center; title.verticalAlignmentMode = .center
-        title.position = CGPoint(x: 0, y: 54); title.zPosition = 3
+        title.position = CGPoint(x: 0, y: 64); title.zPosition = 3
         addChild(title)
 
-        // Body (wraps; window is wide so it fits in ~2 lines).
+        // Body (wraps to ~2 lines in the wide window).
         let body = GameFont.label()
         body.text = L("paywall.body",
             "Dive past 1,000 m to the trench floor — the deep zones, ~45 more creatures, and landmarks like the Titanic.")
@@ -84,58 +88,98 @@ final class Paywall: SKNode {
         body.horizontalAlignmentMode = .center; body.verticalAlignmentMode = .top
         body.numberOfLines = 0; body.preferredMaxLayoutWidth = 440
         body.lineBreakMode = .byWordWrapping
-        body.position = CGPoint(x: 0, y: 38); body.zPosition = 3
+        body.position = CGPoint(x: 0, y: 46); body.zPosition = 3
         addChild(body)
 
-        // Status line (purchasing / restoring / failed); over the button, hidden.
+        // Status line (purchasing / restoring / failed); over UNLOCK, hidden.
         statusLabel.fontSize = 8; statusLabel.fontColor = brass
         statusLabel.horizontalAlignmentMode = .center; statusLabel.verticalAlignmentMode = .center
-        statusLabel.position = CGPoint(x: 0, y: -16); statusLabel.zPosition = 4
+        statusLabel.position = CGPoint(x: 0, y: 2); statusLabel.zPosition = 5
         statusLabel.isHidden = true
         addChild(statusLabel)
 
-        // UNLOCK — carved gold button.
+        // UNLOCK — primary gold button (keeps a label ref for the price).
         let unlock = SKNode()
-        unlock.position = CGPoint(x: 0, y: -18); unlock.zPosition = 3
-        goldButton(into: unlock, size: CGSize(width: 300, height: 34))
+        unlock.position = CGPoint(x: 0, y: 2); unlock.zPosition = 3
+        carvedButton(into: unlock, size: CGSize(width: 300, height: 34), primary: true)
         unlockLabel.fontSize = 13; unlockLabel.fontColor = Palette.rgb(46, 28, 10)
         unlockLabel.horizontalAlignmentMode = .center; unlockLabel.verticalAlignmentMode = .center
         unlockLabel.zPosition = 3
         unlock.addChild(unlockLabel)
         addChild(unlock)
-        unlockRect = CGRect(x: -150, y: -18 - 17, width: 300, height: 34)
+        buttons.append(unlock)
+        unlockRect = CGRect(x: -150, y: 2 - 17, width: 300, height: 34)
         setPrice("$2.99")
 
-        // RESTORE / KEEP EXPLORING — bare text choices, inside the window.
-        restoreRect = makeTextButton(L("paywall.restore", "RESTORE"),
-                                     y: -54, color: cream, size: 9)
-        dismissRect = makeTextButton(L("paywall.keep_exploring", "KEEP EXPLORING"),
-                                     y: -82, color: muted, size: 8)
+        // KEEP EXPLORING — secondary bronze button.
+        let (keep, keepRect) = makeButton(L("paywall.keep_exploring", "KEEP EXPLORING"),
+                                          y: -38, w: 240, h: 30)
+        buttons.append(keep); dismissRect = keepRect
+
+        // RESTORE — secondary bronze button, below both.
+        let (rest, restRect) = makeButton(L("paywall.restore", "RESTORE"),
+                                          y: -76, w: 240, h: 30)
+        buttons.append(rest); restoreRect = restRect
+
+        highlight()
     }
 
-    /// A carved, beveled gold button (top highlight + bottom shadow).
-    private func goldButton(into node: SKNode, size: CGSize) {
+    /// A carved, beveled button (top highlight + bottom shadow). `primary` is the
+    /// bright gold UNLOCK; otherwise a muted bronze.
+    private func carvedButton(into node: SKNode, size: CGSize, primary: Bool) {
+        let outerC = primary ? Palette.rgb(58, 38, 16) : Palette.rgb(44, 30, 14)
+        let faceC  = primary ? Palette.rgb(214, 168, 74) : Palette.rgb(132, 98, 48)
+        let hiC    = primary ? Palette.rgb(244, 214, 142) : Palette.rgb(176, 140, 80)
+        let shC    = primary ? Palette.rgb(150, 110, 40) : Palette.rgb(86, 60, 26)
         let inset: CGFloat = 4
-        let outer = SKSpriteNode(color: Palette.rgb(58, 38, 16), size: size); outer.zPosition = 0
-        let face = SKSpriteNode(color: Palette.rgb(214, 168, 74),
+        let outer = SKSpriteNode(color: outerC, size: size); outer.zPosition = 0
+        let face = SKSpriteNode(color: faceC,
                                 size: CGSize(width: size.width - inset * 2, height: size.height - inset * 2))
         face.zPosition = 1
-        let hi = SKSpriteNode(color: Palette.rgb(244, 214, 142), size: CGSize(width: face.size.width, height: 4))
+        let hi = SKSpriteNode(color: hiC, size: CGSize(width: face.size.width, height: 4))
         hi.position = CGPoint(x: 0, y: face.size.height / 2 - 2); hi.zPosition = 2
-        let sh = SKSpriteNode(color: Palette.rgb(150, 110, 40), size: CGSize(width: face.size.width, height: 3))
+        let sh = SKSpriteNode(color: shC, size: CGSize(width: face.size.width, height: 3))
         sh.position = CGPoint(x: 0, y: -face.size.height / 2 + 1.5); sh.zPosition = 2
         node.addChild(outer); node.addChild(face); node.addChild(hi); node.addChild(sh)
     }
 
-    /// A bare text button (no plate). Returns its tappable rect in node space,
-    /// kept inside the plaque window width so taps never spill onto the wood.
-    private func makeTextButton(_ text: String, y: CGFloat, color: UIColor, size: CGFloat) -> CGRect {
+    /// A labeled bronze button. Returns its container node and tappable rect.
+    private func makeButton(_ text: String, y: CGFloat, w: CGFloat, h: CGFloat) -> (SKNode, CGRect) {
+        let node = SKNode(); node.position = CGPoint(x: 0, y: y); node.zPosition = 3
+        carvedButton(into: node, size: CGSize(width: w, height: h), primary: false)
         let l = GameFont.label()
-        l.text = text; l.fontSize = size; l.fontColor = color
-        l.horizontalAlignmentMode = .center; l.verticalAlignmentMode = .center
-        l.position = CGPoint(x: 0, y: y); l.zPosition = 3
-        addChild(l)
-        return CGRect(x: -235, y: y - 13, width: 470, height: 26)
+        l.text = text; l.fontSize = 11; l.fontColor = Palette.rgb(238, 224, 192)
+        l.horizontalAlignmentMode = .center; l.verticalAlignmentMode = .center; l.zPosition = 3
+        node.addChild(l); addChild(node)
+        return (node, CGRect(x: -w / 2, y: y - h / 2, width: w, height: h))
+    }
+
+    // MARK: Controller navigation
+
+    /// Highlight the selected button (only when a controller is connected).
+    func highlight() {
+        let has = GCController.current != nil
+        for (i, b) in buttons.enumerated() {
+            let sel = (i == selected)
+            b.setScale(has && sel ? 1.07 : 1.0)
+            b.alpha = (!has || sel) ? 1.0 : 0.7
+        }
+    }
+
+    func moveSelection(_ d: Int) {
+        guard !buttons.isEmpty else { return }
+        selected = (selected + d + buttons.count) % buttons.count
+        highlight()
+    }
+
+    /// Activate the highlighted button (controller A).
+    func activateSelected() {
+        guard !isBusy else { return }
+        switch selected {
+        case 0: onUnlock()
+        case 1: onDismiss()
+        default: onRestore()
+        }
     }
 
     // MARK: State
@@ -156,16 +200,18 @@ final class Paywall: SKNode {
 
     /// Fresh state each time the modal is shown.
     func reset(price: String) {
+        selected = 0
         setBusy(false)
         setStatus(nil)
         setPrice(price)
+        highlight()
     }
 
     /// Route a tap (in this node's coordinate space) to a button.
     func handleTap(_ p: CGPoint) {
         guard !isBusy else { return }
         if unlockRect.contains(p) { onUnlock() }
-        else if restoreRect.contains(p) { onRestore() }
         else if dismissRect.contains(p) { onDismiss() }
+        else if restoreRect.contains(p) { onRestore() }
     }
 }

@@ -390,6 +390,10 @@ final class GameScene: SKScene {
     // MARK: Shared actions (used by both touch and the game controller)
 
     private func toggleFlashlight() {
+        // The headlamp doesn't exist in the sunlit zone — ignore toggles there so
+        // a controller press makes no click sound and changes nothing.
+        let meters = max(0, -player.position.y) / GameConfig.pointsPerMeter
+        guard meters >= GameConfig.zones[1].topMeters else { return }
         flashlightOn.toggle()
         player.setFlashlight(flashlightOn)
         flashBtn.setPressed(flashlightOn)
@@ -567,7 +571,7 @@ final class GameScene: SKScene {
         gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self else { return }
             if self.paywalled {
-                self.buyUnlock()
+                self.paywall.activateSelected()
             } else if self.menuPaused {
                 if self.pauseIndex == 0 { self.resumeGame() } else { self.toMainMenu() }
             } else {
@@ -601,8 +605,17 @@ final class GameScene: SKScene {
         }
         lastUpdateTime = currentTime
 
-        // While the "Unlock the Deep" modal is up, the game is frozen.
-        if paywalled { return }
+        // While the "Unlock the Deep" modal is up, the game is frozen; only drive
+        // the paywall's controller cursor (stick/d-pad to highlight, A to pick).
+        if paywalled {
+            navCooldown = max(0, navCooldown - dt)
+            if let gp = GCController.current?.extendedGamepad, navCooldown == 0 {
+                let y = gp.leftThumbstick.yAxis.value + gp.dpad.yAxis.value
+                if y > 0.5 { paywall.moveSelection(-1); navCooldown = 0.22 }
+                else if y < -0.5 { paywall.moveSelection(1); navCooldown = 0.22 }
+            }
+            return
+        }
 
         // While paused, the game is frozen; only drive the pause-menu cursor.
         if menuPaused {
