@@ -77,6 +77,8 @@ final class GameScene: SKScene {
     private let resumeBtn = SKNode()
     private let menuBtn = SKNode()
     private var menuPaused = false
+    private var pauseIndex = 0          // 0 = Resume, 1 = Main Menu (controller nav)
+    private var navCooldown: CGFloat = 0
     private let pBtnW: CGFloat = 260, pBtnH: CGFloat = 48
 
     // Sound + haptics.
@@ -373,27 +375,36 @@ final class GameScene: SKScene {
     private func openPause() {
         guard !menuPaused else { return }
         menuPaused = true
+        pauseIndex = 0
         saveProgress()
         joystick.release(); stickTouch = nil
         boostBtn.setPressed(false); boostTouch = nil
         turboBtn.setPressed(false); turboTouch = nil
+        player.physicsBody?.velocity = .zero      // hold the diver still
         pauseOverlay.isHidden = false
-        isPaused = true                 // freeze the dive
+        highlightPause()
     }
 
     private func resumeGame() {
         menuPaused = false
         pauseOverlay.isHidden = true
-        isPaused = false
     }
 
     private func toMainMenu() {
-        isPaused = false
         saveProgress()
         guard let v = view else { return }
         let t = TitleScene(size: v.bounds.size)
         t.scaleMode = .resizeFill
         v.presentScene(t, transition: .fade(with: .black, duration: 0.6))
+    }
+
+    /// Highlight the selected pause button (controller only).
+    private func highlightPause() {
+        let hasController = GCController.current != nil
+        resumeBtn.setScale(hasController && pauseIndex == 0 ? 1.06 : 1.0)
+        menuBtn.setScale(hasController && pauseIndex == 1 ? 1.06 : 1.0)
+        resumeBtn.alpha = (!hasController || pauseIndex == 0) ? 1.0 : 0.7
+        menuBtn.alpha = (!hasController || pauseIndex == 1) ? 1.0 : 0.7
     }
 
     // MARK: Game controller (optional — left stick/dpad to swim; see attach())
@@ -413,14 +424,18 @@ final class GameScene: SKScene {
     private func attach(_ controller: GCController) {
         HapticsManager.shared.attach(controller)
         guard let gp = controller.extendedGamepad else { return }
-        // A / Y double as the pause-menu choices while paused.
         gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed, let self = self else { return }
-            if self.menuPaused { self.toMainMenu() } else { self.beginAscent() }
+            guard pressed, let self = self, !self.menuPaused else { return }
+            self.beginAscent()
         }
+        // A activates the highlighted pause choice while paused, else toggles lamp.
         gp.buttonA.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self else { return }
-            if self.menuPaused { self.resumeGame() } else { self.toggleFlashlight() }
+            if self.menuPaused {
+                if self.pauseIndex == 0 { self.resumeGame() } else { self.toMainMenu() }
+            } else {
+                self.toggleFlashlight()
+            }
         }
         // Options/Menu toggles pause; L1 toggles mute.
         gp.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
@@ -442,6 +457,17 @@ final class GameScene: SKScene {
             dt = CGFloat(min(currentTime - lastUpdateTime, 1.0 / 20.0))   // cap big hitches
         }
         lastUpdateTime = currentTime
+
+        // While paused, the game is frozen; only drive the pause-menu cursor.
+        if menuPaused {
+            navCooldown = max(0, navCooldown - dt)
+            if let gp = GCController.current?.extendedGamepad, navCooldown == 0 {
+                let y = gp.leftThumbstick.yAxis.value + gp.dpad.yAxis.value
+                if y > 0.5 { pauseIndex = 0; navCooldown = 0.22; highlightPause() }
+                else if y < -0.5 { pauseIndex = 1; navCooldown = 0.22; highlightPause() }
+            }
+            return
+        }
 
         // Gather input: on-screen joystick/buttons plus an optional game controller.
         var moveVec = joystick.vector
