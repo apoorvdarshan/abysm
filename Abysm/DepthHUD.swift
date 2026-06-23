@@ -12,7 +12,7 @@ import SpriteKit
 
 final class DepthHUD: SKNode {
 
-    private let label = SKLabelNode(fontNamed: "PressStart2P-Regular")
+    private let label = GameFont.label()
     private let panel = SKSpriteNode()
     private let border = SKSpriteNode()
     private var lastMeters = Int.min
@@ -54,7 +54,7 @@ final class DepthHUD: SKNode {
     private func refresh() {
         let m = lastMeters == Int.min ? 0 : lastMeters
         let z = lastZone.isEmpty ? "SUNLIGHT ZONE" : lastZone
-        let font = UIFont(name: "PressStart2P-Regular", size: 11) ?? UIFont.systemFont(ofSize: 11)
+        let font = GameFont.uiFont(size: 11)
         let s = NSMutableAttributedString(string: "\(m)M",
                                           attributes: [.font: font, .foregroundColor: UIColor.white])
         s.append(NSAttributedString(string: "   \(z)",

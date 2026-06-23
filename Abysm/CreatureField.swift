@@ -59,7 +59,7 @@ final class CreatureField: SKNode {
             wrapper.position = CGPoint(x: CGFloat.random(in: -wrapHalf...wrapHalf), y: depthY)
             wrapper.addChild(container)
 
-            let tag = makeNameTag(c.name)
+            let tag = makeNameTag(L("creature.\(c.key).name", c.name))
             tag.position = CGPoint(x: 0, y: -sprite.size.height / 2 - 16)
             wrapper.addChild(tag)
 
@@ -127,7 +127,7 @@ final class CreatureField: SKNode {
     private func makeNameTag(_ name: String) -> SKNode {
         let s = GameConfig.labelScale
         let node = SKNode()
-        let label = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        let label = GameFont.label()
         label.text = name.uppercased()
         label.fontSize = 7 * s
         label.fontColor = .white
@@ -153,7 +153,7 @@ final class CreatureField: SKNode {
         let width: CGFloat = 212 * s
         let topPad: CGFloat = 4 * s, gap: CGFloat = 7 * s, botPad: CGFloat = 8 * s
 
-        let meta = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        let meta = GameFont.label()
         meta.text = "\(Int(c.depthM))M  ·  \(zoneName(c.depthM))"
         meta.fontSize = 6 * s
         meta.fontColor = Palette.rgb(150, 236, 232)
@@ -162,8 +162,8 @@ final class CreatureField: SKNode {
         meta.position = CGPoint(x: 0, y: -topPad)
         meta.zPosition = 1
 
-        let fact = SKLabelNode(fontNamed: "PressStart2P-Regular")
-        fact.text = c.fact
+        let fact = GameFont.label()
+        fact.text = L("creature.\(c.key).fact", c.fact)
         fact.fontSize = 6 * s
         fact.fontColor = Palette.rgb(212, 228, 238)
         fact.horizontalAlignmentMode = .center

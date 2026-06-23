@@ -228,13 +228,13 @@ final class GameScene: SKScene {
     private func buildPauseOverlay() {
         let dim = SKSpriteNode(color: .black, size: CGSize(width: 4200, height: 3200))
         dim.alpha = 0.66; dim.zPosition = 0
-        let titleL = SKLabelNode(fontNamed: "PressStart2P-Regular")
-        titleL.text = "PAUSED"; titleL.fontSize = 26; titleL.fontColor = .white
+        let titleL = GameFont.label()
+        titleL.text = L("pause.title", "PAUSED"); titleL.fontSize = 26; titleL.fontColor = .white
         titleL.verticalAlignmentMode = .center; titleL.horizontalAlignmentMode = .center
         titleL.zPosition = 2; titleL.position = CGPoint(x: 0, y: 96)
         pauseOverlay.addChild(dim); pauseOverlay.addChild(titleL)
-        plateButton(resumeBtn, "RESUME", y: 20)
-        plateButton(menuBtn, "MAIN MENU", y: 20 - (pBtnH + 18))
+        plateButton(resumeBtn, L("pause.resume", "RESUME"), y: 20)
+        plateButton(menuBtn, L("pause.main_menu", "MAIN MENU"), y: 20 - (pBtnH + 18))
         pauseOverlay.zPosition = GameConfig.Z.intro + 1
         pauseOverlay.isHidden = true
         cameraNode.addChild(pauseOverlay)
@@ -245,7 +245,7 @@ final class GameScene: SKScene {
         border.alpha = 0.8
         let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: pBtnW, height: pBtnH))
         plate.alpha = 0.95; plate.zPosition = 1
-        let label = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        let label = GameFont.label()
         label.text = text; label.fontSize = 15; label.fontColor = .white
         label.verticalAlignmentMode = .center; label.horizontalAlignmentMode = .center; label.zPosition = 2
         node.addChild(border); node.addChild(plate); node.addChild(label)

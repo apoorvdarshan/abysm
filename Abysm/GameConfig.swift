@@ -84,13 +84,13 @@ enum GameConfig {
 
     // MARK: Ocean depth zones (real metre boundaries)
 
-    struct Zone { let name: String; let topMeters: CGFloat; let blurb: String }
+    struct Zone { let key: String; let name: String; let topMeters: CGFloat; let blurb: String }
     static let zones: [Zone] = [
-        Zone(name: "SUNLIGHT ZONE", topMeters: 0,    blurb: "Warm, sunlit waters where most ocean life thrives."),
-        Zone(name: "TWILIGHT ZONE", topMeters: 200,  blurb: "Fading blue gloom — cold, dim, lit by living glow."),
-        Zone(name: "MIDNIGHT ZONE", topMeters: 1000, blurb: "Eternal black, near-freezing, crushing dark."),
-        Zone(name: "THE ABYSS",     topMeters: 4000, blurb: "Frigid, pitch-black plains under immense pressure."),
-        Zone(name: "HADAL ZONE",    topMeters: 6000, blurb: "Deepest trenches: crushing, lightless, barely alive.")
+        Zone(key: "sunlight", name: "SUNLIGHT ZONE", topMeters: 0,    blurb: "Warm, sunlit waters where most ocean life thrives."),
+        Zone(key: "twilight", name: "TWILIGHT ZONE", topMeters: 200,  blurb: "Fading blue gloom — cold, dim, lit by living glow."),
+        Zone(key: "midnight", name: "MIDNIGHT ZONE", topMeters: 1000, blurb: "Eternal black, near-freezing, crushing dark."),
+        Zone(key: "abyss",    name: "THE ABYSS",     topMeters: 4000, blurb: "Frigid, pitch-black plains under immense pressure."),
+        Zone(key: "hadal",    name: "HADAL ZONE",    topMeters: 6000, blurb: "Deepest trenches: crushing, lightless, barely alive.")
     ]
 
     /// Water background color by depth (metres): bright surface → black trench.
@@ -210,16 +210,20 @@ func depthColor(_ m: CGFloat) -> UIColor {
     return stops.last!.1
 }
 
-/// Name of the ocean zone at a given depth in metres.
+/// Localized name of the ocean zone at a given depth in metres.
 func zoneName(_ m: CGFloat) -> String {
-    var name = GameConfig.zones.first!.name
-    for z in GameConfig.zones where m >= z.topMeters { name = z.name }
-    return name
+    var z = GameConfig.zones.first!
+    for cand in GameConfig.zones where m >= cand.topMeters { z = cand }
+    return L("zone.\(z.key).name", z.name)
 }
 
-/// One-line blurb for a zone (by name), for the zone-entry banner.
+/// Localized one-line blurb for a zone, for the zone-entry banner. Accepts the
+/// zone's English *or* localized display name.
 func zoneBlurb(_ name: String) -> String {
-    GameConfig.zones.first { $0.name == name }?.blurb ?? ""
+    guard let z = GameConfig.zones.first(where: {
+        $0.name == name || L("zone.\($0.key).name", $0.name) == name
+    }) else { return "" }
+    return L("zone.\(z.key).blurb", z.blurb)
 }
 
 /// Interpolate an angle toward a target along the shortest path (handles wrap).

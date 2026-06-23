@@ -18,8 +18,8 @@ final class TitleScene: SKScene {
     private let sun = SKSpriteNode(texture: TextureFactory.pixelSun(radius: 11))
     private let title = SKLabelNode(fontNamed: "PressStart2P-Regular")
     private let titleShadow = SKLabelNode(fontNamed: "PressStart2P-Regular")
-    private let tagline = SKLabelNode(fontNamed: "PressStart2P-Regular")
-    private let taglineShadow = SKLabelNode(fontNamed: "PressStart2P-Regular")
+    private let tagline = GameFont.label()
+    private let taglineShadow = GameFont.label()
 
     // Reef diorama.
     private let coral = SKSpriteNode()
@@ -74,11 +74,11 @@ final class TitleScene: SKScene {
 
         configureLabel(taglineShadow, size: 11, color: Palette.rgb(6, 22, 44), z: 4)
         configureLabel(tagline, size: 11, color: .white, z: 5)
-        tagline.text = "A DIVE TO THE BOTTOM OF THE SEA"
+        tagline.text = L("title.tagline", "A DIVE TO THE BOTTOM OF THE SEA")
         taglineShadow.text = tagline.text
 
-        buildButton(continueBtn, "CONTINUE")
-        buildButton(newGameBtn, "NEW GAME")
+        buildButton(continueBtn, L("menu.continue", "CONTINUE"))
+        buildButton(newGameBtn, L("menu.new_game", "NEW GAME"))
         soundLbl = buildButton(soundBtn, soundText())
         continueBtn.isHidden = !SaveManager.hasSave
 
@@ -165,7 +165,7 @@ final class TitleScene: SKScene {
         border.alpha = 0.75; border.zPosition = 0
         let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: btnW, height: btnH))
         plate.alpha = 0.92; plate.zPosition = 1
-        let label = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        let label = GameFont.label()
         label.text = text; label.fontSize = 14; label.fontColor = .white
         label.verticalAlignmentMode = .center; label.horizontalAlignmentMode = .center; label.zPosition = 2
         node.addChild(border); node.addChild(plate); node.addChild(label)
@@ -174,7 +174,9 @@ final class TitleScene: SKScene {
         return label
     }
 
-    private func soundText() -> String { "SOUND: \(soundOn ? "ON" : "OFF")" }
+    private func soundText() -> String {
+        soundOn ? L("menu.sound_on", "SOUND: ON") : L("menu.sound_off", "SOUND: OFF")
+    }
 
     private func layout() {
         let w = size.width, h = size.height

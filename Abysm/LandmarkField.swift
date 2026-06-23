@@ -15,6 +15,7 @@ import UIKit
 import SpriteKit
 
 struct LandmarkDef {
+    let key: String         // localization key stem: "landmark.<key>.name/.note"
     let name: String
     let depthM: CGFloat
     let note: String
@@ -25,30 +26,30 @@ struct LandmarkDef {
 final class LandmarkField: SKNode {
 
     static let all: [LandmarkDef] = [
-        LandmarkDef(name: "DEEPEST SCUBA DIVE", depthM: 332,
+        LandmarkDef(key: "deepest_scuba", name: "DEEPEST SCUBA DIVE", depthM: 332,
                     note: "Ahmed Gabr, 2014 — as deep as a human has ever scuba-dived.",
                     image: "diver0", width: 110),
-        LandmarkDef(name: "RMS TITANIC", depthM: 3800,
+        LandmarkDef(key: "titanic", name: "RMS TITANIC", depthM: 3800,
                     note: "The wreck has rested on the seafloor here since 1912.",
                     image: "landmark_titanic", width: 260),
-        LandmarkDef(name: "USS JOHNSTON", depthM: 6241,
+        LandmarkDef(key: "johnston", name: "USS JOHNSTON", depthM: 6241,
                     note: "The deepest shipwreck ever found, lost in WWII's Battle off Samar.",
                     image: "landmark_johnston", width: 240),
-        LandmarkDef(name: "CHALLENGER DEEP", depthM: 10935,
+        LandmarkDef(key: "challenger_deep", name: "CHALLENGER DEEP", depthM: 10935,
                     note: "The bottom of the ocean. You made it all the way down.",
                     image: "landmark_submersible", width: 150),
 
         // Record markers (with pixel art).
-        LandmarkDef(name: "DEEPEST FREE-DIVE", depthM: 253,
+        LandmarkDef(key: "deepest_freedive", name: "DEEPEST FREE-DIVE", depthM: 253,
                     note: "Herbert Nitsch, 2012 — 253 m on a single breath.",
                     image: "landmark_freediver", width: 85),
-        LandmarkDef(name: "DEEPEST SUBMARINE DIVE", depthM: 1020,
+        LandmarkDef(key: "deepest_submarine", name: "DEEPEST SUBMARINE DIVE", depthM: 1020,
                     note: "The K-278 Komsomolets reached 1,020 m in 1984.",
                     image: "landmark_submarine", width: 200),
-        LandmarkDef(name: "AVERAGE OCEAN DEPTH", depthM: 3682,
+        LandmarkDef(key: "average_depth", name: "AVERAGE OCEAN DEPTH", depthM: 3682,
                     note: "The whole ocean averages about 3,682 m deep.",
                     image: "landmark_buoy", width: 80),
-        LandmarkDef(name: "DEEPEST FISH EVER FILMED", depthM: 8336,
+        LandmarkDef(key: "deepest_fish", name: "DEEPEST FISH EVER FILMED", depthM: 8336,
                     note: "A snailfish at 8,336 m — near the limit life can survive.",
                     image: "creature_snailfish", width: 95)
     ]
@@ -100,9 +101,9 @@ final class LandmarkField: SKNode {
 
         // Label block below the art (above the darkness veil so it always reads).
         let width: CGFloat = 300
-        let nameL = label(d.name, 11, gold)
+        let nameL = label(L("landmark.\(d.key).name", d.name), 11, gold)
         let depthL = label("\(Int(d.depthM))M", 14, .white)
-        let noteL = label(d.note, 6, Palette.rgb(214, 226, 236))
+        let noteL = label(L("landmark.\(d.key).note", d.note), 6, Palette.rgb(214, 226, 236))
         noteL.numberOfLines = 2
         noteL.preferredMaxLayoutWidth = width - 20
         noteL.lineBreakMode = .byWordWrapping
@@ -138,7 +139,7 @@ final class LandmarkField: SKNode {
     }
 
     private func label(_ text: String, _ size: CGFloat, _ color: UIColor) -> SKLabelNode {
-        let l = SKLabelNode(fontNamed: "PressStart2P-Regular")
+        let l = GameFont.label()
         l.text = text
         l.fontSize = size
         l.fontColor = color
