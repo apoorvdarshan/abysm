@@ -85,6 +85,10 @@ final class GameScene: SKScene {
     // Sound + haptics.
     private let muteBtn = HoldButton(radius: 28, glyph: "", fontSize: 1, color: Palette.rgb(52, 92, 134))
     private let muteIcon = SKSpriteNode()
+    // Pre-built once so toggling mute never regenerates a texture mid-swim (that
+    // main-thread hitch made the diver lurch forward a frame).
+    private let speakerOn  = TextureFactory.pixelSpeaker(crossed: false)
+    private let speakerOff = TextureFactory.pixelSpeaker(crossed: true)
     private var soundMuted = false
     private var isBoosting = false
     private var prevBoost = false
@@ -206,7 +210,7 @@ final class GameScene: SKScene {
         cameraNode.addChild(surfaceBtn)
 
         // Mute toggle (top-right) with a pixel speaker icon.
-        muteIcon.texture = TextureFactory.pixelSpeaker(crossed: false)
+        muteIcon.texture = speakerOn
         muteIcon.size = CGSize(width: 24, height: 16)
         muteIcon.zPosition = 3
         muteBtn.addChild(muteIcon)
@@ -375,7 +379,7 @@ final class GameScene: SKScene {
         soundMuted.toggle()
         AudioManager.shared.setMuted(soundMuted)
         HapticsManager.shared.enabled = !soundMuted
-        muteIcon.texture = TextureFactory.pixelSpeaker(crossed: soundMuted)
+        muteIcon.texture = soundMuted ? speakerOff : speakerOn
     }
 
     private func hitPlate(_ node: SKNode, _ p: CGPoint) -> Bool {
