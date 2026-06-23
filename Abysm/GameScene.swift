@@ -60,8 +60,11 @@ final class GameScene: SKScene {
     private var turboTouch: UITouch?
     private var surfaceTouch: UITouch?
 
-    /// Token for the game-controller connect observer.
+    /// Token for the game-controller connect/disconnect observers, plus the
+    /// controllers we've wired up (so we can clear their handlers on teardown).
     private var controllerObserver: NSObjectProtocol?
+    private var controllerDisconnectObserver: NSObjectProtocol?
+    private var attachedControllers: [GCController] = []
 
     /// Optional start point (set before presenting) — used by Continue.
     var startDepthMeters: CGFloat?
@@ -89,6 +92,8 @@ final class GameScene: SKScene {
     private var prevBoost = false
     private var prevTurbo = false
     private var floorThudDone = false
+    /// Last integer depth the water color was set for (skip per-frame UIColor work).
+    private var lastColorMeters = Int.min
 
     // MARK: Scene setup
 
@@ -119,7 +124,11 @@ final class GameScene: SKScene {
 
     deinit {
         if let o = controllerObserver { NotificationCenter.default.removeObserver(o) }
+        if let o = controllerDisconnectObserver { NotificationCenter.default.removeObserver(o) }
         if let o = saveObserver { NotificationCenter.default.removeObserver(o) }
+        // Drop our handlers off the shared controllers so this dead scene's
+        // closures don't linger on them after the transition.
+        for c in attachedControllers { clearHandlers(c) }
     }
 
     /// Gentle fade-in from black so the scene reveals softly on launch.
@@ -246,6 +255,7 @@ final class GameScene: SKScene {
         player.position = CGPoint(x: startX ?? 0, y: y)
         addChild(player)
         player.attachBubbleTarget(self)   // bubbles trail in world space
+        lastPlayerY = player.position.y   // seed so spawning doesn't fake a breach
     }
 
     /// Persist the diver's current depth + x so the title can offer Continue.
@@ -307,7 +317,8 @@ final class GameScene: SKScene {
         // While paused, only the overlay buttons are live.
         if menuPaused {
             guard let t = touches.first else { return }
-            let p = t.location(in: cameraNode)
+            // resumeBtn / menuBtn live in the overlay's space — hit-test there.
+            let p = t.location(in: pauseOverlay)
             if hitPlate(resumeBtn, p) { resumeGame() }
             else if hitPlate(menuBtn, p) { toMainMenu() }
             return
@@ -380,6 +391,8 @@ final class GameScene: SKScene {
         joystick.release(); stickTouch = nil
         boostBtn.setPressed(false); boostTouch = nil
         turboBtn.setPressed(false); turboTouch = nil
+        ascending = false; surfaceBtn.setPressed(false); surfaceTouch = nil
+        isBoosting = false; prevBoost = false; prevTurbo = false
         player.physicsBody?.velocity = .zero      // hold the diver still
         pauseOverlay.isHidden = false
         highlightPause()
@@ -415,7 +428,27 @@ final class GameScene: SKScene {
             forName: .GCControllerDidConnect, object: nil, queue: .main) { [weak self] note in
             if let c = note.object as? GCController { self?.attach(c) }
         }
+        controllerDisconnectObserver = NotificationCenter.default.addObserver(
+            forName: .GCControllerDidDisconnect, object: nil, queue: .main) { [weak self] note in
+            if let c = note.object as? GCController { self?.detach(c) }
+        }
         GCController.startWirelessControllerDiscovery {}
+    }
+
+    /// A controller dropped: stop steering with it and un-stick the pause cursor.
+    private func detach(_ controller: GCController) {
+        attachedControllers.removeAll { $0 === controller }
+        player.setThrust(.zero)
+        if menuPaused { highlightPause() }
+    }
+
+    /// Remove the handlers we installed on a controller.
+    private func clearHandlers(_ controller: GCController) {
+        guard let gp = controller.extendedGamepad else { return }
+        gp.buttonY.pressedChangedHandler = nil
+        gp.buttonA.pressedChangedHandler = nil
+        gp.buttonMenu.pressedChangedHandler = nil
+        gp.leftShoulder.pressedChangedHandler = nil
     }
 
     /// Map the tap-style buttons. Hold-style boost/turbo + the sticks are polled
@@ -424,6 +457,10 @@ final class GameScene: SKScene {
     private func attach(_ controller: GCController) {
         HapticsManager.shared.attach(controller)
         guard let gp = controller.extendedGamepad else { return }
+        if !attachedControllers.contains(where: { $0 === controller }) {
+            attachedControllers.append(controller)
+        }
+        GCController.stopWirelessControllerDiscovery()   // found one; stop scanning
         gp.buttonY.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self, !self.menuPaused else { return }
             self.beginAscent()
@@ -576,8 +613,14 @@ final class GameScene: SKScene {
 
         hud.update(depthMeters: meters, zone: zone)
 
-        // Water color is driven directly by depth, surface → black trench.
-        waterBackground.color = depthColor(meters)
+        // Water color is driven directly by depth, surface → black trench. It
+        // shifts imperceptibly within a meter, so only rebuild the UIColor when
+        // the integer depth changes (avoids a per-frame allocation while idling).
+        let mInt = Int(meters)
+        if mInt != lastColorMeters {
+            lastColorMeters = mInt
+            waterBackground.color = depthColor(meters)
+        }
 
         // Darkness closes in below the sunlit zone; the headlamp keeps a clear
         // disc around the diver so the lit deep stays explorable.

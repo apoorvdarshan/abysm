@@ -47,6 +47,18 @@ final class AudioManager {
 
         click = make("click"); click?.volume = 0.7
         splash = make("splash"); splash?.volume = 0.7
+
+        // Resume the looping bed after an interruption (phone call, Siri, etc.).
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleInterruption),
+            name: AVAudioSession.interruptionNotification, object: session)
+    }
+
+    @objc private func handleInterruption(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              AVAudioSession.InterruptionType(rawValue: raw) == .ended else { return }
+        try? AVAudioSession.sharedInstance().setActive(true)
+        if !muted { [ambient, waves, rumble, bubbles].forEach { $0?.play() } }
     }
 
     /// A one-shot UI click (e.g. toggling the lamp).
@@ -96,7 +108,13 @@ final class HapticsManager {
     /// Spin up a Core Haptics engine for a connected controller (if it supports it).
     func attach(_ controller: GCController) {
         guard engine == nil, let haptics = controller.haptics else { return }
-        engine = haptics.createEngine(withLocality: .default)
+        let e = haptics.createEngine(withLocality: .default)
+        // The system auto-stops the engine on interruptions/idle; restart it so
+        // haptics keep working for the rest of the session.
+        e?.isAutoShutdownEnabled = true
+        e?.stoppedHandler = { _ in try? e?.start() }
+        e?.resetHandler = { try? e?.start() }
+        engine = e
         try? engine?.start()
     }
 

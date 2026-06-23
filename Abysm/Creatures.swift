@@ -143,7 +143,7 @@ enum Creatures {
                     fact: "Also called a rattail — one of the most common fish on the deep-sea floor."),
         CreatureDef(key: "combjelly", name: "Comb Jelly", depthM: 7217, width: 62,
                     fact: "Beats rows of tiny hairs that scatter light into shimmering rainbows."),
-        CreatureDef(key: "snailfish", name: "Hadal Snailfish", depthM: 8178, width: 80,
+        CreatureDef(key: "snailfish", name: "Hadal Snailfish", depthM: 8336, width: 80,
                     fact: "The deepest fish ever filmed; its jelly-like body withstands the crushing pressure."),
         CreatureDef(key: "cuskeel", name: "Cusk Eel", depthM: 8370, width: 100,
                     fact: "Among the deepest of all fishes ever caught."),
