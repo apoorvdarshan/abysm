@@ -163,6 +163,8 @@
 				DEVELOPMENT_TEAM = 23RV7FYH36;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Abysm/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ABYSM;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.adventure-games";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -196,6 +198,8 @@
 				DEVELOPMENT_TEAM = 23RV7FYH36;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Abysm/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ABYSM;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.adventure-games";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
