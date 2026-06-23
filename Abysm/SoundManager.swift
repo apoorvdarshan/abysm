@@ -42,8 +42,11 @@ final class AudioManager {
         ambient = make("ambient"); waves = make("waves")
         rumble = make("rumble");   bubbles = make("bubbles")
         [ambient, waves, rumble, bubbles].forEach { $0?.numberOfLoops = -1 }
-        ambient?.volume = 0.5; waves?.volume = 0.5; rumble?.volume = 0; bubbles?.volume = 0
-        if !muted { [ambient, waves, rumble, bubbles].forEach { $0?.play() } }
+        // The loops ALWAYS play; mute is volume-only. Pausing/restarting a player
+        // stalls the main thread, and the physics then catches up over the gap in
+        // one step — which lurched the diver forward whenever you toggled mute.
+        applyBaseVolumes()
+        [ambient, waves, rumble, bubbles].forEach { $0?.play() }
 
         click = make("click"); click?.volume = 0.7
         splash = make("splash"); splash?.volume = 0.7
@@ -58,7 +61,7 @@ final class AudioManager {
         guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               AVAudioSession.InterruptionType(rawValue: raw) == .ended else { return }
         try? AVAudioSession.sharedInstance().setActive(true)
-        if !muted { [ambient, waves, rumble, bubbles].forEach { $0?.play() } }
+        [ambient, waves, rumble, bubbles].forEach { $0?.play() }   // loops always run; mute is volume-only
     }
 
     /// A one-shot UI click (e.g. toggling the lamp).
@@ -85,9 +88,18 @@ final class AudioManager {
 
     func setMuted(_ on: Bool) {
         muted = on
-        let players = [ambient, waves, rumble, bubbles]
-        if on { players.forEach { $0?.pause() } }
-        else { players.forEach { $0?.play() } }
+        // Volume-only — never pause/restart the loops (restarting a player hitches
+        // the frame). Once unmuted, update(depthMeters:) refines them by depth.
+        if on { [ambient, waves, rumble, bubbles].forEach { $0?.volume = 0 } }
+        else  { applyBaseVolumes() }
+    }
+
+    /// Resting loop volumes for the current mute state.
+    private func applyBaseVolumes() {
+        ambient?.volume = muted ? 0 : 0.5
+        waves?.volume   = muted ? 0 : 0.5
+        rumble?.volume  = 0
+        bubbles?.volume = 0
     }
 
     private func make(_ name: String) -> AVAudioPlayer? {
