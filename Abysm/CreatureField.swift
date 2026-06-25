@@ -38,6 +38,16 @@ final class CreatureField: SKNode {
     /// screen half-width so the wrap happens off-screen (no visible pop).
     private let wrapHalf: CGFloat = 640
 
+    /// Creatures whose source sprite faces RIGHT (the majority face left). Used to
+    /// flip each creature so it swims HEAD-first, not tail-first. Verified per
+    /// sprite by eye/mouth/head position.
+    private static let facesRight: Set<String> = [
+        "clownfish", "emperorpenguin", "grenadier", "cookiecutter", "fangtooth",
+        "dragonfish", "facelessfish", "leatherback", "manatee", "nautilus",
+        "polarbear", "salmon", "scalyfoot", "seadragon", "sealion", "sunfish",
+        "tripodfish",
+    ]
+
     func populate() {
         for c in Creatures.all {
             // Skip any creature whose sprite isn't bundled yet, so a missing
@@ -72,9 +82,12 @@ final class CreatureField: SKNode {
             placed.append((c, wrapper))
             infos.append(fact)
 
-            // Continuous horizontal drift (anchored creatures stay put); face it.
+            // Continuous horizontal drift (anchored creatures stay put). Flip so
+            // the creature swims HEAD-first: the displayed facing must match the
+            // movement direction, accounting for which way the source art faces.
             let vx: CGFloat = c.still ? 0 : (Bool.random() ? 1 : -1) * CGFloat.random(in: 16...44)
-            container.xScale = vx < 0 ? -1 : 1
+            let natural: CGFloat = Self.facesRight.contains(c.key) ? 1 : -1
+            container.xScale = vx == 0 ? 1 : (vx < 0 ? -1 : 1) * natural
             movers.append(Mover(wrapper: wrapper, vx: vx, depthY: depthY,
                                 bobAmp: CGFloat.random(in: 4...9),
                                 bobSpeed: CGFloat.random(in: 1.0...1.6),
