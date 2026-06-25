@@ -8,7 +8,7 @@
       "internalID" : "A1B2C3D4-0001-4000-8000-000000000001",
       "localizations" : [
         {
-          "description" : "Unlock the full descent below 1,000 m to the trench floor.",
+          "description" : "Dive past 1,000 m to the trench floor.",
           "displayName" : "Unlock the Deep",
           "locale" : "en_US"
         }

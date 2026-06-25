@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/platform-iOS%20%7C%20iPadOS-0a1a3a?style=flat-square" />
-  <img alt="iOS" src="https://img.shields.io/badge/iOS-26.5%2B-1b6ea8?style=flat-square" />
+  <img alt="iOS" src="https://img.shields.io/badge/iOS-17%2B-1b6ea8?style=flat-square" />
   <img alt="Swift" src="https://img.shields.io/badge/Swift-5-orange?style=flat-square" />
   <img alt="Engine" src="https://img.shields.io/badge/SpriteKit-2d9bb0?style=flat-square" />
   <img alt="Languages" src="https://img.shields.io/badge/languages-16-2bb673?style=flat-square" />
@@ -83,7 +83,7 @@ All text lives in a single `Localizable.xcstrings` String Catalog. Latin-script 
 
 1. Open `Abysm.xcodeproj` in Xcode.
 2. Select the **Abysm** scheme.
-3. Run on an iOS **26.5+** device or simulator (landscape).
+3. Run on an iOS **17+** device or simulator (landscape).
 
 The only dependency is the **RevenueCat** Swift package (`purchases-ios-spm`), which Xcode resolves automatically via Swift Package Manager on first open — no manual setup.
 

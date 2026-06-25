@@ -77,19 +77,6 @@ enum Environment {
         return glow
     }
 
-    // MARK: Water column
-
-    static func makeWater() -> SKSpriteNode {
-        let height = -GameConfig.worldFloor + 800
-        let texture = TextureFactory.pixelGradient(size: CGSize(width: spanWidth, height: height),
-                                                   pixel: GameConfig.pixel, stops: Palette.waterStops)
-        let water = SKSpriteNode(texture: texture, size: CGSize(width: spanWidth, height: height))
-        water.anchorPoint = CGPoint(x: 0.5, y: 1)  // top edge sits on the surface (y = 0)
-        water.position = .zero
-        water.zPosition = GameConfig.Z.water
-        return water
-    }
-
     // MARK: Sun
 
     static func makeSun() -> SKNode {

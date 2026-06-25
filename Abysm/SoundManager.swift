@@ -29,7 +29,9 @@ final class AudioManager {
     private var click: AVAudioPlayer?
     private var splash: AVAudioPlayer?
     private var started = false
-    private(set) var muted = false
+    private static let mutedKey = "abysm.muted"
+    /// Persisted across launches so a muted player stays muted.
+    private(set) var muted = UserDefaults.standard.bool(forKey: "abysm.muted")
 
     func start() {
         guard !started else { return }
@@ -51,15 +53,23 @@ final class AudioManager {
         click = make("click"); click?.volume = 0.7
         splash = make("splash"); splash?.volume = 0.7
 
-        // Resume the looping bed after an interruption (phone call, Siri, etc.).
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(handleInterruption),
-            name: AVAudioSession.interruptionNotification, object: session)
+        // Resume the looping bed after an interruption (call, Siri) or after the
+        // app returns from the background — both delivered on the MAIN thread so
+        // they don't race the audio state mutated from the game loop.
+        let nc = NotificationCenter.default
+        nc.addObserver(forName: AVAudioSession.interruptionNotification, object: session, queue: .main) { [weak self] note in
+            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  AVAudioSession.InterruptionType(rawValue: raw) == .ended else { return }
+            self?.resumeLoops()
+        }
+        nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.resumeLoops()
+        }
     }
 
-    @objc private func handleInterruption(_ note: Notification) {
-        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-              AVAudioSession.InterruptionType(rawValue: raw) == .ended else { return }
+    /// Re-activate the session and restart the always-on loops, after an
+    /// interruption or a background→foreground cycle. Main thread only.
+    private func resumeLoops() {
         try? AVAudioSession.sharedInstance().setActive(true)
         [ambient, waves, rumble, bubbles].forEach { $0?.play() }   // loops always run; mute is volume-only
     }
@@ -88,6 +98,7 @@ final class AudioManager {
 
     func setMuted(_ on: Bool) {
         muted = on
+        UserDefaults.standard.set(on, forKey: Self.mutedKey)
         // Volume-only — never pause/restart the loops (restarting a player hitches
         // the frame). Once unmuted, update(depthMeters:) refines them by depth.
         if on { [ambient, waves, rumble, bubbles].forEach { $0?.volume = 0 } }

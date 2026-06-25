@@ -142,7 +142,7 @@ final class CreatureField: SKNode {
         let s = GameConfig.labelScale
         let node = SKNode()
         let label = GameFont.label()
-        label.text = name.uppercased()
+        label.text = name.uppercased(with: Locale.current)   // locale-safe (e.g. Turkish i/İ)
         label.fontSize = 7 * s
         label.fontColor = .white
         label.verticalAlignmentMode = .center

@@ -79,8 +79,6 @@ enum GameConfig {
 
     /// How far below the surface the animated caustic light reaches.
     static let causticDepth: CGFloat = 1600
-    /// Horizontal spacing of samples when rebuilding the wavy surface path.
-    static let surfaceWaveSampleStep: CGFloat = 14
 
     // MARK: Ocean depth zones (real metre boundaries)
 

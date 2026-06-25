@@ -511,7 +511,17 @@ final class GameScene: SKScene {
             case .failed:
                 paywall.setBusy(false)
                 paywall.setStatus(L("paywall.failed", "PURCHASE FAILED"))
+                revertStatusSoon()
             }
+        }
+    }
+
+    /// After a terminal message (failed / nothing to restore), bring the price
+    /// back so the UNLOCK button reads as retryable again.
+    private func revertStatusSoon() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            if paywalled, !paywall.isBusy { paywall.setStatus(nil) }
         }
     }
 
@@ -527,6 +537,7 @@ final class GameScene: SKScene {
             } else {
                 paywall.setBusy(false)
                 paywall.setStatus(L("paywall.nothing_restored", "NOTHING TO RESTORE"))
+                revertStatusSoon()
             }
         }
     }
@@ -614,7 +625,7 @@ final class GameScene: SKScene {
             // If the unlock arrives out-of-band (Ask to Buy approval, or a buy /
             // restore on another device) while the modal is up, close it and let
             // them keep descending instead of leaving them frozen behind it.
-            if StoreManager.shared.isUnlocked { closePaywall(lift: false); return }
+            if StoreManager.shared.isUnlocked && !paywall.isBusy { closePaywall(lift: false); return }
             navCooldown = max(0, navCooldown - dt)
             if let gp = GCController.current?.extendedGamepad, navCooldown == 0 {
                 let y = gp.leftThumbstick.yAxis.value + gp.dpad.yAxis.value
@@ -684,15 +695,16 @@ final class GameScene: SKScene {
         player.update(dt)
 
         // Depth gate: the free dive ends at 1,000 m until "Unlock the Deep".
-        // Clamp the diver at the gate and, when they actively press deeper,
-        // raise the purchase modal.
+        // Clamp the diver at the gate and raise the modal whenever they reach it —
+        // whether by actively pressing down or just coasting/drifting into it (so
+        // there's never an unexplained invisible wall).
         if !StoreManager.shared.isUnlocked {
             gateCooldown = max(0, gateCooldown - dt)
             if player.position.y < gateY {
                 player.position.y = gateY
                 if let b = player.physicsBody, b.velocity.dy < 0 { b.velocity.dy = 0 }
             }
-            if player.position.y <= gateY + 2, moveVec.dy < -0.15, gateCooldown == 0 {
+            if player.position.y <= gateY + 2, gateCooldown == 0 {
                 presentPaywall()
                 return
             }

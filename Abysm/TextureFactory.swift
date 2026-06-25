@@ -14,26 +14,6 @@ enum TextureFactory {
 
     // MARK: Gradients
 
-    /// A vertical gradient texture. `stops` are (color, location) pairs where
-    /// location 0 is the TOP of the texture and 1 is the bottom.
-    static func verticalGradient(size: CGSize, stops: [(UIColor, CGFloat)]) -> SKTexture {
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { ctx in
-            let cg = ctx.cgContext
-            let space = CGColorSpaceCreateDeviceRGB()
-            let colors = stops.map { $0.0.cgColor } as CFArray
-            let locations = stops.map { $0.1 }
-            guard let gradient = CGGradient(colorsSpace: space, colors: colors, locations: locations) else { return }
-            cg.drawLinearGradient(gradient,
-                                  start: CGPoint(x: 0, y: 0),
-                                  end: CGPoint(x: 0, y: size.height),
-                                  options: [])
-        }
-        let texture = SKTexture(image: image)
-        texture.filteringMode = .linear
-        return texture
-    }
-
     // MARK: Pixel-art gradient
 
     /// A vertical gradient rendered as PIXEL ART: clean FLAT horizontal depth
