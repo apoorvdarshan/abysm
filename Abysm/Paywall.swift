@@ -80,13 +80,15 @@ final class Paywall: SKNode {
         title.position = CGPoint(x: 0, y: 64); title.zPosition = 3
         addChild(title)
 
-        // Body (wraps to ~2 lines in the wide window).
+        // Body (wraps to 2–3 lines depending on locale; the longest Latin
+        // translations run ~128 chars, so use a smaller size + wider wrap so they
+        // don't crowd the UNLOCK button below).
         let body = GameFont.label()
         body.text = L("paywall.body",
             "Dive past 1,000 m to the trench floor — the deep zones, ~45 more creatures, and landmarks like the Titanic.")
-        body.fontSize = 8; body.fontColor = cream
+        body.fontSize = 7; body.fontColor = cream
         body.horizontalAlignmentMode = .center; body.verticalAlignmentMode = .top
-        body.numberOfLines = 0; body.preferredMaxLayoutWidth = 440
+        body.numberOfLines = 0; body.preferredMaxLayoutWidth = 470
         body.lineBreakMode = .byWordWrapping
         body.position = CGPoint(x: 0, y: 46); body.zPosition = 3
         addChild(body)
@@ -174,10 +176,12 @@ final class Paywall: SKNode {
 
     /// Activate the highlighted button (controller A).
     func activateSelected() {
+        // KEEP EXPLORING stays live even while busy, so the modal is always
+        // escapable (e.g. if a purchase/restore stalls).
+        if selected == 1 { onDismiss(); return }
         guard !isBusy else { return }
         switch selected {
         case 0: onUnlock()
-        case 1: onDismiss()
         default: onRestore()
         }
     }
@@ -185,7 +189,10 @@ final class Paywall: SKNode {
     // MARK: State
 
     func setPrice(_ price: String) {
-        unlockLabel.text = "\(L("paywall.unlock", "UNLOCK"))   \(price)"
+        // Wrap the LTR price in bidi isolates (U+2068 FSI … U+2069 PDI) so its
+        // order/spacing stay correct when the label is RTL (e.g. Arabic).
+        let isolated = "\u{2068}\(price)\u{2069}"
+        unlockLabel.text = "\(L("paywall.unlock", "UNLOCK"))\u{00A0}\u{00A0}\(isolated)"
     }
 
     func setStatus(_ text: String?) {
@@ -209,9 +216,10 @@ final class Paywall: SKNode {
 
     /// Route a tap (in this node's coordinate space) to a button.
     func handleTap(_ p: CGPoint) {
+        // KEEP EXPLORING stays live even while busy (always an escape hatch).
+        if dismissRect.contains(p) { onDismiss(); return }
         guard !isBusy else { return }
         if unlockRect.contains(p) { onUnlock() }
-        else if dismissRect.contains(p) { onDismiss() }
         else if restoreRect.contains(p) { onRestore() }
     }
 }

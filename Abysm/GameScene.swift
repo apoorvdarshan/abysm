@@ -498,8 +498,10 @@ final class GameScene: SKScene {
                 try? await Task.sleep(nanoseconds: 1_100_000_000)
                 closePaywall(lift: false)   // unlocked — let them keep descending
             case .pending:
+                // Deferred (Ask to Buy / parental approval) — distinct from the
+                // active-purchase status; the modal auto-closes on approval.
                 paywall.setBusy(false)
-                paywall.setStatus(L("paywall.purchasing", "PURCHASING…"))
+                paywall.setStatus(L("paywall.pending", "WAITING FOR APPROVAL"))
             case .cancelled:
                 paywall.setBusy(false); paywall.setStatus(nil)
             case .failed:
@@ -578,9 +580,11 @@ final class GameScene: SKScene {
                 self.toggleFlashlight()
             }
         }
-        // B dismisses the paywall ("keep exploring"); otherwise it's polled for turbo.
+        // B dismisses the paywall ("keep exploring") on release — releasing (not
+        // pressing) so the held button isn't re-read as turbo the next frame;
+        // otherwise B is polled for turbo.
         gp.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard pressed, let self = self, self.paywalled else { return }
+            guard !pressed, let self = self, self.paywalled else { return }
             self.closePaywall(lift: true)
         }
         // Options/Menu toggles pause (or dismisses the paywall); L1 toggles mute.
@@ -608,6 +612,10 @@ final class GameScene: SKScene {
         // While the "Unlock the Deep" modal is up, the game is frozen; only drive
         // the paywall's controller cursor (stick/d-pad to highlight, A to pick).
         if paywalled {
+            // If the unlock arrives out-of-band (Ask to Buy approval, or a buy /
+            // restore on another device) while the modal is up, close it and let
+            // them keep descending instead of leaving them frozen behind it.
+            if StoreManager.shared.isUnlocked { closePaywall(lift: false); return }
             navCooldown = max(0, navCooldown - dt)
             if let gp = GCController.current?.extendedGamepad, navCooldown == 0 {
                 let y = gp.leftThumbstick.yAxis.value + gp.dpad.yAxis.value
