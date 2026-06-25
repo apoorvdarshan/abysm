@@ -29,7 +29,13 @@ final class Paywall: SKNode {
     private let cream = Palette.rgb(228, 214, 184)
 
     private let unlockLabel = GameFont.label()
-    private let statusLabel = GameFont.label()
+
+    // The UNLOCK button's idle text ("UNLOCK  ₹299"); a transient status
+    // (purchasing / pending / failed …) temporarily replaces it in-place.
+    private var unlockTitle = ""
+    private var showingStatus = false
+    private static let unlockFontSize: CGFloat = 13
+    private static let statusFontSize: CGFloat = 10   // smaller so long locales fit
 
     // Controller navigation: [UNLOCK, KEEP EXPLORING, RESTORE].
     private var buttons: [SKNode] = []
@@ -93,18 +99,12 @@ final class Paywall: SKNode {
         body.position = CGPoint(x: 0, y: 46); body.zPosition = 3
         addChild(body)
 
-        // Status line (purchasing / restoring / failed); over UNLOCK, hidden.
-        statusLabel.fontSize = 8; statusLabel.fontColor = brass
-        statusLabel.horizontalAlignmentMode = .center; statusLabel.verticalAlignmentMode = .center
-        statusLabel.position = CGPoint(x: 0, y: 2); statusLabel.zPosition = 5
-        statusLabel.isHidden = true
-        addChild(statusLabel)
-
-        // UNLOCK — primary gold button (keeps a label ref for the price).
+        // UNLOCK — primary gold button (keeps a label ref for the price; a
+        // transient status replaces the label text in-place while busy).
         let unlock = SKNode()
         unlock.position = CGPoint(x: 0, y: 2); unlock.zPosition = 3
         carvedButton(into: unlock, size: CGSize(width: 300, height: 34), primary: true)
-        unlockLabel.fontSize = 13; unlockLabel.fontColor = Palette.rgb(46, 28, 10)
+        unlockLabel.fontSize = Self.unlockFontSize; unlockLabel.fontColor = Palette.rgb(46, 28, 10)
         unlockLabel.horizontalAlignmentMode = .center; unlockLabel.verticalAlignmentMode = .center
         unlockLabel.zPosition = 3
         unlock.addChild(unlockLabel)
@@ -192,17 +192,29 @@ final class Paywall: SKNode {
         // Wrap the LTR price in bidi isolates (U+2068 FSI … U+2069 PDI) so its
         // order/spacing stay correct when the label is RTL (e.g. Arabic).
         let isolated = "\u{2068}\(price)\u{2069}"
-        unlockLabel.text = "\(L("paywall.unlock", "UNLOCK"))\u{00A0}\u{00A0}\(isolated)"
+        unlockTitle = "\(L("paywall.unlock", "UNLOCK"))\u{00A0}\u{00A0}\(isolated)"
+        if !showingStatus {
+            unlockLabel.fontSize = Self.unlockFontSize
+            unlockLabel.text = unlockTitle
+        }
     }
 
+    /// Show a transient status (purchasing / pending / failed …) *in place of*
+    /// the UNLOCK label so the two never overlap; nil restores the price.
     func setStatus(_ text: String?) {
-        statusLabel.text = text ?? ""
-        statusLabel.isHidden = (text == nil)
+        if let text {
+            showingStatus = true
+            unlockLabel.fontSize = Self.statusFontSize
+            unlockLabel.text = text
+        } else {
+            showingStatus = false
+            unlockLabel.fontSize = Self.unlockFontSize
+            unlockLabel.text = unlockTitle
+        }
     }
 
     func setBusy(_ busy: Bool) {
         isBusy = busy
-        unlockLabel.alpha = busy ? 0.4 : 1.0
     }
 
     /// Fresh state each time the modal is shown.

@@ -580,13 +580,8 @@ final class GameScene: SKScene {
                 self.toggleFlashlight()
             }
         }
-        // B dismisses the paywall ("keep exploring") on release — releasing (not
-        // pressing) so the held button isn't re-read as turbo the next frame;
-        // otherwise B is polled for turbo.
-        gp.buttonB.pressedChangedHandler = { [weak self] _, _, pressed in
-            guard !pressed, let self = self, self.paywalled else { return }
-            self.closePaywall(lift: true)
-        }
+        // B is only turbo (polled in update). The paywall is dismissed via its
+        // KEEP EXPLORING button, not a B shortcut.
         // Options/Menu toggles pause (or dismisses the paywall); L1 toggles mute.
         gp.buttonMenu.pressedChangedHandler = { [weak self] _, _, pressed in
             guard pressed, let self = self else { return }
