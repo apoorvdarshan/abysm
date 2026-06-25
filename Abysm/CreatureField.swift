@@ -44,7 +44,8 @@ final class CreatureField: SKNode {
     private static let facesRight: Set<String> = [
         "bigeyetuna", "blobfish", "clownfish", "dragonfish", "emperorpenguin",
         "facelessfish", "giantisopod", "grenadier", "leatherback", "nautilus",
-        "oarfish", "salmon", "seadragon", "snailfish", "spermwhale", "sunfish",
+        "oarfish", "orca", "salmon", "seadragon", "snailfish", "spermwhale",
+        "sunfish",
     ]
     // NOTE: re-verified after the 42-sprite art swap — many regenerated sprites
     // flipped facing (polarbear/mahimahi/sealion/chaincatshark/cookiecutter/
