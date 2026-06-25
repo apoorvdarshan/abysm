@@ -42,14 +42,14 @@ final class CreatureField: SKNode {
     /// flip each creature so it swims HEAD-first, not tail-first. Verified per
     /// sprite by eye/mouth/head position.
     private static let facesRight: Set<String> = [
-        "barracuda", "beakedwhale", "bigeyetuna", "chaincatshark", "clownfish",
-        "cookiecutter", "dragonfish", "emperorpenguin", "facelessfish", "fangtooth",
-        "grenadier", "gulpereel", "leatherback", "mahimahi", "manatee",
-        "nautilus", "oarfish", "polarbear", "salmon", "scalyfoot",
-        "sealion", "snailfish", "spermwhale", "sunfish",
+        "bigeyetuna", "clownfish", "dragonfish", "emperorpenguin", "facelessfish",
+        "giantisopod", "grenadier", "leatherback", "nautilus", "oarfish",
+        "salmon", "snailfish", "spermwhale", "sunfish",
     ]
-    // NOTE: cockatoosquid & seadragon were removed (their sprites were regenerated
-    // and now face left/are vertical); snailfish added (its new sprite faces right).
+    // NOTE: re-verified after the 42-sprite art swap — many regenerated sprites
+    // flipped facing (polarbear/mahimahi/sealion/chaincatshark/cookiecutter/
+    // fangtooth/manatee/barracuda/gulpereel/scalyfoot/beakedwhale now face left;
+    // giantisopod now faces right). Non-swapped creatures keep their verified facing.
 
     func populate() {
         for c in Creatures.all {
