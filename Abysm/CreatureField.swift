@@ -43,11 +43,13 @@ final class CreatureField: SKNode {
     /// sprite by eye/mouth/head position.
     private static let facesRight: Set<String> = [
         "barracuda", "beakedwhale", "bigeyetuna", "chaincatshark", "clownfish",
-        "cockatoosquid", "cookiecutter", "dragonfish", "emperorpenguin", "facelessfish",
-        "fangtooth", "grenadier", "gulpereel", "leatherback", "mahimahi",
-        "manatee", "nautilus", "oarfish", "polarbear", "salmon",
-        "scalyfoot", "seadragon", "sealion", "spermwhale", "sunfish",
+        "cookiecutter", "dragonfish", "emperorpenguin", "facelessfish", "fangtooth",
+        "grenadier", "gulpereel", "leatherback", "mahimahi", "manatee",
+        "nautilus", "oarfish", "polarbear", "salmon", "scalyfoot",
+        "sealion", "snailfish", "spermwhale", "sunfish",
     ]
+    // NOTE: cockatoosquid & seadragon were removed (their sprites were regenerated
+    // and now face left/are vertical); snailfish added (its new sprite faces right).
 
     func populate() {
         for c in Creatures.all {
