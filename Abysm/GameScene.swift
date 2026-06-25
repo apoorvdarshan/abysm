@@ -220,8 +220,12 @@ final class GameScene: SKScene {
         surfaceBtn.addChild(upArrow)
         cameraNode.addChild(surfaceBtn)
 
-        // Mute toggle (top-right) with a pixel speaker icon.
-        muteIcon.texture = speakerOn
+        // Mute toggle (top-right) with a pixel speaker icon. Sync to the mute
+        // state already set elsewhere (e.g. the main-menu toggle) so the icon
+        // and haptics match on entry instead of assuming sound is on.
+        soundMuted = AudioManager.shared.muted
+        HapticsManager.shared.enabled = !soundMuted
+        muteIcon.texture = soundMuted ? speakerOff : speakerOn
         muteIcon.size = CGSize(width: 24, height: 16)
         muteIcon.zPosition = 3
         muteBtn.addChild(muteIcon)
