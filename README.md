@@ -85,13 +85,13 @@ All text lives in a single `Localizable.xcstrings` String Catalog. Latin-script 
 2. Select the **Abysm** scheme.
 3. Run on an iOS **26.5+** device or simulator (landscape).
 
-That's it — no packages, no dependencies, no setup.
+The only dependency is the **RevenueCat** Swift package (`purchases-ios-spm`), which Xcode resolves automatically via Swift Package Manager on first open — no manual setup.
 
 ## 🔒 Privacy
 
-ABYSM collects **nothing**. There is no account, no login, no ads, and no tracking. The only thing saved is your current dive's depth and position, stored locally on your device (via `UserDefaults`) so the title screen can offer **Continue**. Nothing is transmitted, shared, or sold.
+ABYSM has no account, no login, no ads, and no advertising or cross-app tracking. Your current dive's depth and position are stored locally on your device (via `UserDefaults`) so the title screen can offer **Continue**. The one in-app purchase ("Unlock the Deep") is processed through **RevenueCat**: when you buy or restore it, the purchase receipt and an anonymous, non-identifying app-user ID are sent to RevenueCat to validate ownership. That's the only data that ever leaves your device — it isn't linked to your identity and isn't used for tracking.
 
-App Store privacy label: **Data Not Collected**.
+App Store privacy label: **Purchases** (Purchase History) — not linked to your identity, not used for tracking.
 
 ## 📜 License
 

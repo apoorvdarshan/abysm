@@ -51,9 +51,9 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
     PRIVATE BY DESIGN
     - No account or login
-    - No ads and no tracking
-    - The only thing saved is your dive's depth, kept on your device
-    - No data is collected or sold
+    - No ads, and no advertising or cross-app tracking
+    - Your dive's depth and position are saved only on your device
+    - The only data sent off your device is your purchase, used solely to validate the one-time unlock (handled by RevenueCat with an anonymous ID - no personal data)
 
     Support: https://github.com/apoorvdarshan/abysm
     Contact: ad13dtu@gmail.com
@@ -85,7 +85,7 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
 ## Privacy URL
 
-    https://github.com/apoorvdarshan/abysm#privacy
+    https://github.com/apoorvdarshan/abysm#-privacy
 
 ## Support URL
 
@@ -97,8 +97,11 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
 ## Reviewer Notes
 
-    ABYSM is a single-player exploration game. There is no account or login. The
-    only network use is Apple's StoreKit, for the in-app purchase.
+    ABYSM is a single-player exploration game. There is no account or login.
+    Network use is limited to the in-app purchase: Apple's StoreKit plus the
+    RevenueCat SDK (github.com/RevenueCat/purchases-ios), which validates the
+    receipt and resolves the one-time "Unlock the Deep" entitlement using an
+    anonymous app user ID (no personal data, no advertising tracking).
 
     To test:
     1. Launch the app. Tap NEW GAME on the title screen (or CONTINUE to resume a saved dive).
@@ -116,7 +119,7 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
     Game controllers are supported: left stick / d-pad to swim, A toggles the headlamp (or buys the unlock while the paywall is up), B turbo (or dismisses the paywall), X boost, Y rise to surface, Menu pauses, L1 mutes.
 
-    Data: the app stores only the current dive depth and horizontal position locally (UserDefaults) so it can offer "Continue." Nothing is collected, transmitted, or shared. Privacy nutrition label: Data Not Collected.
+    Data: the app stores only the current dive depth and horizontal position locally (UserDefaults) so it can offer "Continue." For the one-time purchase it sends the StoreKit receipt to RevenueCat to validate the unlock, using an anonymous app user ID with no other personal data and no advertising tracking. Privacy nutrition label: Purchases (Purchase History) - not linked to identity, not used for tracking.
 
     The app is landscape-only and requires full screen.
 
