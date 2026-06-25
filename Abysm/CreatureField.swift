@@ -42,9 +42,9 @@ final class CreatureField: SKNode {
     /// flip each creature so it swims HEAD-first, not tail-first. Verified per
     /// sprite by eye/mouth/head position.
     private static let facesRight: Set<String> = [
-        "bigeyetuna", "clownfish", "dragonfish", "emperorpenguin", "facelessfish",
-        "giantisopod", "grenadier", "leatherback", "nautilus", "oarfish",
-        "salmon", "snailfish", "spermwhale", "sunfish",
+        "bigeyetuna", "blobfish", "clownfish", "dragonfish", "emperorpenguin",
+        "facelessfish", "giantisopod", "grenadier", "leatherback", "nautilus",
+        "oarfish", "salmon", "seadragon", "snailfish", "spermwhale", "sunfish",
     ]
     // NOTE: re-verified after the 42-sprite art swap — many regenerated sprites
     // flipped facing (polarbear/mahimahi/sealion/chaincatshark/cookiecutter/
