@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://abysm.apoorvdarshan.com/sitemap.xml
