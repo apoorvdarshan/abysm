@@ -329,12 +329,12 @@ a { color: inherit; }
   font-size: clamp(14px, 2vw, 18px);
 }
 .premise-line--big {
-  font-family: var(--font-body);
-  font-size: clamp(24px, 4.6vw, 42px);
-  line-height: 1.28;
+  font-family: var(--font-mono);
+  font-size: clamp(20px, 3.8vw, 34px);
+  line-height: 1.45;
   color: var(--ink);
   font-weight: 500;
-  margin: 18px 0 26px;
+  margin: 20px 0 28px;
   letter-spacing: 0;
 }
 .premise-note {
