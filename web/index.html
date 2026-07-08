@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ABYSM — A dive to the bottom of the sea</title>
+<meta name="description" content="ABYSM is a calm, free-swim dive from the sunlit surface to the floor of the Challenger Deep — 10,935 m down, past 75 real creatures at their true depths. A quiet iPhone & iPad game." />
+<meta name="theme-color" content="#02050e" />
+<link rel="icon" href="assets/appicon.png" />
+<meta property="og:title" content="ABYSM — A dive to the bottom of the sea" />
+<meta property="og:description" content="Sink from the sunlit surface to the bottom of the ocean. No goals, no timers — just the slow drift into the dark." />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- Continuous ocean: color driven by scroll depth (JS), with a CSS fallback -->
+<div id="ocean" aria-hidden="true"></div>
+<div id="rays" aria-hidden="true"></div>
+<div id="snow" aria-hidden="true"></div>
+
+<!-- Fixed dive computer -->
+<header class="topbar">
+  <a class="brandmark" href="#surface" aria-label="ABYSM — back to the surface">ABYSM</a>
+  <div class="dive-computer" role="status" aria-live="off" aria-label="Current depth">
+    <div class="dc-read">
+      <span class="dc-meters"><span id="dcNum">0</span><span class="dc-unit">M</span></span>
+      <span class="dc-zone" id="dcZone">SUNLIGHT ZONE</span>
+    </div>
+    <div class="dc-gauge" aria-hidden="true"><span id="dcFill"></span></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- 0 m — the surface -->
+  <section class="hero" id="surface">
+    <div class="sun" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <p class="eyebrow eyebrow--sun">0 M · Sea level</p>
+      <h1 class="wordmark">ABYSM</h1>
+      <p class="tagline">A dive to the bottom of the sea.</p>
+      <p class="hero-lead">Sink from the sunlit surface all the way down to the floor of the
+        Challenger Deep — 10,935&nbsp;m — meeting the real creatures that live at each depth on the way.</p>
+      <div class="hero-cta">
+        <a class="btn btn--primary" href="#challenger">Begin the descent</a>
+      </div>
+      <img class="diver" src="assets/diver0.png" alt="" aria-hidden="true" />
+    </div>
+    <a class="scroll-cue" href="#premise" aria-label="Scroll to descend">
+      <span>scroll to descend</span>
+      <span class="chev" aria-hidden="true">▼</span>
+    </a>
+    <img class="reef reef--l" src="assets/bg_coral.png" alt="" aria-hidden="true" />
+    <img class="reef reef--r" src="assets/bg_kelp.png" alt="" aria-hidden="true" />
+  </section>
+
+  <!-- The premise -->
+  <section class="premise" id="premise">
+    <p class="premise-line reveal">No goals. No timers. No combat.</p>
+    <p class="premise-line premise-line--big reveal">Just you, a headlamp, and the slow weightless drift into the dark.</p>
+    <p class="premise-note reveal">Put on headphones, turn the lights down, and descend.</p>
+  </section>
+
+  <!-- The descent: zones, creatures, and landmarks in true-depth order -->
+  <div class="dive">
+
+    <!-- SUNLIGHT -->
+    <div class="zone-marker reveal" data-zone="sunlight">
+      <span class="zone-index">Zone 01</span>
+      <h2 class="zone-name">Sunlight Zone</h2>
+      <p class="zone-range">0 – 200 m</p>
+      <p class="zone-blurb">Warm, sunlit waters where most ocean life thrives.</p>
+    </div>
+
+    <article class="beat reveal beat--left">
+      <figure class="beat-art"><img src="assets/creature_manatee.png" alt="Pixel-art manatee" /></figure>
+      <div class="card">
+        <p class="card-meta">3 M &nbsp;·&nbsp; Sunlight Zone</p>
+        <h3 class="card-name">Manatee</h3>
+        <p class="card-fact">A gentle “sea cow” that grazes seagrass and surfaces every few minutes to breathe.</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--right">
+      <figure class="beat-art beat-art--sm"><img src="assets/creature_clownfish.png" alt="Pixel-art clownfish" /></figure>
+      <div class="card">
+        <p class="card-meta">37 M &nbsp;·&nbsp; Sunlight Zone</p>
+        <h3 class="card-name">Clownfish</h3>
+        <p class="card-fact">Lives unharmed among a sea anemone’s stinging tentacles, which guard it from predators.</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--left">
+      <figure class="beat-art beat-art--wide"><img src="assets/creature_orca.png" alt="Pixel-art orca" /></figure>
+      <div class="card">
+        <p class="card-meta">99 M &nbsp;·&nbsp; Sunlight Zone</p>
+        <h3 class="card-name">Orca</h3>
+        <p class="card-fact">The ocean’s top predator; pods hunt as a team and speak their own dialects.</p>
+      </div>
+    </article>
+
+    <!-- TWILIGHT -->
+    <div class="zone-marker reveal" data-zone="twilight">
+      <span class="zone-index">Zone 02</span>
+      <h2 class="zone-name">Twilight Zone</h2>
+      <p class="zone-range">200 – 1,000 m</p>
+      <p class="zone-blurb">Fading blue gloom — cold, dim, lit by living glow.</p>
+    </div>
+
+    <article class="beat reveal beat--right">
+      <figure class="beat-art beat-art--sm glow-cyan"><img src="assets/creature_lanternfish.png" alt="Pixel-art lanternfish" /></figure>
+      <div class="card">
+        <p class="card-meta">500 M &nbsp;·&nbsp; Twilight Zone</p>
+        <h3 class="card-name">Lanternfish</h3>
+        <p class="card-fact">Maybe the most abundant vertebrate on Earth, glowing with rows of light organs.</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--left">
+      <figure class="beat-art beat-art--wide"><img src="assets/creature_giantsquid.png" alt="Pixel-art giant squid" /></figure>
+      <div class="card">
+        <p class="card-meta">650 M &nbsp;·&nbsp; Twilight Zone</p>
+        <h3 class="card-name">Giant Squid</h3>
+        <p class="card-fact">A real sea monster — rarely seen alive, it can grow as long as a school bus.</p>
+      </div>
+    </article>
+
+    <!-- MIDNIGHT -->
+    <div class="zone-marker reveal" data-zone="midnight">
+      <span class="zone-index">Zone 03</span>
+      <h2 class="zone-name">Midnight Zone</h2>
+      <p class="zone-range">1,000 – 4,000 m</p>
+      <p class="zone-blurb">Eternal black, near-freezing, crushing dark.</p>
+    </div>
+
+    <article class="beat reveal beat--right">
+      <figure class="beat-art beat-art--sm glow-lure"><img src="assets/creature_anglerfish.png" alt="Pixel-art anglerfish" /></figure>
+      <div class="card">
+        <p class="card-meta">1,040 M &nbsp;·&nbsp; Midnight Zone</p>
+        <h3 class="card-name">Anglerfish</h3>
+        <p class="card-fact">Dangles a glowing lure to draw prey into total darkness.</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--left">
+      <figure class="beat-art"><img src="assets/creature_gulpereel.png" alt="Pixel-art gulper eel" /></figure>
+      <div class="card">
+        <p class="card-meta">3,060 M &nbsp;·&nbsp; Midnight Zone</p>
+        <h3 class="card-name">Gulper Eel</h3>
+        <p class="card-fact">A huge balloon-like mouth lets it swallow prey larger than itself.</p>
+      </div>
+    </article>
+
+    <article class="beat beat--landmark reveal">
+      <figure class="beat-art beat-art--wide"><img src="assets/landmark_titanic.png" alt="Pixel-art wreck of the RMS Titanic" /></figure>
+      <div class="card card--landmark">
+        <p class="card-meta card-meta--gold">3,800 M &nbsp;·&nbsp; Landmark</p>
+        <h3 class="card-name card-name--gold">RMS Titanic</h3>
+        <p class="card-fact">The wreck has rested on the seafloor here since 1912.</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--right">
+      <figure class="beat-art beat-art--sm"><img src="assets/creature_dumbooctopus.png" alt="Pixel-art dumbo octopus" /></figure>
+      <div class="card">
+        <p class="card-meta">3,952 M &nbsp;·&nbsp; Midnight Zone</p>
+        <h3 class="card-name">Dumbo Octopus</h3>
+        <p class="card-fact">Flaps ear-like fins to “fly” through the deep — the deepest-living octopus.</p>
+      </div>
+    </article>
+
+    <!-- THE ABYSS -->
+    <div class="zone-marker reveal" data-zone="abyss">
+      <span class="zone-index">Zone 04</span>
+      <h2 class="zone-name">The Abyss</h2>
+      <p class="zone-range">4,000 – 6,000 m</p>
+      <p class="zone-blurb">Frigid, pitch-black plains under immense pressure.</p>
+    </div>
+
+    <article class="beat reveal beat--left">
+      <figure class="beat-art beat-art--sm"><img src="assets/creature_seapig.png" alt="Pixel-art sea pig" /></figure>
+      <div class="card">
+        <p class="card-meta">4,500 M &nbsp;·&nbsp; The Abyss</p>
+        <h3 class="card-name">Sea Pig</h3>
+        <p class="card-fact">A plump pink sea cucumber that walks the abyssal mud on tube-foot “legs.”</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--right">
+      <figure class="beat-art beat-art--sm"><img src="assets/creature_fangtooth.png" alt="Pixel-art fangtooth" /></figure>
+      <div class="card">
+        <p class="card-meta">4,700 M &nbsp;·&nbsp; The Abyss</p>
+        <h3 class="card-name">Fangtooth</h3>
+        <p class="card-fact">Has the largest teeth, for its body size, of any fish in the ocean.</p>
+      </div>
+    </article>
+
+    <!-- HADAL -->
+    <div class="zone-marker reveal" data-zone="hadal">
+      <span class="zone-index">Zone 05</span>
+      <h2 class="zone-name">Hadal Zone</h2>
+      <p class="zone-range">6,000 – 10,935 m</p>
+      <p class="zone-blurb">Deepest trenches: crushing, lightless, barely alive.</p>
+    </div>
+
+    <article class="beat beat--landmark reveal">
+      <figure class="beat-art beat-art--wide"><img src="assets/landmark_johnston.png" alt="Pixel-art wreck of the USS Johnston" /></figure>
+      <div class="card card--landmark">
+        <p class="card-meta card-meta--gold">6,241 M &nbsp;·&nbsp; Landmark</p>
+        <h3 class="card-name card-name--gold">USS Johnston</h3>
+        <p class="card-fact">The deepest shipwreck ever found, lost in WWII’s Battle off Samar.</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--left">
+      <figure class="beat-art beat-art--sm glow-cyan"><img src="assets/creature_snailfish.png" alt="Pixel-art hadal snailfish" /></figure>
+      <div class="card">
+        <p class="card-meta">8,336 M &nbsp;·&nbsp; Hadal Zone</p>
+        <h3 class="card-name">Hadal Snailfish</h3>
+        <p class="card-fact">The deepest fish ever filmed; its jelly-like body withstands the crushing pressure.</p>
+      </div>
+    </article>
+
+    <article class="beat reveal beat--right">
+      <figure class="beat-art beat-art--xs"><img src="assets/creature_amphipod.png" alt="Pixel-art hadal amphipod" /></figure>
+      <div class="card">
+        <p class="card-meta">10,322 M &nbsp;·&nbsp; Hadal Zone</p>
+        <h3 class="card-name">Hadal Amphipod</h3>
+        <p class="card-fact">A shrimp-like scavenger thriving at the very bottom of the trenches.</p>
+      </div>
+    </article>
+  </div>
+
+  <!-- 10,935 m — the floor -->
+  <section class="floor" id="challenger">
+    <img class="floor-craft" src="assets/landmark_submersible.png" alt="" aria-hidden="true" />
+    <p class="eyebrow eyebrow--cyan">10,935 M · Challenger Deep</p>
+    <h2 class="floor-title">The bottom of the ocean.</h2>
+    <p class="floor-sub">You made it all the way down. This is as deep as the planet goes.</p>
+
+    <div class="pricing">
+      <div class="price-card">
+        <p class="price-tag">Free</p>
+        <p class="price-what">Dive the surface down to 1,000 m — the Sunlight &amp; Twilight zones, ~30 creatures.</p>
+      </div>
+      <div class="price-card price-card--deep">
+        <p class="price-tag">$2.99 <span class="price-once">once</span></p>
+        <p class="price-what"><strong>Unlock the Deep.</strong> The Midnight, Abyss &amp; Hadal zones to the trench floor, ~45 more creatures, and the deep landmarks. No subscriptions, no ads.</p>
+      </div>
+    </div>
+
+    <div class="floor-cta">
+      <span class="btn btn--store" role="text">Coming soon — iPhone &amp; iPad</span>
+    </div>
+
+    <ul class="specs">
+      <li><span class="spec-n">75</span> real creatures</li>
+      <li><span class="spec-n">8</span> ocean landmarks</li>
+      <li><span class="spec-n">5</span> depth zones</li>
+      <li><span class="spec-n">16</span> languages</li>
+    </ul>
+    <p class="specs-note">Hand-made pixel art · procedurally generated ambient audio · gentle haptics · full game-controller support.</p>
+  </section>
+
+  <!-- The fine print, at the bottom of the ocean -->
+  <section class="legal" id="privacy">
+    <p class="legal-eyebrow">Below the floor · The fine print</p>
+    <h2 class="legal-title">Privacy</h2>
+    <div class="legal-body">
+      <p>ABYSM has no account, no login, no ads, and no advertising or cross-app tracking. It is a single-player game that you can play start to finish without ever creating an identity.</p>
+      <h3>What stays on your device</h3>
+      <p>Your current dive’s depth and horizontal position are stored locally on your device (via <code>UserDefaults</code>) so the title screen can offer <strong>Continue</strong>. Your sound and language preferences are stored the same way. None of this ever leaves your device.</p>
+      <h3>The one thing that leaves your device</h3>
+      <p>The single in-app purchase, “Unlock the Deep,” is processed through <strong>RevenueCat</strong>. When you buy or restore it, the purchase receipt and an anonymous, non-identifying app-user ID are sent to RevenueCat to validate ownership. That is the only data that ever leaves your device — it isn’t linked to your identity and isn’t used for tracking.</p>
+      <h3>App Store privacy label</h3>
+      <p><strong>Purchases</strong> (Purchase History) — not linked to your identity, not used for tracking. That’s the whole label.</p>
+      <p class="legal-contact">Questions about privacy? <a href="mailto:ad13dtu@gmail.com">ad13dtu@gmail.com</a></p>
+    </div>
+  </section>
+
+  <section class="legal" id="terms">
+    <p class="legal-eyebrow">Below the floor · The fine print</p>
+    <h2 class="legal-title">Terms</h2>
+    <div class="legal-body">
+      <h3>The game</h3>
+      <p>ABYSM is a game for iPhone and iPad. It is free to download and play from the surface down to 1,000 m. A single, one-time in-app purchase — “Unlock the Deep,” a non-consumable priced at $2.99 (USD; localized by the App Store) — opens the descent below 1,000 m to the trench floor.</p>
+      <h3>Your purchase</h3>
+      <p>The unlock is one-time and permanent — no subscriptions, no consumables, no recurring charges. It can be restored on a fresh install or another device signed in to the same Apple ID. All payments, refunds, and billing are handled by Apple under the standard App Store terms; ABYSM never sees or stores your payment details.</p>
+      <h3>Fair use</h3>
+      <p>ABYSM is provided as-is, for your personal enjoyment. Please don’t decompile, redistribute, or resell the app or its art, audio, and creature content. The name, artwork, generated audio, and code are © Apoorv Darshan, all rights reserved.</p>
+      <h3>No warranty</h3>
+      <p>The game is offered without warranty of any kind. It is a calm exploration toy, not a source of scientific, navigational, or diving advice — real deep-sea diving is considerably less forgiving.</p>
+      <p class="legal-contact">Questions about these terms? <a href="mailto:ad13dtu@gmail.com">ad13dtu@gmail.com</a></p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p class="foot-word">ABYSM</p>
+  <nav class="foot-nav" aria-label="Footer">
+    <a href="#surface">Surface</a>
+    <a href="#challenger">The floor</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#terms">Terms</a>
+    <a href="mailto:ad13dtu@gmail.com">Contact</a>
+  </nav>
+  <p class="foot-fine">© Apoorv Darshan. All rights reserved.</p>
+  <p class="foot-fine foot-fine--dim">Made with ☕ and an unreasonable fondness for anglerfish.</p>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
