@@ -11,6 +11,8 @@
 import UIKit
 import SpriteKit
 import GameController
+import SafariServices
+import StoreKit
 
 final class TitleScene: SKScene {
 
@@ -39,6 +41,12 @@ final class TitleScene: SKScene {
     private let soundBtn = SKNode()
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
+
+    // Small corner buttons: privacy, terms, and a native "rate this app" prompt.
+    private let privacyBtn = SKNode()
+    private let termsBtn = SKNode()
+    private let rateBtn = SKNode()
+    private let infoBtnSize: CGFloat = 40
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private var soundOn = true
@@ -81,6 +89,10 @@ final class TitleScene: SKScene {
         buildButton(newGameBtn, L("menu.new_game", "NEW GAME"))
         soundLbl = buildButton(soundBtn, soundText())
         continueBtn.isHidden = !SaveManager.hasSave
+
+        iconButton(privacyBtn, image: "ui_privacy")
+        iconButton(termsBtn, image: "ui_terms")
+        iconButton(rateBtn, image: "ui_rate")
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -210,6 +222,16 @@ final class TitleScene: SKScene {
         if !continueBtn.isHidden { continueBtn.position = CGPoint(x: 0, y: y); y -= gap }
         newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
         soundBtn.position = CGPoint(x: 0, y: y)
+
+        // Privacy / Terms / Rate — a small icon row tucked into the top-left
+        // corner, clear of the notch and the centered menu.
+        let insets = view?.safeAreaInsets ?? .zero
+        let step = infoBtnSize + 12
+        let iy = h / 2 - insets.top - infoBtnSize / 2 - 14
+        let ix = -w / 2 + insets.left + infoBtnSize / 2 + 16
+        privacyBtn.position = CGPoint(x: ix, y: iy)
+        termsBtn.position   = CGPoint(x: ix + step, y: iy)
+        rateBtn.position    = CGPoint(x: ix + step * 2, y: iy)
     }
 
     override func didChangeSize(_ oldSize: CGSize) { super.didChangeSize(oldSize); layout() }
@@ -219,6 +241,9 @@ final class TitleScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let t = touches.first else { return }
         let p = t.location(in: self)
+        if hitIcon(privacyBtn, p) { openWebSection("privacy"); return }
+        if hitIcon(termsBtn, p) { openWebSection("terms"); return }
+        if hitIcon(rateBtn, p) { requestReview(); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -226,6 +251,50 @@ final class TitleScene: SKScene {
 
     private func hit(_ node: SKNode, _ p: CGPoint) -> Bool {
         abs(p.x - node.position.x) <= btnW / 2 && abs(p.y - node.position.y) <= btnH / 2
+    }
+
+    // MARK: Info / rate icon buttons
+
+    /// A small square plate button carrying a pixel-art icon (privacy / terms / rate).
+    private func iconButton(_ node: SKNode, image: String) {
+        let s = infoBtnSize
+        let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: s + 4, height: s + 4))
+        border.alpha = 0.7; border.zPosition = 0
+        let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: s, height: s))
+        plate.alpha = 0.92; plate.zPosition = 1
+        let tex = SKTexture(imageNamed: image); tex.filteringMode = .nearest
+        let icon = SKSpriteNode(texture: tex)
+        icon.size = CGSize(width: s * 0.66, height: s * 0.66); icon.zPosition = 2
+        node.addChild(border); node.addChild(plate); node.addChild(icon)
+        node.zPosition = 6
+        addChild(node)
+    }
+
+    private func hitIcon(_ node: SKNode, _ p: CGPoint) -> Bool {
+        let r = infoBtnSize / 2 + 6   // a little slop for fingertips
+        return abs(p.x - node.position.x) <= r && abs(p.y - node.position.y) <= r
+    }
+
+    /// Open a section of the live site (privacy / terms) in an in-app browser.
+    private func openWebSection(_ fragment: String) {
+        AudioManager.shared.playClick()
+        guard let url = URL(string: "https://abysm.apoorvdarshan.com/#\(fragment)") else { return }
+        if let vc = view?.window?.rootViewController {
+            let safari = SFSafariViewController(url: url)
+            safari.preferredBarTintColor = Palette.rgb(9, 20, 44)
+            safari.preferredControlTintColor = Palette.rgb(150, 236, 232)
+            vc.present(safari, animated: true)
+        } else {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    /// Ask the system to show the native App Store rating prompt.
+    private func requestReview() {
+        AudioManager.shared.playClick()
+        if let scene = view?.window?.windowScene {
+            AppStore.requestReview(in: scene)
+        }
     }
 
     private func setupControllers() {
