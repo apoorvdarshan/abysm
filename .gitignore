@@ -22,6 +22,10 @@ DerivedData/
 .swiftpm/
 .build/
 
+# Vercel (local link, pulled settings, and env tokens — never commit)
+.vercel/
+.env*
+
 # CocoaPods / Carthage (unused now, future-proofing)
 Pods/
 Carthage/Build/
