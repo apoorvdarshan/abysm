@@ -42,11 +42,10 @@ final class TitleScene: SKScene {
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
 
-    // Small corner buttons: privacy, terms, and a native "rate this app" prompt.
+    // Privacy, Terms, and a native "rate this app" prompt — labeled pills, right side.
     private let privacyBtn = SKNode()
     private let termsBtn = SKNode()
     private let rateBtn = SKNode()
-    private let infoBtnSize: CGFloat = 40
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private var soundOn = true
@@ -90,9 +89,9 @@ final class TitleScene: SKScene {
         soundLbl = buildButton(soundBtn, soundText())
         continueBtn.isHidden = !SaveManager.hasSave
 
-        iconButton(privacyBtn, image: "ui_privacy")
-        iconButton(termsBtn, image: "ui_terms")
-        iconButton(rateBtn, image: "ui_rate")
+        infoPill(privacyBtn, image: "ui_privacy", text: L("menu.privacy", "PRIVACY"))
+        infoPill(termsBtn, image: "ui_terms", text: L("menu.terms", "TERMS"))
+        infoPill(rateBtn, image: "ui_rate", text: L("menu.rate", "RATE"))
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -223,15 +222,14 @@ final class TitleScene: SKScene {
         newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
         soundBtn.position = CGPoint(x: 0, y: y)
 
-        // Privacy / Terms / Rate — a small icon row tucked into the top-left
-        // corner, clear of the notch and the centered menu.
+        // Privacy / Terms / Rate — a labeled vertical stack pinned to the right
+        // edge and centered, balancing the left-heavy reef/diver diorama.
         let insets = view?.safeAreaInsets ?? .zero
-        let step = infoBtnSize + 12
-        let iy = h / 2 - insets.top - infoBtnSize / 2 - 14
-        let ix = -w / 2 + insets.left + infoBtnSize / 2 + 16
-        privacyBtn.position = CGPoint(x: ix, y: iy)
-        termsBtn.position   = CGPoint(x: ix + step, y: iy)
-        rateBtn.position    = CGPoint(x: ix + step * 2, y: iy)
+        let colX = w / 2 - insets.right - 78
+        let vgap: CGFloat = 48
+        privacyBtn.position = CGPoint(x: colX, y: vgap)
+        termsBtn.position   = CGPoint(x: colX, y: 0)
+        rateBtn.position    = CGPoint(x: colX, y: -vgap)
     }
 
     override func didChangeSize(_ oldSize: CGSize) { super.didChangeSize(oldSize); layout() }
@@ -241,9 +239,9 @@ final class TitleScene: SKScene {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let t = touches.first else { return }
         let p = t.location(in: self)
-        if hitIcon(privacyBtn, p) { openWebSection("privacy"); return }
-        if hitIcon(termsBtn, p) { openWebSection("terms"); return }
-        if hitIcon(rateBtn, p) { requestReview(); return }
+        if hitNode(privacyBtn, p) { openWebSection("privacy"); return }
+        if hitNode(termsBtn, p) { openWebSection("terms"); return }
+        if hitNode(rateBtn, p) { requestReview(); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -255,24 +253,33 @@ final class TitleScene: SKScene {
 
     // MARK: Info / rate icon buttons
 
-    /// A small square plate button carrying a pixel-art icon (privacy / terms / rate).
-    private func iconButton(_ node: SKNode, image: String) {
-        let s = infoBtnSize
-        let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: s + 4, height: s + 4))
+    /// A pill button: a pixel-art icon on the left, a label to its right.
+    private func infoPill(_ node: SKNode, image: String, text: String) {
+        let w: CGFloat = 130, h: CGFloat = 38, iconW: CGFloat = 22
+        let leftPad: CGFloat = 12, gap: CGFloat = 10
+        let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: w + 4, height: h + 4))
         border.alpha = 0.7; border.zPosition = 0
-        let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: s, height: s))
+        let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: w, height: h))
         plate.alpha = 0.92; plate.zPosition = 1
         let tex = SKTexture(imageNamed: image); tex.filteringMode = .nearest
         let icon = SKSpriteNode(texture: tex)
-        icon.size = CGSize(width: s * 0.66, height: s * 0.66); icon.zPosition = 2
-        node.addChild(border); node.addChild(plate); node.addChild(icon)
+        icon.size = CGSize(width: iconW, height: iconW); icon.zPosition = 2
+        icon.position = CGPoint(x: -w / 2 + leftPad + iconW / 2, y: 0)
+        let label = GameFont.label()
+        label.text = text
+        label.fontSize = 9
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .left
+        label.position = CGPoint(x: -w / 2 + leftPad + iconW + gap, y: 0)
+        label.zPosition = 2
+        node.addChild(border); node.addChild(plate); node.addChild(icon); node.addChild(label)
         node.zPosition = 6
         addChild(node)
     }
 
-    private func hitIcon(_ node: SKNode, _ p: CGPoint) -> Bool {
-        let r = infoBtnSize / 2 + 6   // a little slop for fingertips
-        return abs(p.x - node.position.x) <= r && abs(p.y - node.position.y) <= r
+    private func hitNode(_ node: SKNode, _ p: CGPoint) -> Bool {
+        node.calculateAccumulatedFrame().contains(p)
     }
 
     /// Open a section of the live site (privacy / terms) in an in-app browser.
