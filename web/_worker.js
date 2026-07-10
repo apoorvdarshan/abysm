@@ -1,5 +1,3 @@
-const canonicalHost = "abysm.apoorvdarshan.com";
-
 function isCloudflarePagesHost(hostname) {
   return hostname === "abysm.pages.dev" || hostname.endsWith(".abysm.pages.dev");
 }
@@ -9,10 +7,14 @@ export default {
     const url = new URL(request.url);
 
     if (isCloudflarePagesHost(url.hostname)) {
-      url.protocol = "https:";
-      url.hostname = canonicalHost;
-      url.port = "";
-      return Response.redirect(url.toString(), 301);
+      return new Response("Not Found", {
+        status: 404,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "text/plain; charset=utf-8",
+          "X-Robots-Tag": "noindex, nofollow",
+        },
+      });
     }
 
     const response = await env.ASSETS.fetch(request);
