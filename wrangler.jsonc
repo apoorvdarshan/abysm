@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4.110.0/config-schema.json",
+  "name": "abysm",
+  "compatibility_date": "2026-07-10",
+  "pages_build_output_dir": "./web"
+}

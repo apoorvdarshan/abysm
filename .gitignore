@@ -26,6 +26,9 @@ DerivedData/
 .vercel/
 .env*
 
+# Cloudflare Wrangler local state
+.wrangler/
+
 # CocoaPods / Carthage (unused now, future-proofing)
 Pods/
 Carthage/Build/

@@ -87,6 +87,14 @@ All text lives in a single `Localizable.xcstrings` String Catalog. Latin-script 
 
 The only dependency is the **RevenueCat** Swift package (`purchases-ios-spm`), which Xcode resolves automatically via Swift Package Manager on first open — no manual setup.
 
+### Website
+
+The static landing page in `web/` is hosted on Cloudflare Pages. With Wrangler authenticated, deploy the production branch from the repository root:
+
+```sh
+wrangler pages deploy --branch main
+```
+
 ## 🔒 Privacy
 
 ABYSM has no account, no login, no ads, and no advertising or cross-app tracking. Your current dive's depth and position are stored locally on your device (via `UserDefaults`) so the title screen can offer **Continue**. The one in-app purchase ("Unlock the Deep") is processed through **RevenueCat**: when you buy or restore it, the purchase receipt and an anonymous, non-identifying app-user ID are sent to RevenueCat to validate ownership. That's the only data that ever leaves your device — it isn't linked to your identity and isn't used for tracking.
