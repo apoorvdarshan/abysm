@@ -89,10 +89,12 @@ The only dependency is the **RevenueCat** Swift package (`purchases-ios-spm`), w
 
 ### Website
 
-The static landing page in `web/` is hosted on Cloudflare Pages. With Wrangler authenticated, deploy the production branch from the repository root:
+The static landing page in `web/` is hosted on Cloudflare Workers. With Wrangler authenticated, build and deploy it from the repository root:
 
 ```sh
-wrangler pages deploy --branch main
+cd web
+npm run build
+npx wrangler deploy
 ```
 
 ## 🔒 Privacy

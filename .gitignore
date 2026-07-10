@@ -28,6 +28,10 @@ DerivedData/
 
 # Cloudflare Wrangler local state
 .wrangler/
+web/dist/
+
+# Node.js tooling for the website build
+node_modules/
 
 # CocoaPods / Carthage (unused now, future-proofing)
 Pods/
