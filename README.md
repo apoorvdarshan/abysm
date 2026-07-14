@@ -118,7 +118,7 @@ The tag starts the Xcode Cloud App Store archive and the GitHub Actions workflow
 - **Email Apoorv:** [apoorvdarshan@gmail.com](mailto:apoorvdarshan@gmail.com?subject=ABYSM%20Support)
 - **X:** [@apoorvdarshan](https://x.com/apoorvdarshan)
 - **Instagram:** [@apoorvgames](https://www.instagram.com/apoorvgames/)
-- **Product Hunt:** Upvote link coming soon.
+- **Product Hunt:** [Upvote for ABYSM](https://www.producthunt.com/products/abysm)
 
 ## 🔒 Privacy
 

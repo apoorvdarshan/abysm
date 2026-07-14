@@ -119,7 +119,7 @@ final class TitleScene: SKScene {
         contactApoorvBtn.activationHandler = { [weak self] in self?.openEmail("apoorvdarshan@gmail.com") }
         followDeveloperBtn.activationHandler = { [weak self] in self?.openDeveloperProfile() }
         instagramBtn.activationHandler = { [weak self] in self?.openInstagramProfile() }
-        productHuntBtn.activationHandler = { [weak self] in self?.showProductHuntComingSoon() }
+        productHuntBtn.activationHandler = { [weak self] in self?.openProductHunt() }
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -133,6 +133,7 @@ final class TitleScene: SKScene {
         items.append((contactApoorvBtn, { [weak self] in self?.openEmail("apoorvdarshan@gmail.com") }))
         items.append((followDeveloperBtn, { [weak self] in self?.openDeveloperProfile() }))
         items.append((instagramBtn, { [weak self] in self?.openInstagramProfile() }))
+        items.append((productHuntBtn, { [weak self] in self?.openProductHunt() }))
         highlightSelected()
 
         plankton.zPosition = 2
@@ -289,7 +290,7 @@ final class TitleScene: SKScene {
         if hitNode(contactApoorvBtn, p) { openEmail("apoorvdarshan@gmail.com"); return }
         if hitNode(followDeveloperBtn, p) { openDeveloperProfile(); return }
         if hitNode(instagramBtn, p) { openInstagramProfile(); return }
-        if hitNode(productHuntBtn, p) { showProductHuntComingSoon(); return }
+        if hitNode(productHuntBtn, p) { openProductHunt(); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -405,15 +406,11 @@ final class TitleScene: SKScene {
         UIApplication.shared.open(url)
     }
 
-    /// Keep the voting action visible before its final Product Hunt URL is available.
-    private func showProductHuntComingSoon() {
+    /// Open ABYSM's Product Hunt page.
+    private func openProductHunt() {
         AudioManager.shared.playClick()
-        guard let presenter = view?.window?.rootViewController else { return }
-        let alert = UIAlertController(title: "Product Hunt",
-                                      message: "Voting link coming soon.",
-                                      preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
-        presenter.present(alert, animated: true)
+        guard let url = URL(string: "https://www.producthunt.com/products/abysm") else { return }
+        UIApplication.shared.open(url)
     }
 
     private func setupControllers() {
