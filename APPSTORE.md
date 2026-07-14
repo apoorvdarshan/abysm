@@ -96,18 +96,6 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
     https://abysm.apoorvdarshan.com/
 
-## Public Links
-
-    Website: https://abysm.apoorvdarshan.com/
-    App Store: https://apps.apple.com/app/id6783505799
-    Privacy: https://abysm.apoorvdarshan.com/#privacy
-    Terms: https://abysm.apoorvdarshan.com/#terms
-    Contact 1: ad13dtu@gmail.com
-    Contact 2: apoorvdarshan@gmail.com
-    X: https://x.com/apoorvdarshan
-    Instagram: https://www.instagram.com/apoorvgames/
-    Product Hunt: Coming soon - add the upvote URL when the launch page is live.
-
 ## Reviewer Notes
 
     ABYSM is a single-player exploration game. There is no account or login.
