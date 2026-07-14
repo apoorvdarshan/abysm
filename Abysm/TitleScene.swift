@@ -105,7 +105,7 @@ final class TitleScene: SKScene {
         infoIcon(contactApoorvBtn, image: "ui_contact", name: "CONTACT 2", badge: "2")
         infoIcon(followDeveloperBtn, image: "ui_follow_x", name: "@APOORVDARSHAN")
         infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVGAMES")
-        infoIcon(productHuntBtn, image: "ui_product_hunt", name: "VOTE ON PRODUCT HUNT")
+        infoIcon(productHuntBtn, image: "ui_product_hunt", name: "VOTE ON PRODUCT HUNT", iconSize: 38)
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -279,7 +279,8 @@ final class TitleScene: SKScene {
     // MARK: Secondary actions
 
     /// A compact pixel-art control. Names remain on the nodes for inspection and testing.
-    private func infoIcon(_ node: SKNode, image: String, name: String, badge: String? = nil) {
+    private func infoIcon(_ node: SKNode, image: String, name: String,
+                          badge: String? = nil, iconSize: CGFloat = 28) {
         let texture = SKTexture(imageNamed: image)
         texture.filteringMode = .nearest
         let border = SKSpriteNode(color: Palette.rgb(150, 236, 232),
@@ -289,7 +290,7 @@ final class TitleScene: SKScene {
                                  size: CGSize(width: infoTileSize, height: infoTileSize))
         plate.alpha = 0.94; plate.zPosition = 1
         let icon = SKSpriteNode(texture: texture)
-        icon.size = CGSize(width: 28, height: 28); icon.zPosition = 2
+        icon.size = CGSize(width: iconSize, height: iconSize); icon.zPosition = 2
         node.name = name
         node.addChild(border); node.addChild(plate); node.addChild(icon)
 
