@@ -87,31 +87,11 @@ App Store Connect submission details for ABYSM v1.0, build 2. Each field is in a
 
 ## Reviewer Notes
 
-    ABYSM is a single-player exploration game. There is no account or login.
-    Network use is limited to purchase and entitlement functionality: Apple's
-    StoreKit plus the RevenueCat SDK (github.com/RevenueCat/purchases-ios).
-    RevenueCat is contacted at launch and during purchase/restore operations. It
-    receives an anonymous app-user ID, purchase/entitlement information, and basic
-    technical information needed to provide the unlock. No advertising tracking is used.
+    ABYSM is a landscape-only, single-player game with no account or login.
 
-    To test:
-    1. Launch the app. Tap NEW GAME on the title screen (or CONTINUE to resume a saved dive).
-    2. Use the bottom-left joystick to swim. The bottom-right buttons are, in a diamond: rise to surface (top), headlamp (bottom), boost (left), turbo (right).
-    3. Swim straight down to descend through the zones; creatures and landmarks appear at their real depths.
-    4. Top-left is Pause; top-right is the sound mute toggle.
+    To test the non-consumable "Unlock the Deep," start a new game and swim down
+    to approximately 1,000 m. At the gate, tap UNLOCK to purchase in the sandbox,
+    RESTORE to restore access, or KEEP EXPLORING to dismiss the paywall.
 
-    In-app purchase ("Unlock the Deep"):
-    - Keep swimming down to ~1,000 m. The diver stops at the gate and the
-      "Unlock the Deep" modal appears.
-    - Tap UNLOCK to buy (sandbox). After it completes, the gate is removed and
-      you can continue descending past 1,000 m.
-    - "RESTORE" restores the unlock on a fresh install / another device.
-    - "KEEP EXPLORING" dismisses the modal and stays in the free zones.
-
-    Game controllers are supported: left stick / d-pad to swim, A toggles the headlamp (or activates the selected paywall action), B turbo, X boost, Y rise to surface, Menu pauses or dismisses the paywall, and L1 mutes.
-
-    Data: the app stores the current dive depth, horizontal position, sound preference, and cached unlock state locally (UserDefaults). RevenueCat is contacted at launch and for purchase/restore operations; it receives an anonymous app-user ID, purchase/entitlement information, and basic technical information needed to provide the unlock. No advertising tracking is used. Privacy nutrition label: Purchases (Purchase History) - not linked to identity, not used for tracking.
-
-    The app is landscape-only and requires full screen.
-
-    Note: pixel-art labels render in a retro bitmap font for Latin-script languages; languages in other scripts (Chinese, Japanese, Korean, Russian, Hindi, Arabic) render in a system font so every glyph displays correctly.
+    StoreKit and RevenueCat provide purchase and entitlement validation. The app
+    uses no advertising or cross-app tracking; dive progress is stored locally.
