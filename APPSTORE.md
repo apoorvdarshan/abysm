@@ -55,8 +55,9 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     - Your dive's depth and position are saved only on your device
     - The only data sent off your device is your purchase, used solely to validate the one-time unlock (handled by RevenueCat with an anonymous ID - no personal data)
 
-    Support: https://github.com/apoorvdarshan/abysm
-    Contact: ad13dtu@gmail.com
+    Support: https://abysm.apoorvdarshan.com/#connect
+    Contact 1: ad13dtu@gmail.com
+    Contact 2: apoorvdarshan@gmail.com
 
 ## In-App Purchases
 
@@ -85,15 +86,27 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
 ## Privacy URL
 
-    https://github.com/apoorvdarshan/abysm#-privacy
+    https://abysm.apoorvdarshan.com/#privacy
 
 ## Support URL
 
-    https://github.com/apoorvdarshan/abysm
+    https://abysm.apoorvdarshan.com/#connect
 
 ## Marketing URL
 
-    https://github.com/apoorvdarshan/abysm
+    https://abysm.apoorvdarshan.com/
+
+## Public Links
+
+    Website: https://abysm.apoorvdarshan.com/
+    App Store: https://apps.apple.com/app/id6783505799
+    Privacy: https://abysm.apoorvdarshan.com/#privacy
+    Terms: https://abysm.apoorvdarshan.com/#terms
+    Contact 1: ad13dtu@gmail.com
+    Contact 2: apoorvdarshan@gmail.com
+    X: https://x.com/apoorvdarshan
+    Instagram: https://www.instagram.com/apoorvgames/
+    Product Hunt: Coming soon - add the upvote URL when the launch page is live.
 
 ## Reviewer Notes
 

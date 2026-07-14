@@ -97,6 +97,18 @@ npm run build
 npx wrangler deploy
 ```
 
+## 🔗 Links & support
+
+- **Website:** [abysm.apoorvdarshan.com](https://abysm.apoorvdarshan.com/)
+- **App Store / rate ABYSM:** [apps.apple.com/app/id6783505799](https://apps.apple.com/app/id6783505799)
+- **Privacy:** [abysm.apoorvdarshan.com/#privacy](https://abysm.apoorvdarshan.com/#privacy)
+- **Terms:** [abysm.apoorvdarshan.com/#terms](https://abysm.apoorvdarshan.com/#terms)
+- **Email support:** [ad13dtu@gmail.com](mailto:ad13dtu@gmail.com?subject=ABYSM%20Support)
+- **Email Apoorv:** [apoorvdarshan@gmail.com](mailto:apoorvdarshan@gmail.com?subject=ABYSM%20Support)
+- **X:** [@apoorvdarshan](https://x.com/apoorvdarshan)
+- **Instagram:** [@apoorvgames](https://www.instagram.com/apoorvgames/)
+- **Product Hunt:** Upvote link coming soon.
+
 ## 🔒 Privacy
 
 ABYSM has no account, no login, no ads, and no advertising or cross-app tracking. Your current dive's depth and position are stored locally on your device (via `UserDefaults`) so the title screen can offer **Continue**. The one in-app purchase ("Unlock the Deep") is processed through **RevenueCat**: when you buy or restore it, the purchase receipt and an anonymous, non-identifying app-user ID are sent to RevenueCat to validate ownership. That's the only data that ever leaves your device — it isn't linked to your identity and isn't used for tracking.

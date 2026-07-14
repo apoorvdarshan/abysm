@@ -56,7 +56,15 @@
   "gamePlatform": ["iOS", "iPadOS"],
   "operatingSystem": "iOS 17.0 or later",
   "applicationCategory": "GameApplication",
-  "author": { "@type": "Person", "name": "Apoorv Darshan", "url": "https://apoorvdarshan.com/" },
+  "author": {
+    "@type": "Person",
+    "name": "Apoorv Darshan",
+    "url": "https://apoorvdarshan.com/",
+    "sameAs": [
+      "https://x.com/apoorvdarshan",
+      "https://www.instagram.com/apoorvgames/"
+    ]
+  },
   "publisher": { "@type": "Person", "name": "Apoorv Darshan" },
   "inLanguage": ["en", "es", "fr", "de", "it", "pt-BR", "ru", "pl", "nl", "tr", "hi", "ja", "ko", "zh-Hans", "zh-Hant", "ar"],
   "offers": {
@@ -324,6 +332,53 @@
     <p class="specs-note">Hand-made pixel art · procedurally generated ambient audio · gentle haptics · full game-controller support.</p>
   </section>
 
+  <!-- A compact signal station mirroring the title-screen action dock -->
+  <section class="connect" id="connect">
+    <p class="legal-eyebrow">10,936 M · Signal station</p>
+    <h2 class="connect-title">Support the dive.</h2>
+    <p class="connect-intro">Read the fine print, get help, follow development, or tell someone else about ABYSM.</p>
+
+    <div class="signal-grid">
+      <a class="signal-link" href="#privacy">
+        <span class="signal-code" aria-hidden="true">PR</span>
+        <span><strong>Privacy</strong><small>Read the policy</small></span>
+      </a>
+      <a class="signal-link" href="#terms">
+        <span class="signal-code" aria-hidden="true">TM</span>
+        <span><strong>Terms</strong><small>Read the terms</small></span>
+      </a>
+      <a class="signal-link" href="https://apps.apple.com/app/id6783505799" target="_blank" rel="noopener">
+        <span class="signal-code signal-code--gold" aria-hidden="true">★</span>
+        <span><strong>Rate ABYSM</strong><small>Open the App Store</small></span>
+      </a>
+      <button class="signal-link" id="shareApp" type="button">
+        <span class="signal-code" aria-hidden="true">↗</span>
+        <span><strong>Share ABYSM</strong><small id="shareStatus">Send the App Store link</small></span>
+      </button>
+      <a class="signal-link" href="mailto:ad13dtu@gmail.com?subject=ABYSM%20Support">
+        <span class="signal-code" aria-hidden="true">01</span>
+        <span><strong>Email support</strong><small>ad13dtu@gmail.com</small></span>
+      </a>
+      <a class="signal-link" href="mailto:apoorvdarshan@gmail.com?subject=ABYSM%20Support">
+        <span class="signal-code" aria-hidden="true">02</span>
+        <span><strong>Email Apoorv</strong><small>apoorvdarshan@gmail.com</small></span>
+      </a>
+      <a class="signal-link" href="https://x.com/apoorvdarshan" target="_blank" rel="me noopener">
+        <span class="signal-code" aria-hidden="true">X</span>
+        <span><strong>Follow on X</strong><small>@apoorvdarshan</small></span>
+      </a>
+      <a class="signal-link" href="https://www.instagram.com/apoorvgames/" target="_blank" rel="me noopener">
+        <span class="signal-code" aria-hidden="true">IG</span>
+        <span><strong>Instagram</strong><small>@apoorvgames</small></span>
+      </a>
+      <!-- Replace this placeholder with the launch URL when the Product Hunt page is live. -->
+      <span class="signal-link signal-link--soon" aria-disabled="true">
+        <span class="signal-code signal-code--ph" aria-hidden="true">P</span>
+        <span><strong>Product Hunt</strong><small>Upvote link coming soon</small></span>
+      </span>
+    </div>
+  </section>
+
   <!-- The fine print, at the bottom of the ocean -->
   <section class="legal" id="privacy">
     <p class="legal-eyebrow">Below the floor · The fine print</p>
@@ -336,7 +391,7 @@
       <p>The single in-app purchase, “Unlock the Deep,” is processed through <strong>RevenueCat</strong>. When you buy or restore it, the purchase receipt and an anonymous, non-identifying app-user ID are sent to RevenueCat to validate ownership. That is the only data that ever leaves your device — it isn’t linked to your identity and isn’t used for tracking.</p>
       <h3>App Store privacy label</h3>
       <p><strong>Purchases</strong> (Purchase History) — not linked to your identity, not used for tracking. That’s the whole label.</p>
-      <p class="legal-contact">Questions about privacy? <a href="mailto:ad13dtu@gmail.com">ad13dtu@gmail.com</a></p>
+      <p class="legal-contact">Privacy questions: <a href="mailto:ad13dtu@gmail.com">ad13dtu@gmail.com</a> · Developer: <a href="mailto:apoorvdarshan@gmail.com">apoorvdarshan@gmail.com</a></p>
     </div>
   </section>
 
@@ -352,7 +407,7 @@
       <p>ABYSM is provided as-is, for your personal enjoyment. Please don’t decompile, redistribute, or resell the app or its art, audio, and creature content. The name, artwork, generated audio, and code are © Apoorv Darshan, all rights reserved.</p>
       <h3>No warranty</h3>
       <p>The game is offered without warranty of any kind. It is a calm exploration toy, not a source of scientific, navigational, or diving advice — real deep-sea diving is considerably less forgiving.</p>
-      <p class="legal-contact">Questions about these terms? <a href="mailto:ad13dtu@gmail.com">ad13dtu@gmail.com</a></p>
+      <p class="legal-contact">Terms questions: <a href="mailto:ad13dtu@gmail.com">ad13dtu@gmail.com</a> · Developer: <a href="mailto:apoorvdarshan@gmail.com">apoorvdarshan@gmail.com</a></p>
     </div>
   </section>
 
@@ -363,9 +418,11 @@
   <nav class="foot-nav" aria-label="Footer">
     <a href="#surface">Surface</a>
     <a href="#challenger">The floor</a>
+    <a href="#connect">Connect</a>
     <a href="#privacy">Privacy</a>
     <a href="#terms">Terms</a>
-    <a href="mailto:ad13dtu@gmail.com">Contact</a>
+    <a href="https://x.com/apoorvdarshan" target="_blank" rel="me noopener">X</a>
+    <a href="https://www.instagram.com/apoorvgames/" target="_blank" rel="me noopener">Instagram</a>
   </nav>
   <p class="foot-fine">© Apoorv Darshan. All rights reserved.</p>
   <p class="foot-fine foot-fine--dim">Made with ☕ and an unreasonable fondness for anglerfish.</p>
