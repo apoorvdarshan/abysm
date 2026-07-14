@@ -610,6 +610,7 @@ a { color: inherit; }
   transition: color 140ms ease;
 }
 .foot-nav a:hover { color: var(--biolume); }
+.foot-nav .foot-support { color: var(--brass); }
 .foot-nav .foot-soon { color: rgba(218, 85, 47, .75); }
 .foot-fine { font-family: var(--font-mono); font-size: 12px; color: var(--ink-deep); margin: 6px 0; letter-spacing: 1px; }
 .foot-fine--dim { color: rgba(127,154,166,.6); }
