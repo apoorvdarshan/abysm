@@ -119,6 +119,7 @@ The tag starts the Xcode Cloud App Store archive and the GitHub Actions workflow
 - **X:** [@apoorvdarshan](https://x.com/apoorvdarshan)
 - **Instagram:** [@apoorvgames](https://www.instagram.com/apoorvgames/)
 - **Product Hunt:** [Upvote for ABYSM](https://www.producthunt.com/products/abysm)
+- **TrustMRR:** [ABYSM on TrustMRR](https://trustmrr.com/startup/abysm-dive-the-deep-sea)
 
 ## 🔒 Privacy
 
