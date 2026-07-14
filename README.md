@@ -97,6 +97,17 @@ npm run build
 npx wrangler deploy
 ```
 
+### Releases
+
+Version tags beginning with `v` drive both release systems. Create and push an annotated tag only when that version is ready to ship:
+
+```sh
+git tag -a v1.0.0 -m "ABYSM 1.0.0"
+git push origin v1.0.0
+```
+
+The tag starts the Xcode Cloud App Store archive and the GitHub Actions workflow that creates a GitHub Release with generated release notes. Tags containing a suffix, such as `v1.1.0-beta.1`, create a GitHub prerelease.
+
 ## 🔗 Links & support
 
 - **Website:** [abysm.apoorvdarshan.com](https://abysm.apoorvdarshan.com/)
