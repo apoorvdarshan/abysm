@@ -50,6 +50,7 @@ final class TitleScene: SKScene {
     private let contactAd13dtuBtn = SKNode()
     private let contactApoorvBtn = SKNode()
     private let followDeveloperBtn = SKNode()
+    private let instagramBtn = SKNode()
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private let infoPillW: CGFloat = 170, infoPillH: CGFloat = 38
@@ -101,6 +102,7 @@ final class TitleScene: SKScene {
         infoPill(contactAd13dtuBtn, image: "ui_contact", text: "CONTACT 1")
         infoPill(contactApoorvBtn, image: "ui_contact", text: "CONTACT 2")
         infoPill(followDeveloperBtn, image: "ui_follow_x", text: "@APOORVDARSHAN")
+        infoPill(instagramBtn, image: "ui_instagram", text: "@APOORVGAMES")
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -235,8 +237,8 @@ final class TitleScene: SKScene {
         let insets = view?.safeAreaInsets ?? .zero
         let colX = w / 2 - insets.right - infoPillW / 2 - 13
         let stack = [privacyBtn, termsBtn, rateBtn, shareBtn,
-                     contactAd13dtuBtn, contactApoorvBtn, followDeveloperBtn]
-        let vgap: CGFloat = 42
+                     contactAd13dtuBtn, contactApoorvBtn, followDeveloperBtn, instagramBtn]
+        let vgap: CGFloat = 39
         let midpoint = CGFloat(stack.count - 1) / 2
         for (index, node) in stack.enumerated() {
             node.position = CGPoint(x: colX, y: (midpoint - CGFloat(index)) * vgap)
@@ -257,6 +259,7 @@ final class TitleScene: SKScene {
         if hitNode(contactAd13dtuBtn, p) { openEmail("ad13dtu@gmail.com"); return }
         if hitNode(contactApoorvBtn, p) { openEmail("apoorvdarshan@gmail.com"); return }
         if hitNode(followDeveloperBtn, p) { openDeveloperProfile(); return }
+        if hitNode(instagramBtn, p) { openInstagramProfile(); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -357,6 +360,13 @@ final class TitleScene: SKScene {
     private func openDeveloperProfile() {
         AudioManager.shared.playClick()
         guard let url = URL(string: "https://x.com/apoorvdarshan") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    /// Open the ABYSM developer account on Instagram.
+    private func openInstagramProfile() {
+        AudioManager.shared.playClick()
+        guard let url = URL(string: "https://www.instagram.com/apoorvgames/") else { return }
         UIApplication.shared.open(url)
     }
 
