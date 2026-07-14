@@ -93,7 +93,7 @@ final class TitleScene: SKScene {
         infoPill(privacyBtn, image: "ui_privacy", text: L("menu.privacy", "PRIVACY"))
         infoPill(termsBtn, image: "ui_terms", text: L("menu.terms", "TERMS"))
         infoPill(rateBtn, image: "ui_rate", text: L("menu.rate", "RATE"))
-        infoPill(shareBtn, systemImage: "square.and.arrow.up", text: L("menu.share", "SHARE"))
+        infoPill(shareBtn, image: "ui_share", text: L("menu.share", "SHARE"))
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -261,16 +261,6 @@ final class TitleScene: SKScene {
     private func infoPill(_ node: SKNode, image: String, text: String) {
         let texture = SKTexture(imageNamed: image)
         texture.filteringMode = .nearest
-        infoPill(node, texture: texture, text: text)
-    }
-
-    /// A pill button using an SF Symbol when no pixel-art asset is needed.
-    private func infoPill(_ node: SKNode, systemImage: String, text: String) {
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .bold)
-        guard let image = UIImage(systemName: systemImage, withConfiguration: config)?
-            .withTintColor(.white, renderingMode: .alwaysOriginal) else { return }
-        let texture = SKTexture(image: image)
-        texture.filteringMode = .linear
         infoPill(node, texture: texture, text: text)
     }
 
