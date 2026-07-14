@@ -42,7 +42,7 @@ final class TitleScene: SKScene {
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
 
-    // Legal, App Store, contact, and developer links — labeled pills, right side.
+    // Legal, App Store, contact, and developer links — compact icon dock, right side.
     private let privacyBtn = SKNode()
     private let termsBtn = SKNode()
     private let rateBtn = SKNode()
@@ -54,7 +54,8 @@ final class TitleScene: SKScene {
     private let productHuntBtn = SKNode()
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
-    private let infoPillW: CGFloat = 170, infoPillH: CGFloat = 38
+    private let infoTileSize: CGFloat = 42
+    private let infoTileGap: CGFloat = 7
     private var soundOn = true
     private var controllerObserver: NSObjectProtocol?
 
@@ -96,15 +97,15 @@ final class TitleScene: SKScene {
         soundLbl = buildButton(soundBtn, soundText())
         continueBtn.isHidden = !SaveManager.hasSave
 
-        infoPill(privacyBtn, image: "ui_privacy", text: L("menu.privacy", "PRIVACY"))
-        infoPill(termsBtn, image: "ui_terms", text: L("menu.terms", "TERMS"))
-        infoPill(rateBtn, image: "ui_rate", text: L("menu.rate", "RATE"))
-        infoPill(shareBtn, image: "ui_share", text: L("menu.share", "SHARE"))
-        infoPill(contactAd13dtuBtn, image: "ui_contact", text: "CONTACT 1")
-        infoPill(contactApoorvBtn, image: "ui_contact", text: "CONTACT 2")
-        infoPill(followDeveloperBtn, image: "ui_follow_x", text: "@APOORVDARSHAN")
-        infoPill(instagramBtn, image: "ui_instagram", text: "@APOORVGAMES")
-        infoPill(productHuntBtn, image: "ui_product_hunt", text: "VOTE ON PH")
+        infoIcon(privacyBtn, image: "ui_privacy", name: L("menu.privacy", "PRIVACY"))
+        infoIcon(termsBtn, image: "ui_terms", name: L("menu.terms", "TERMS"))
+        infoIcon(rateBtn, image: "ui_rate", name: L("menu.rate", "RATE"))
+        infoIcon(shareBtn, image: "ui_share", name: L("menu.share", "SHARE"))
+        infoIcon(contactAd13dtuBtn, image: "ui_contact", name: "CONTACT 1", badge: "1")
+        infoIcon(contactApoorvBtn, image: "ui_contact", name: "CONTACT 2", badge: "2")
+        infoIcon(followDeveloperBtn, image: "ui_follow_x", name: "@APOORVDARSHAN")
+        infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVGAMES")
+        infoIcon(productHuntBtn, image: "ui_product_hunt", name: "VOTE ON PRODUCT HUNT")
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -235,16 +236,18 @@ final class TitleScene: SKScene {
         newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
         soundBtn.position = CGPoint(x: 0, y: y)
 
-        // All secondary actions share an evenly spaced stack pinned to the right.
+        // Secondary actions form a compact 3 × 3 instrument dock on the right.
         let insets = view?.safeAreaInsets ?? .zero
-        let colX = w / 2 - insets.right - infoPillW / 2 - 13
-        let stack = [privacyBtn, termsBtn, rateBtn, shareBtn,
-                     contactAd13dtuBtn, contactApoorvBtn, followDeveloperBtn,
-                     instagramBtn, productHuntBtn]
-        let vgap: CGFloat = 35
-        let midpoint = CGFloat(stack.count - 1) / 2
-        for (index, node) in stack.enumerated() {
-            node.position = CGPoint(x: colX, y: (midpoint - CGFloat(index)) * vgap)
+        let dock = [privacyBtn, termsBtn, rateBtn,
+                    shareBtn, contactAd13dtuBtn, contactApoorvBtn,
+                    followDeveloperBtn, instagramBtn, productHuntBtn]
+        let stride = infoTileSize + infoTileGap
+        let dockWidth = infoTileSize * 3 + infoTileGap * 2
+        let dockCenterX = w / 2 - insets.right - dockWidth / 2 - 13
+        for (index, node) in dock.enumerated() {
+            let column = CGFloat(index % 3) - 1
+            let row = 1 - CGFloat(index / 3)
+            node.position = CGPoint(x: dockCenterX + column * stride, y: row * stride)
         }
     }
 
@@ -275,32 +278,35 @@ final class TitleScene: SKScene {
 
     // MARK: Secondary actions
 
-    /// A pill button: a pixel-art icon on the left, a label to its right.
-    private func infoPill(_ node: SKNode, image: String, text: String) {
+    /// A compact pixel-art control. Names remain on the nodes for inspection and testing.
+    private func infoIcon(_ node: SKNode, image: String, name: String, badge: String? = nil) {
         let texture = SKTexture(imageNamed: image)
         texture.filteringMode = .nearest
-        infoPill(node, texture: texture, text: text)
-    }
-
-    private func infoPill(_ node: SKNode, texture: SKTexture, text: String) {
-        let w = infoPillW, h = infoPillH, iconW: CGFloat = 22
-        let leftPad: CGFloat = 12, gap: CGFloat = 10
-        let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: w + 4, height: h + 4))
-        border.alpha = 0.7; border.zPosition = 0
-        let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: w, height: h))
-        plate.alpha = 0.92; plate.zPosition = 1
+        let border = SKSpriteNode(color: Palette.rgb(150, 236, 232),
+                                  size: CGSize(width: infoTileSize + 4, height: infoTileSize + 4))
+        border.alpha = 0.72; border.zPosition = 0
+        let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44),
+                                 size: CGSize(width: infoTileSize, height: infoTileSize))
+        plate.alpha = 0.94; plate.zPosition = 1
         let icon = SKSpriteNode(texture: texture)
-        icon.size = CGSize(width: iconW, height: iconW); icon.zPosition = 2
-        icon.position = CGPoint(x: -w / 2 + leftPad + iconW / 2, y: 0)
-        let label = GameFont.label()
-        label.text = text
-        label.fontSize = 8
-        label.fontColor = .white
-        label.verticalAlignmentMode = .center
-        label.horizontalAlignmentMode = .left
-        label.position = CGPoint(x: -w / 2 + leftPad + iconW + gap, y: 0)
-        label.zPosition = 2
-        node.addChild(border); node.addChild(plate); node.addChild(icon); node.addChild(label)
+        icon.size = CGSize(width: 28, height: 28); icon.zPosition = 2
+        node.name = name
+        node.addChild(border); node.addChild(plate); node.addChild(icon)
+
+        if let badge {
+            let badgePlate = SKSpriteNode(color: Palette.rgb(18, 64, 116), size: CGSize(width: 13, height: 13))
+            badgePlate.position = CGPoint(x: 14, y: -14)
+            badgePlate.zPosition = 3
+            let label = GameFont.label()
+            label.text = badge
+            label.fontSize = 6
+            label.fontColor = .white
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            label.zPosition = 4
+            badgePlate.addChild(label)
+            node.addChild(badgePlate)
+        }
         node.zPosition = 6
         addChild(node)
     }
