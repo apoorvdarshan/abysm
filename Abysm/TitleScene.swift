@@ -42,10 +42,11 @@ final class TitleScene: SKScene {
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
 
-    // Privacy, Terms, and a native "rate this app" prompt — labeled pills, right side.
+    // Privacy, Terms, Rate, and Share — labeled pills, right side.
     private let privacyBtn = SKNode()
     private let termsBtn = SKNode()
     private let rateBtn = SKNode()
+    private let shareBtn = SKNode()
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private var soundOn = true
@@ -92,6 +93,7 @@ final class TitleScene: SKScene {
         infoPill(privacyBtn, image: "ui_privacy", text: L("menu.privacy", "PRIVACY"))
         infoPill(termsBtn, image: "ui_terms", text: L("menu.terms", "TERMS"))
         infoPill(rateBtn, image: "ui_rate", text: L("menu.rate", "RATE"))
+        infoPill(shareBtn, systemImage: "square.and.arrow.up", text: L("menu.share", "SHARE"))
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -222,14 +224,15 @@ final class TitleScene: SKScene {
         newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
         soundBtn.position = CGPoint(x: 0, y: y)
 
-        // Privacy / Terms / Rate — a labeled vertical stack pinned to the right
+        // Privacy / Terms / Rate / Share — a labeled vertical stack pinned to the right
         // edge and centered, balancing the left-heavy reef/diver diorama.
         let insets = view?.safeAreaInsets ?? .zero
         let colX = w / 2 - insets.right - 78
         let vgap: CGFloat = 48
-        privacyBtn.position = CGPoint(x: colX, y: vgap)
-        termsBtn.position   = CGPoint(x: colX, y: 0)
-        rateBtn.position    = CGPoint(x: colX, y: -vgap)
+        privacyBtn.position = CGPoint(x: colX, y: vgap * 1.5)
+        termsBtn.position   = CGPoint(x: colX, y: vgap * 0.5)
+        rateBtn.position    = CGPoint(x: colX, y: -vgap * 0.5)
+        shareBtn.position   = CGPoint(x: colX, y: -vgap * 1.5)
     }
 
     override func didChangeSize(_ oldSize: CGSize) { super.didChangeSize(oldSize); layout() }
@@ -242,6 +245,7 @@ final class TitleScene: SKScene {
         if hitNode(privacyBtn, p) { openWebSection("privacy"); return }
         if hitNode(termsBtn, p) { openWebSection("terms"); return }
         if hitNode(rateBtn, p) { requestReview(); return }
+        if hitNode(shareBtn, p) { shareApp(); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -255,14 +259,29 @@ final class TitleScene: SKScene {
 
     /// A pill button: a pixel-art icon on the left, a label to its right.
     private func infoPill(_ node: SKNode, image: String, text: String) {
+        let texture = SKTexture(imageNamed: image)
+        texture.filteringMode = .nearest
+        infoPill(node, texture: texture, text: text)
+    }
+
+    /// A pill button using an SF Symbol when no pixel-art asset is needed.
+    private func infoPill(_ node: SKNode, systemImage: String, text: String) {
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .bold)
+        guard let image = UIImage(systemName: systemImage, withConfiguration: config)?
+            .withTintColor(.white, renderingMode: .alwaysOriginal) else { return }
+        let texture = SKTexture(image: image)
+        texture.filteringMode = .linear
+        infoPill(node, texture: texture, text: text)
+    }
+
+    private func infoPill(_ node: SKNode, texture: SKTexture, text: String) {
         let w: CGFloat = 130, h: CGFloat = 38, iconW: CGFloat = 22
         let leftPad: CGFloat = 12, gap: CGFloat = 10
         let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: w + 4, height: h + 4))
         border.alpha = 0.7; border.zPosition = 0
         let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: w, height: h))
         plate.alpha = 0.92; plate.zPosition = 1
-        let tex = SKTexture(imageNamed: image); tex.filteringMode = .nearest
-        let icon = SKSpriteNode(texture: tex)
+        let icon = SKSpriteNode(texture: texture)
         icon.size = CGSize(width: iconW, height: iconW); icon.zPosition = 2
         icon.position = CGPoint(x: -w / 2 + leftPad + iconW / 2, y: 0)
         let label = GameFont.label()
@@ -302,6 +321,24 @@ final class TitleScene: SKScene {
         if let scene = view?.window?.windowScene {
             AppStore.requestReview(in: scene)
         }
+    }
+
+    /// Share the canonical App Store product link using the native iOS share sheet.
+    private func shareApp() {
+        AudioManager.shared.playClick()
+        guard let url = URL(string: "https://apps.apple.com/app/id6783505799"),
+              let presenter = view?.window?.rootViewController else { return }
+
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let popover = activity.popoverPresentationController {
+            popover.sourceView = presenter.view
+            popover.sourceRect = CGRect(x: presenter.view.bounds.midX,
+                                        y: presenter.view.bounds.midY,
+                                        width: 1,
+                                        height: 1)
+            popover.permittedArrowDirections = []
+        }
+        presenter.present(activity, animated: true)
     }
 
     private func setupControllers() {
