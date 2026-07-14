@@ -26,7 +26,7 @@
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
-		<string>Black</string>
+		<string>LaunchBlack</string>
 	</dict>
 	<key>UIAppFonts</key>
 	<array>

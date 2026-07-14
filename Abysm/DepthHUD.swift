@@ -37,6 +37,9 @@ final class DepthHUD: SKNode {
         label.zPosition = 2
         addChild(label)
 
+        isAccessibilityElement = true
+        accessibilityTraits = .updatesFrequently
+
         refresh()
     }
 
@@ -60,6 +63,7 @@ final class DepthHUD: SKNode {
         s.append(NSAttributedString(string: "   \(z)",
                                     attributes: [.font: font, .foregroundColor: Palette.rgb(150, 236, 232)]))
         label.attributedText = s
+        accessibilityLabel = "Depth \(m) meters, \(z)"
 
         let w = label.frame.width + 26
         let h: CGFloat = 28

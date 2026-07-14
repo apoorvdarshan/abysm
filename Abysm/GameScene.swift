@@ -75,8 +75,8 @@ final class GameScene: SKScene {
     private let pauseBtn = HoldButton(radius: 26, glyph: "", fontSize: 1, color: Palette.rgb(52, 92, 134))
     private let pauseIcon = SKSpriteNode()
     private let pauseOverlay = SKNode()
-    private let resumeBtn = SKNode()
-    private let menuBtn = SKNode()
+    private let resumeBtn = AccessibleButtonNode()
+    private let menuBtn = AccessibleButtonNode()
     private var menuPaused = false
     private var pauseIndex = 0          // 0 = Resume, 1 = Main Menu (controller nav)
     private var navCooldown: CGFloat = 0
@@ -212,12 +212,16 @@ final class GameScene: SKScene {
         cameraNode.addChild(flashBtn)
         flashBtn.setPressed(flashlightOn)   // reflect the default-on state
         flashBtn.isHidden = true            // shown once below the sunlit zone (updateDepthEffects)
+        flashBtn.configureAccessibility(label: "Toggle headlamp")
+        flashBtn.accessibilityAction = { [weak self] in self?.toggleFlashlight() }
 
         // "Rise to the surface" button (top-left) with a pixel up-arrow glyph.
         let upArrow = SKSpriteNode(texture: TextureFactory.pixelTriangleUp(half: 7, color: .white))
         upArrow.size = CGSize(width: 18, height: 15)
         upArrow.zPosition = 3
         surfaceBtn.addChild(upArrow)
+        surfaceBtn.configureAccessibility(label: "Rise to surface")
+        surfaceBtn.accessibilityAction = { [weak self] in self?.beginAscent() }
         cameraNode.addChild(surfaceBtn)
 
         // Mute toggle (top-right) with a pixel speaker icon. Sync to the mute
@@ -229,6 +233,8 @@ final class GameScene: SKScene {
         muteIcon.size = CGSize(width: 24, height: 16)
         muteIcon.zPosition = 3
         muteBtn.addChild(muteIcon)
+        muteBtn.configureAccessibility(label: "Mute or unmute sound")
+        muteBtn.accessibilityAction = { [weak self] in self?.toggleMute() }
         cameraNode.addChild(muteBtn)
 
         // Pause button (top-left) + the pause overlay.
@@ -236,6 +242,8 @@ final class GameScene: SKScene {
         pauseIcon.size = CGSize(width: 18, height: 21)
         pauseIcon.zPosition = 3
         pauseBtn.addChild(pauseIcon)
+        pauseBtn.configureAccessibility(label: "Pause")
+        pauseBtn.accessibilityAction = { [weak self] in self?.openPause() }
         cameraNode.addChild(pauseBtn)
         buildPauseOverlay()
 
@@ -257,12 +265,14 @@ final class GameScene: SKScene {
         pauseOverlay.addChild(dim); pauseOverlay.addChild(titleL)
         plateButton(resumeBtn, L("pause.resume", "RESUME"), y: 20)
         plateButton(menuBtn, L("pause.main_menu", "MAIN MENU"), y: 20 - (pBtnH + 18))
+        resumeBtn.activationHandler = { [weak self] in self?.resumeGame() }
+        menuBtn.activationHandler = { [weak self] in self?.toMainMenu() }
         pauseOverlay.zPosition = GameConfig.Z.intro + 1
         pauseOverlay.isHidden = true
         cameraNode.addChild(pauseOverlay)
     }
 
-    private func plateButton(_ node: SKNode, _ text: String, y: CGFloat) {
+    private func plateButton(_ node: AccessibleButtonNode, _ text: String, y: CGFloat) {
         let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: pBtnW + 6, height: pBtnH + 6))
         border.alpha = 0.8
         let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: pBtnW, height: pBtnH))
@@ -271,6 +281,7 @@ final class GameScene: SKScene {
         label.text = text; label.fontSize = 15; label.fontColor = .white
         label.verticalAlignmentMode = .center; label.horizontalAlignmentMode = .center; label.zPosition = 2
         node.addChild(border); node.addChild(plate); node.addChild(label)
+        node.configureAccessibility(label: text)
         node.position = CGPoint(x: 0, y: y); node.zPosition = 1
         pauseOverlay.addChild(node)
     }

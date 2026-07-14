@@ -62,11 +62,15 @@ final class StoreManager {
         Task { await refresh() }
     }
 
-    /// Fetch the offering's package from RevenueCat (for the localized price).
+    /// Fetch the exact App Store product from RevenueCat (for price + purchase).
+    /// Never fall back to an arbitrary package: a dashboard ordering/configuration
+    /// change must not make this paywall sell a different product.
     func loadProduct() async {
         guard Purchases.isConfigured,
               let offerings = try? await Purchases.shared.offerings() else { return }
-        package = offerings.current?.lifetime ?? offerings.current?.availablePackages.first
+        package = offerings.current?.availablePackages.first {
+            $0.storeProduct.productIdentifier == Self.productID
+        }
     }
 
     /// Recompute `isUnlocked` from the current entitlements (and load the package).

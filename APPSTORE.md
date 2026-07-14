@@ -1,6 +1,6 @@
 # App Store Listing
 
-App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a code block for easy copy-paste.
+App Store Connect submission details for ABYSM v1.0, build 2. Each field is in a code block for easy copy-paste.
 
 ## App Name
 
@@ -32,7 +32,7 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     - Five depth zones, from the warm Sunlight Zone to the crushing, lightless Hadal Zone
     - A headlamp that carves a glowing circle out of the darkening deep
     - Breach the surface like a dolphin, then sink back into the blue
-    - Hand-made pixel art, procedurally generated ambient audio, and gentle haptics
+    - Original pixel art, procedurally generated ambient audio, and gentle haptics
     - Full game-controller support, or a simple on-screen joystick
     - Playable in 16 languages
 
@@ -43,13 +43,13 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     English, Spanish, French, German, Italian, Brazilian Portuguese, Russian, Polish, Dutch, Turkish, Hindi, Japanese, Korean, Simplified Chinese, Traditional Chinese, and Arabic.
 
     FREE TO START
-    Dive free from the surface down to 1,000 m - the Sunlight and Twilight zones, with around 30 creatures to meet. A one-time purchase, "Unlock the Deep," opens the rest of the descent: the Midnight, Abyss, and Hadal zones down to the 10,935 m trench floor, with about 45 more creatures and the deep landmarks. One purchase, forever. No subscriptions, no ads.
+    Dive free from the surface down to 1,000 m - the Sunlight and Twilight zones, with 35 creatures to meet. A one-time purchase, "Unlock the Deep," opens the rest of the descent: the Midnight, Abyss, and Hadal zones down to the 10,935 m trench floor, with 40 more creatures and the deep landmarks. One purchase, forever. No subscriptions, no ads.
 
     PRIVATE BY DESIGN
     - No account or login
     - No ads, and no advertising or cross-app tracking
     - Your dive's depth and position are saved only on your device
-    - The only data sent off your device is your purchase, used solely to validate the one-time unlock (handled by RevenueCat with an anonymous ID - no personal data)
+    - RevenueCat receives an anonymous app-user ID, purchase/entitlement information, and basic technical information needed to provide and validate the one-time unlock. It is not used for advertising or cross-app tracking.
 
     Support: https://abysm.apoorvdarshan.com/#connect
     Contact 1: ad13dtu@gmail.com
@@ -86,10 +86,11 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 ## Reviewer Notes
 
     ABYSM is a single-player exploration game. There is no account or login.
-    Network use is limited to the in-app purchase: Apple's StoreKit plus the
-    RevenueCat SDK (github.com/RevenueCat/purchases-ios), which validates the
-    receipt and resolves the one-time "Unlock the Deep" entitlement using an
-    anonymous app user ID (no personal data, no advertising tracking).
+    Network use is limited to purchase and entitlement functionality: Apple's
+    StoreKit plus the RevenueCat SDK (github.com/RevenueCat/purchases-ios).
+    RevenueCat is contacted at launch and during purchase/restore operations. It
+    receives an anonymous app-user ID, purchase/entitlement information, and basic
+    technical information needed to provide the unlock. No advertising tracking is used.
 
     To test:
     1. Launch the app. Tap NEW GAME on the title screen (or CONTINUE to resume a saved dive).
@@ -105,9 +106,9 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     - "RESTORE" restores the unlock on a fresh install / another device.
     - "KEEP EXPLORING" dismisses the modal and stays in the free zones.
 
-    Game controllers are supported: left stick / d-pad to swim, A toggles the headlamp (or buys the unlock while the paywall is up), B turbo (or dismisses the paywall), X boost, Y rise to surface, Menu pauses, L1 mutes.
+    Game controllers are supported: left stick / d-pad to swim, A toggles the headlamp (or activates the selected paywall action), B turbo, X boost, Y rise to surface, Menu pauses or dismisses the paywall, and L1 mutes.
 
-    Data: the app stores only the current dive depth and horizontal position locally (UserDefaults) so it can offer "Continue." For the one-time purchase it sends the StoreKit receipt to RevenueCat to validate the unlock, using an anonymous app user ID with no other personal data and no advertising tracking. Privacy nutrition label: Purchases (Purchase History) - not linked to identity, not used for tracking.
+    Data: the app stores the current dive depth, horizontal position, sound preference, and cached unlock state locally (UserDefaults). RevenueCat is contacted at launch and for purchase/restore operations; it receives an anonymous app-user ID, purchase/entitlement information, and basic technical information needed to provide the unlock. No advertising tracking is used. Privacy nutrition label: Purchases (Purchase History) - not linked to identity, not used for tracking.
 
     The app is landscape-only and requires full screen.
 

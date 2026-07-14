@@ -40,7 +40,7 @@ The ocean is built to scale, from the warm shallows to the crushing trench floor
 - **8 real ocean landmarks** to find on the way down, including the **RMS Titanic** (3,800 m), the **USS Johnston** (6,241 m), and the **Challenger Deep** (10,935 m).
 - **A living headlamp** that carves a glowing circle out of the darkening deep.
 - **Breach the surface** like a dolphin, then sink back into the blue.
-- Hand-made **pixel art**, procedurally generated **ambient audio**, and gentle **haptics**.
+- Original **pixel art**, procedurally generated **ambient audio**, and gentle **haptics**.
 - Full **game-controller** support, or a simple on-screen joystick.
 - Playable in **16 languages**.
 
@@ -122,7 +122,7 @@ The tag starts the Xcode Cloud App Store archive and the GitHub Actions workflow
 
 ## 🔒 Privacy
 
-ABYSM has no account, no login, no ads, and no advertising or cross-app tracking. Your current dive's depth and position are stored locally on your device (via `UserDefaults`) so the title screen can offer **Continue**. The one in-app purchase ("Unlock the Deep") is processed through **RevenueCat**: when you buy or restore it, the purchase receipt and an anonymous, non-identifying app-user ID are sent to RevenueCat to validate ownership. That's the only data that ever leaves your device — it isn't linked to your identity and isn't used for tracking.
+ABYSM has no account, no login, no ads, and no advertising or cross-app tracking. Your current dive's depth and position, sound preference, and cached unlock state are stored locally on your device (via `UserDefaults`). The app follows the language selected in iOS and does not store a separate language preference. **RevenueCat** is contacted at launch and for purchase or restore operations; it receives an anonymous app-user ID, purchase and entitlement information, and basic technical information needed to provide and validate "Unlock the Deep." This information is not used for advertising or cross-app tracking. See [RevenueCat's privacy policy](https://www.revenuecat.com/privacy-policy/) for its processing details.
 
 App Store privacy label: **Purchases** (Purchase History) — not linked to your identity, not used for tracking.
 

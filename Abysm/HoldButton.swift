@@ -17,6 +17,7 @@ final class HoldButton: SKNode {
     private let label = SKLabelNode(fontNamed: "PressStart2P-Regular")
     private let baseColor: UIColor
     private(set) var pressed = false
+    var accessibilityAction: (() -> Void)?
 
     init(radius: CGFloat, glyph: String, fontSize: CGFloat, color: UIColor) {
         self.radius = radius
@@ -55,6 +56,19 @@ final class HoldButton: SKNode {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func configureAccessibility(label: String, hint: String? = nil) {
+        isAccessibilityElement = true
+        accessibilityLabel = label
+        accessibilityHint = hint
+        accessibilityTraits = .button
+    }
+
+    override func accessibilityActivate() -> Bool {
+        guard !isHidden, alpha > 0, let accessibilityAction else { return false }
+        accessibilityAction()
+        return true
+    }
 
     /// `point` in the button's parent (camera) space.
     func hit(_ point: CGPoint) -> Bool {

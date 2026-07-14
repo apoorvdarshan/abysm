@@ -38,7 +38,7 @@ final class Paywall: SKNode {
     private static let statusFontSize: CGFloat = 10   // smaller so long locales fit
 
     // Controller navigation: [UNLOCK, KEEP EXPLORING, RESTORE].
-    private var buttons: [SKNode] = []
+    private var buttons: [AccessibleButtonNode] = []
     private var selected = 0
 
     private var unlockRect = CGRect.zero
@@ -91,7 +91,7 @@ final class Paywall: SKNode {
         // don't crowd the UNLOCK button below).
         let body = GameFont.label()
         body.text = L("paywall.body",
-            "Dive past 1,000 m to the trench floor — the deep zones, ~45 more creatures, and landmarks like the Titanic.")
+            "Dive past 1,000 m to the trench floor — the deep zones, 40 more creatures, and landmarks like the Titanic.")
         body.fontSize = 7; body.fontColor = cream
         body.horizontalAlignmentMode = .center; body.verticalAlignmentMode = .top
         body.numberOfLines = 0; body.preferredMaxLayoutWidth = 470
@@ -101,13 +101,15 @@ final class Paywall: SKNode {
 
         // UNLOCK — primary gold button (keeps a label ref for the price; a
         // transient status replaces the label text in-place while busy).
-        let unlock = SKNode()
+        let unlock = AccessibleButtonNode()
         unlock.position = CGPoint(x: 0, y: 2); unlock.zPosition = 3
         carvedButton(into: unlock, size: CGSize(width: 300, height: 34), primary: true)
         unlockLabel.fontSize = Self.unlockFontSize; unlockLabel.fontColor = Palette.rgb(46, 28, 10)
         unlockLabel.horizontalAlignmentMode = .center; unlockLabel.verticalAlignmentMode = .center
         unlockLabel.zPosition = 3
         unlock.addChild(unlockLabel)
+        unlock.configureAccessibility(label: L("paywall.unlock", "UNLOCK"))
+        unlock.activationHandler = { [weak self] in self?.onUnlock() }
         addChild(unlock)
         buttons.append(unlock)
         unlockRect = CGRect(x: -150, y: 2 - 17, width: 300, height: 34)
@@ -146,13 +148,19 @@ final class Paywall: SKNode {
     }
 
     /// A labeled bronze button. Returns its container node and tappable rect.
-    private func makeButton(_ text: String, y: CGFloat, w: CGFloat, h: CGFloat) -> (SKNode, CGRect) {
-        let node = SKNode(); node.position = CGPoint(x: 0, y: y); node.zPosition = 3
+    private func makeButton(_ text: String, y: CGFloat, w: CGFloat, h: CGFloat) -> (AccessibleButtonNode, CGRect) {
+        let node = AccessibleButtonNode(); node.position = CGPoint(x: 0, y: y); node.zPosition = 3
         carvedButton(into: node, size: CGSize(width: w, height: h), primary: false)
         let l = GameFont.label()
         l.text = text; l.fontSize = 11; l.fontColor = Palette.rgb(238, 224, 192)
         l.horizontalAlignmentMode = .center; l.verticalAlignmentMode = .center; l.zPosition = 3
         node.addChild(l); addChild(node)
+        node.configureAccessibility(label: text)
+        if text == L("paywall.keep_exploring", "KEEP EXPLORING") {
+            node.activationHandler = { [weak self] in self?.onDismiss() }
+        } else {
+            node.activationHandler = { [weak self] in self?.onRestore() }
+        }
         return (node, CGRect(x: -w / 2, y: y - h / 2, width: w, height: h))
     }
 

@@ -36,22 +36,22 @@ final class TitleScene: SKScene {
     private let cloud3 = SKSpriteNode()
     private let bigCreature = SKSpriteNode()
 
-    private let continueBtn = SKNode()
-    private let newGameBtn = SKNode()
-    private let soundBtn = SKNode()
+    private let continueBtn = AccessibleButtonNode()
+    private let newGameBtn = AccessibleButtonNode()
+    private let soundBtn = AccessibleButtonNode()
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
 
     // Legal, App Store, contact, and developer links — compact icon dock, right side.
-    private let privacyBtn = SKNode()
-    private let termsBtn = SKNode()
-    private let rateBtn = SKNode()
-    private let shareBtn = SKNode()
-    private let contactAd13dtuBtn = SKNode()
-    private let contactApoorvBtn = SKNode()
-    private let followDeveloperBtn = SKNode()
-    private let instagramBtn = SKNode()
-    private let productHuntBtn = SKNode()
+    private let privacyBtn = AccessibleButtonNode()
+    private let termsBtn = AccessibleButtonNode()
+    private let rateBtn = AccessibleButtonNode()
+    private let shareBtn = AccessibleButtonNode()
+    private let contactAd13dtuBtn = AccessibleButtonNode()
+    private let contactApoorvBtn = AccessibleButtonNode()
+    private let followDeveloperBtn = AccessibleButtonNode()
+    private let instagramBtn = AccessibleButtonNode()
+    private let productHuntBtn = AccessibleButtonNode()
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private let infoTileSize: CGFloat = 42
@@ -97,6 +97,10 @@ final class TitleScene: SKScene {
         soundLbl = buildButton(soundBtn, soundText())
         continueBtn.isHidden = !SaveManager.hasSave
 
+        continueBtn.activationHandler = { [weak self] in self?.continueGame() }
+        newGameBtn.activationHandler = { [weak self] in self?.newGame() }
+        soundBtn.activationHandler = { [weak self] in self?.toggleSound() }
+
         infoIcon(privacyBtn, image: "ui_privacy", name: L("menu.privacy", "PRIVACY"))
         infoIcon(termsBtn, image: "ui_terms", name: L("menu.terms", "TERMS"))
         infoIcon(rateBtn, image: "ui_rate", name: L("menu.rate", "RATE"))
@@ -107,10 +111,28 @@ final class TitleScene: SKScene {
         infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVGAMES")
         infoIcon(productHuntBtn, image: "ui_product_hunt", name: "VOTE ON PRODUCT HUNT", iconSize: 38)
 
+        privacyBtn.activationHandler = { [weak self] in self?.openWebSection("privacy") }
+        termsBtn.activationHandler = { [weak self] in self?.openWebSection("terms") }
+        rateBtn.activationHandler = { [weak self] in self?.requestReview() }
+        shareBtn.activationHandler = { [weak self] in self?.shareApp() }
+        contactAd13dtuBtn.activationHandler = { [weak self] in self?.openEmail("ad13dtu@gmail.com") }
+        contactApoorvBtn.activationHandler = { [weak self] in self?.openEmail("apoorvdarshan@gmail.com") }
+        followDeveloperBtn.activationHandler = { [weak self] in self?.openDeveloperProfile() }
+        instagramBtn.activationHandler = { [weak self] in self?.openInstagramProfile() }
+        productHuntBtn.activationHandler = { [weak self] in self?.showProductHuntComingSoon() }
+
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
         items.append((newGameBtn, { [weak self] in self?.newGame() }))
         items.append((soundBtn, { [weak self] in self?.toggleSound() }))
+        items.append((privacyBtn, { [weak self] in self?.openWebSection("privacy") }))
+        items.append((termsBtn, { [weak self] in self?.openWebSection("terms") }))
+        items.append((rateBtn, { [weak self] in self?.requestReview() }))
+        items.append((shareBtn, { [weak self] in self?.shareApp() }))
+        items.append((contactAd13dtuBtn, { [weak self] in self?.openEmail("ad13dtu@gmail.com") }))
+        items.append((contactApoorvBtn, { [weak self] in self?.openEmail("apoorvdarshan@gmail.com") }))
+        items.append((followDeveloperBtn, { [weak self] in self?.openDeveloperProfile() }))
+        items.append((instagramBtn, { [weak self] in self?.openInstagramProfile() }))
         highlightSelected()
 
         plankton.zPosition = 2
@@ -185,7 +207,7 @@ final class TitleScene: SKScene {
     }
 
     @discardableResult
-    private func buildButton(_ node: SKNode, _ text: String) -> SKLabelNode {
+    private func buildButton(_ node: AccessibleButtonNode, _ text: String) -> SKLabelNode {
         let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: btnW + 6, height: btnH + 6))
         border.alpha = 0.75; border.zPosition = 0
         let plate = SKSpriteNode(color: Palette.rgb(9, 20, 44), size: CGSize(width: btnW, height: btnH))
@@ -194,6 +216,7 @@ final class TitleScene: SKScene {
         label.text = text; label.fontSize = 14; label.fontColor = .white
         label.verticalAlignmentMode = .center; label.horizontalAlignmentMode = .center; label.zPosition = 2
         node.addChild(border); node.addChild(plate); node.addChild(label)
+        node.configureAccessibility(label: text)
         node.zPosition = 6
         addChild(node)
         return label
@@ -279,7 +302,7 @@ final class TitleScene: SKScene {
     // MARK: Secondary actions
 
     /// A compact pixel-art control. Names remain on the nodes for inspection and testing.
-    private func infoIcon(_ node: SKNode, image: String, name: String,
+    private func infoIcon(_ node: AccessibleButtonNode, image: String, name: String,
                           badge: String? = nil, iconSize: CGFloat = 28) {
         let texture = SKTexture(imageNamed: image)
         texture.filteringMode = .nearest
@@ -292,6 +315,7 @@ final class TitleScene: SKScene {
         let icon = SKSpriteNode(texture: texture)
         icon.size = CGSize(width: iconSize, height: iconSize); icon.zPosition = 2
         node.name = name
+        node.configureAccessibility(label: name)
         node.addChild(border); node.addChild(plate); node.addChild(icon)
 
         if let badge {
