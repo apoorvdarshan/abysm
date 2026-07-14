@@ -63,8 +63,6 @@
   var dcNum = document.getElementById("dcNum");
   var dcZone = document.getElementById("dcZone");
   var dcFill = document.getElementById("dcFill");
-  var shareApp = document.getElementById("shareApp");
-  var shareStatus = document.getElementById("shareStatus");
 
   var lastZone = "";
   function fmt(n) { return n.toLocaleString("en-US"); }
@@ -102,26 +100,6 @@
   }
   window.addEventListener("scroll", onScroll, { passive: true });
   window.addEventListener("resize", onScroll);
-
-  // Share the same canonical App Store URL used by the game.
-  if (shareApp) {
-    shareApp.addEventListener("click", async function () {
-      var appStoreURL = "https://apps.apple.com/app/id6783505799";
-      try {
-        if (navigator.share) {
-          await navigator.share({ title: "ABYSM", text: "A dive to the bottom of the sea.", url: appStoreURL });
-          if (shareStatus) shareStatus.textContent = "Shared";
-        } else if (navigator.clipboard) {
-          await navigator.clipboard.writeText(appStoreURL);
-          if (shareStatus) shareStatus.textContent = "App Store link copied";
-        } else {
-          window.location.href = appStoreURL;
-        }
-      } catch (error) {
-        if (error && error.name !== "AbortError") window.location.href = appStoreURL;
-      }
-    });
-  }
 
   // Reveal-on-scroll (skipped when the user prefers reduced motion).
   var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;

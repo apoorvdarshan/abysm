@@ -535,98 +535,6 @@ a { color: inherit; }
 }
 
 /* ============================================================
-   Signal station — support, social, and legal actions
-   ============================================================ */
-.connect {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 4vh var(--edge) 10vh;
-}
-.connect-title {
-  font-family: var(--font-pixel);
-  font-size: clamp(20px, 4vw, 32px);
-  line-height: 1.3;
-  color: var(--foam);
-  margin: 0 0 14px;
-}
-.connect-intro {
-  max-width: 56ch;
-  color: var(--ink-dim);
-  margin: 0 0 30px;
-}
-.signal-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.signal-link {
-  appearance: none;
-  width: 100%;
-  min-width: 0;
-  min-height: 82px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 15px;
-  border: 2px solid rgba(150, 236, 232, .34);
-  border-radius: 0;
-  background: rgba(8, 20, 44, .66);
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
-}
-.signal-link:hover {
-  border-color: var(--biolume);
-  background: rgba(13, 38, 84, .78);
-  transform: translateY(-2px);
-}
-.signal-link > span:last-child { min-width: 0; }
-.signal-link strong {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: .5px;
-  color: var(--foam);
-}
-.signal-link small {
-  display: block;
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--ink-deep);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.signal-code {
-  flex: 0 0 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border: 2px solid rgba(150, 236, 232, .64);
-  background: rgba(150, 236, 232, .1);
-  color: var(--biolume);
-  font-family: var(--font-pixel);
-  font-size: 10px;
-  line-height: 1;
-}
-.signal-code--gold { border-color: rgba(244, 212, 132, .7); color: var(--brass); }
-.signal-code--ph { border-color: #f26b3a; background: #da552f; color: #fff; }
-.signal-link--soon {
-  border-style: dashed;
-  opacity: .68;
-  cursor: default;
-}
-.signal-link--soon:hover {
-  border-color: rgba(150, 236, 232, .34);
-  background: rgba(8, 20, 44, .66);
-  transform: none;
-}
-
-/* ============================================================
    Legal — the fine print, below the floor
    ============================================================ */
 .legal {
@@ -692,7 +600,7 @@ a { color: inherit; }
   gap: 10px 26px;
   margin-bottom: 28px;
 }
-.foot-nav a {
+.foot-nav a, .foot-nav span {
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 2px;
@@ -702,6 +610,7 @@ a { color: inherit; }
   transition: color 140ms ease;
 }
 .foot-nav a:hover { color: var(--biolume); }
+.foot-nav .foot-soon { color: rgba(218, 85, 47, .75); }
 .foot-fine { font-family: var(--font-mono); font-size: 12px; color: var(--ink-deep); margin: 6px 0; letter-spacing: 1px; }
 .foot-fine--dim { color: rgba(127,154,166,.6); }
 
@@ -724,13 +633,8 @@ a:focus-visible, button:focus-visible, .btn:focus-visible {
   .beat-art img { margin-inline: auto; }
   .card { margin-inline: auto; }
   .pricing { grid-template-columns: 1fr; }
-  .signal-grid { grid-template-columns: 1fr 1fr; }
   .dc-zone { display: none; }
   .brandmark { font-size: 12px; }
-}
-
-@media (max-width: 480px) {
-  .signal-grid { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
