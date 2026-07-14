@@ -98,8 +98,8 @@ final class TitleScene: SKScene {
         infoPill(termsBtn, image: "ui_terms", text: L("menu.terms", "TERMS"))
         infoPill(rateBtn, image: "ui_rate", text: L("menu.rate", "RATE"))
         infoPill(shareBtn, image: "ui_share", text: L("menu.share", "SHARE"))
-        infoPill(contactAd13dtuBtn, image: "ui_contact", text: "AD13DTU@GMAIL")
-        infoPill(contactApoorvBtn, image: "ui_contact", text: "APOORVDARSHAN")
+        infoPill(contactAd13dtuBtn, image: "ui_contact", text: "CONTACT 1")
+        infoPill(contactApoorvBtn, image: "ui_contact", text: "CONTACT 2")
         infoPill(followDeveloperBtn, image: "ui_follow_x", text: "@APOORVDARSHAN")
 
         // Ordered list for controller navigation (matches the visible buttons).
