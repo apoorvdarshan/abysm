@@ -59,19 +59,6 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     Contact 1: ad13dtu@gmail.com
     Contact 2: apoorvdarshan@gmail.com
 
-## In-App Purchases
-
-    Unlock the Deep
-    - Product ID: com.apoorvdarshan.Abysm.unlockdeep
-    - Type: Non-Consumable
-    - Price: $2.99 (USD tier; localized by App Store)
-    - Display Name: Unlock the Deep
-    - Description: Dive past 1,000 m to the trench floor.
-
-    The app is free to download and play to 1,000 m. This single non-consumable
-    unlocks the descent below 1,000 m to the trench floor. Restorable. No
-    subscriptions or consumables.
-
 ## What's New (v1.0)
 
     The first dive.
