@@ -14,10 +14,6 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
 
     Sink from the sunlit surface to the Mariana Trench. Meet 75 real deep-sea creatures at their true depths - no goals, no rush, just the calm of the deep.
 
-## Keywords (100 chars max)
-
-    deep sea,ocean,exploration,diving,fish,marine,creatures,relaxing,zen,pixel,underwater,sea life
-
 ## Category
 
     Primary: Games (Adventure, Casual)
@@ -70,6 +66,10 @@ App Store Connect submission details for ABYSM v1.0, build 1. Each field is in a
     - Pixel art, generated ambient sound, and haptics
     - Game-controller support and a touch joystick
     - Playable in 16 languages
+
+## Keywords (100 chars max)
+
+    deep sea,ocean,exploration,diving,fish,marine,creatures,relaxing,zen,pixel,underwater,sea life
 
 ## Privacy URL
 
