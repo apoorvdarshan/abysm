@@ -42,13 +42,17 @@ final class TitleScene: SKScene {
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
 
-    // Privacy, Terms, Rate, and Share — labeled pills, right side.
+    // Legal, App Store, contact, and developer links — labeled pills, right side.
     private let privacyBtn = SKNode()
     private let termsBtn = SKNode()
     private let rateBtn = SKNode()
     private let shareBtn = SKNode()
+    private let contactAd13dtuBtn = SKNode()
+    private let contactApoorvBtn = SKNode()
+    private let followDeveloperBtn = SKNode()
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
+    private let infoPillW: CGFloat = 170, infoPillH: CGFloat = 38
     private var soundOn = true
     private var controllerObserver: NSObjectProtocol?
 
@@ -94,6 +98,9 @@ final class TitleScene: SKScene {
         infoPill(termsBtn, image: "ui_terms", text: L("menu.terms", "TERMS"))
         infoPill(rateBtn, image: "ui_rate", text: L("menu.rate", "RATE"))
         infoPill(shareBtn, image: "ui_share", text: L("menu.share", "SHARE"))
+        infoPill(contactAd13dtuBtn, image: "ui_contact", text: "AD13DTU@GMAIL")
+        infoPill(contactApoorvBtn, image: "ui_contact", text: "APOORVDARSHAN")
+        infoPill(followDeveloperBtn, image: "ui_follow_x", text: "@APOORVDARSHAN")
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -224,15 +231,16 @@ final class TitleScene: SKScene {
         newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
         soundBtn.position = CGPoint(x: 0, y: y)
 
-        // Privacy / Terms / Rate / Share — a labeled vertical stack pinned to the right
-        // edge and centered, balancing the left-heavy reef/diver diorama.
+        // All secondary actions share an evenly spaced stack pinned to the right.
         let insets = view?.safeAreaInsets ?? .zero
-        let colX = w / 2 - insets.right - 78
-        let vgap: CGFloat = 48
-        privacyBtn.position = CGPoint(x: colX, y: vgap * 1.5)
-        termsBtn.position   = CGPoint(x: colX, y: vgap * 0.5)
-        rateBtn.position    = CGPoint(x: colX, y: -vgap * 0.5)
-        shareBtn.position   = CGPoint(x: colX, y: -vgap * 1.5)
+        let colX = w / 2 - insets.right - infoPillW / 2 - 13
+        let stack = [privacyBtn, termsBtn, rateBtn, shareBtn,
+                     contactAd13dtuBtn, contactApoorvBtn, followDeveloperBtn]
+        let vgap: CGFloat = 42
+        let midpoint = CGFloat(stack.count - 1) / 2
+        for (index, node) in stack.enumerated() {
+            node.position = CGPoint(x: colX, y: (midpoint - CGFloat(index)) * vgap)
+        }
     }
 
     override func didChangeSize(_ oldSize: CGSize) { super.didChangeSize(oldSize); layout() }
@@ -246,6 +254,9 @@ final class TitleScene: SKScene {
         if hitNode(termsBtn, p) { openWebSection("terms"); return }
         if hitNode(rateBtn, p) { requestReview(); return }
         if hitNode(shareBtn, p) { shareApp(); return }
+        if hitNode(contactAd13dtuBtn, p) { openEmail("ad13dtu@gmail.com"); return }
+        if hitNode(contactApoorvBtn, p) { openEmail("apoorvdarshan@gmail.com"); return }
+        if hitNode(followDeveloperBtn, p) { openDeveloperProfile(); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -255,7 +266,7 @@ final class TitleScene: SKScene {
         abs(p.x - node.position.x) <= btnW / 2 && abs(p.y - node.position.y) <= btnH / 2
     }
 
-    // MARK: Info / rate icon buttons
+    // MARK: Secondary actions
 
     /// A pill button: a pixel-art icon on the left, a label to its right.
     private func infoPill(_ node: SKNode, image: String, text: String) {
@@ -265,7 +276,7 @@ final class TitleScene: SKScene {
     }
 
     private func infoPill(_ node: SKNode, texture: SKTexture, text: String) {
-        let w: CGFloat = 130, h: CGFloat = 38, iconW: CGFloat = 22
+        let w = infoPillW, h = infoPillH, iconW: CGFloat = 22
         let leftPad: CGFloat = 12, gap: CGFloat = 10
         let border = SKSpriteNode(color: Palette.rgb(150, 236, 232), size: CGSize(width: w + 4, height: h + 4))
         border.alpha = 0.7; border.zPosition = 0
@@ -276,7 +287,7 @@ final class TitleScene: SKScene {
         icon.position = CGPoint(x: -w / 2 + leftPad + iconW / 2, y: 0)
         let label = GameFont.label()
         label.text = text
-        label.fontSize = 9
+        label.fontSize = 8
         label.fontColor = .white
         label.verticalAlignmentMode = .center
         label.horizontalAlignmentMode = .left
@@ -329,6 +340,24 @@ final class TitleScene: SKScene {
             popover.permittedArrowDirections = []
         }
         presenter.present(activity, animated: true)
+    }
+
+    /// Start a new support message addressed to the selected contact.
+    private func openEmail(_ address: String) {
+        AudioManager.shared.playClick()
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = address
+        components.queryItems = [URLQueryItem(name: "subject", value: "ABYSM Support")]
+        guard let url = components.url else { return }
+        UIApplication.shared.open(url)
+    }
+
+    /// Open the developer's public X profile, handing off to the X app when available.
+    private func openDeveloperProfile() {
+        AudioManager.shared.playClick()
+        guard let url = URL(string: "https://x.com/apoorvdarshan") else { return }
+        UIApplication.shared.open(url)
     }
 
     private func setupControllers() {
