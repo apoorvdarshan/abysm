@@ -51,6 +51,7 @@ final class TitleScene: SKScene {
     private let contactApoorvBtn = SKNode()
     private let followDeveloperBtn = SKNode()
     private let instagramBtn = SKNode()
+    private let productHuntBtn = SKNode()
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private let infoPillW: CGFloat = 170, infoPillH: CGFloat = 38
@@ -103,6 +104,7 @@ final class TitleScene: SKScene {
         infoPill(contactApoorvBtn, image: "ui_contact", text: "CONTACT 2")
         infoPill(followDeveloperBtn, image: "ui_follow_x", text: "@APOORVDARSHAN")
         infoPill(instagramBtn, image: "ui_instagram", text: "@APOORVGAMES")
+        infoPill(productHuntBtn, image: "ui_product_hunt", text: "VOTE ON PH")
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -237,8 +239,9 @@ final class TitleScene: SKScene {
         let insets = view?.safeAreaInsets ?? .zero
         let colX = w / 2 - insets.right - infoPillW / 2 - 13
         let stack = [privacyBtn, termsBtn, rateBtn, shareBtn,
-                     contactAd13dtuBtn, contactApoorvBtn, followDeveloperBtn, instagramBtn]
-        let vgap: CGFloat = 39
+                     contactAd13dtuBtn, contactApoorvBtn, followDeveloperBtn,
+                     instagramBtn, productHuntBtn]
+        let vgap: CGFloat = 35
         let midpoint = CGFloat(stack.count - 1) / 2
         for (index, node) in stack.enumerated() {
             node.position = CGPoint(x: colX, y: (midpoint - CGFloat(index)) * vgap)
@@ -260,6 +263,7 @@ final class TitleScene: SKScene {
         if hitNode(contactApoorvBtn, p) { openEmail("apoorvdarshan@gmail.com"); return }
         if hitNode(followDeveloperBtn, p) { openDeveloperProfile(); return }
         if hitNode(instagramBtn, p) { openInstagramProfile(); return }
+        if hitNode(productHuntBtn, p) { showProductHuntComingSoon(); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -368,6 +372,17 @@ final class TitleScene: SKScene {
         AudioManager.shared.playClick()
         guard let url = URL(string: "https://www.instagram.com/apoorvgames/") else { return }
         UIApplication.shared.open(url)
+    }
+
+    /// Keep the voting action visible before its final Product Hunt URL is available.
+    private func showProductHuntComingSoon() {
+        AudioManager.shared.playClick()
+        guard let presenter = view?.window?.rootViewController else { return }
+        let alert = UIAlertController(title: "Product Hunt",
+                                      message: "Voting link coming soon.",
+                                      preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        presenter.present(alert, animated: true)
     }
 
     private func setupControllers() {
