@@ -344,7 +344,7 @@ final class TitleScene: SKScene {
     /// Open a section of the live site (privacy / terms) in an in-app browser.
     private func openWebSection(_ fragment: String) {
         AudioManager.shared.playClick()
-        guard let url = URL(string: "https://abysm.apoorvdarshan.com/#\(fragment)") else { return }
+        guard let url = URL(string: "https://abysm.aopv.dev/#\(fragment)") else { return }
         if let vc = view?.window?.rootViewController {
             let safari = SFSafariViewController(url: url)
             safari.preferredBarTintColor = Palette.rgb(9, 20, 44)

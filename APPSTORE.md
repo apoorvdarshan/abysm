@@ -51,9 +51,9 @@ App Store Connect submission details for ABYSM v1.0, build 2. Each field is in a
     - Your dive's depth and position are saved only on your device
     - RevenueCat receives an anonymous app-user ID, purchase/entitlement information, and basic technical information needed to provide and validate the one-time unlock. It is not used for advertising or cross-app tracking.
 
-    Support: https://abysm.apoorvdarshan.com/#connect
-    Privacy Policy: https://abysm.apoorvdarshan.com/#privacy
-    Terms of Use: https://abysm.apoorvdarshan.com/#terms
+    Support: https://abysm.aopv.dev/#connect
+    Privacy Policy: https://abysm.aopv.dev/#privacy
+    Terms of Use: https://abysm.aopv.dev/#terms
     Contact 1: ad13dtu@gmail.com
     Contact 2: apoorvdarshan@gmail.com
 
@@ -75,15 +75,15 @@ App Store Connect submission details for ABYSM v1.0, build 2. Each field is in a
 
 ## Privacy URL
 
-    https://abysm.apoorvdarshan.com/#privacy
+    https://abysm.aopv.dev/#privacy
 
 ## Support URL
 
-    https://abysm.apoorvdarshan.com/#connect
+    https://abysm.aopv.dev/#connect
 
 ## Marketing URL
 
-    https://abysm.apoorvdarshan.com/
+    https://abysm.aopv.dev/
 
 ## Reviewer Notes
 
