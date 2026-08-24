@@ -6,7 +6,7 @@
   "workers_dev": false,
   "routes": [
     {
-      "pattern": "abysm.aopv.dev",
+      "pattern": "abysm.apoorvdarshan.com",
       "custom_domain": true
     }
   ],

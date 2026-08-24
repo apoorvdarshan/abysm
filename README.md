@@ -110,10 +110,10 @@ The tag starts the Xcode Cloud App Store archive and the GitHub Actions workflow
 
 ## 🔗 Links & support
 
-- **Website:** [abysm.aopv.dev](https://abysm.aopv.dev/)
+- **Website:** [abysm.apoorvdarshan.com](https://abysm.apoorvdarshan.com/)
 - **App Store / rate ABYSM:** [apps.apple.com/app/abysm-dive-the-deep-sea/id6783505799](https://apps.apple.com/app/abysm-dive-the-deep-sea/id6783505799)
-- **Privacy:** [abysm.aopv.dev/#privacy](https://abysm.aopv.dev/#privacy)
-- **Terms:** [abysm.aopv.dev/#terms](https://abysm.aopv.dev/#terms)
+- **Privacy:** [abysm.apoorvdarshan.com/#privacy](https://abysm.apoorvdarshan.com/#privacy)
+- **Terms:** [abysm.apoorvdarshan.com/#terms](https://abysm.apoorvdarshan.com/#terms)
 - **Email support:** [ad13dtu@gmail.com](mailto:ad13dtu@gmail.com?subject=ABYSM%20Support)
 - **Email Apoorv:** [apoorvdarshan@gmail.com](mailto:apoorvdarshan@gmail.com?subject=ABYSM%20Support)
 - **X:** [@apoorvdarshan](https://x.com/apoorvdarshan)
