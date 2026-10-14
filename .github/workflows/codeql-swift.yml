@@ -54,6 +54,19 @@ jobs:
             /Abysm.xcodeproj/
             /Abysm.storekit
 
+      # SwiftPM evaluates package manifests inside sandbox-exec, which cannot be
+      # spawned under CodeQL's build tracer. Resolve the pinned packages first,
+      # before CodeQL starts tracing, then build with the manifest sandbox off
+      # and no further resolution.
+      - name: Resolve the pinned Swift packages
+        run: |
+          xcodebuild -version
+          xcodebuild -resolvePackageDependencies \
+            -project Abysm.xcodeproj \
+            -scheme Abysm \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/codeql-packages" \
+            -onlyUsePackageVersionsFromResolvedFile
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
@@ -62,13 +75,16 @@ jobs:
 
       - name: Build the app for the iOS Simulator (unsigned)
         run: |
-          xcodebuild -version
           xcodebuild build \
             -project Abysm.xcodeproj \
             -scheme Abysm \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/codeql-build" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/codeql-packages" \
+            -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile \
+            -IDEPackageSupportDisableManifestSandbox=YES \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO
 
