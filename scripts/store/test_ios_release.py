@@ -2,8 +2,8 @@
 """Offline tests for ABYSM's iOS release switches, build waiting, listing and review.
 
 No network: every App Store Connect call goes to an in-memory fake. Also checks
-scripts/test-ios.sh's wait for the unit-test host app to exit, against a fake
-xcrun (no simulator).
+that scripts/test-ios.sh shuts the simulator down between the unit and UI tests,
+against a fake xcrun (no simulator).
 Run: python3 -m unittest discover -s scripts/store -p 'test_*.py'
 
 Release runs (ios-release.yml's prepare job) set STORE_TESTS_SCOPE=release. The
@@ -1873,60 +1873,99 @@ class ExportListingTests(unittest.TestCase):
             quiet(export_listing.pick_version, versions, "2.0")
 
 
-# Stand-in for `xcrun simctl spawn SIM launchctl list`: a long job list written in
-# many small writes, like launchctl, so a reader that quits early breaks the pipe.
-FAKE_XCRUN = r"""#!/bin/bash
-[ "$*" = "simctl spawn SIM launchctl list" ] || exit 64
-printf 'PID\tStatus\tLabel\n'
-for ((i = 0; i < 20000; i++)); do
-  if (( i == LABEL_AT )); then printf '123\t0\tUIKitApplication:com.apoorvdarshan.Abysm[1a2b][rb-legacy]\n'; fi
-  printf -- '-\t0\tcom.apple.job.%d\n' "$i"
-done
-exit STATUS
-"""
+# Stand-ins for `xcrun simctl` and `sleep` in IosTestScriptTests (no simulator).
+# Each `simctl list devices --json` reports the next state from fake.json's
+# "reads" (the last one repeats; null means simctl does not list the simulator),
+# `simctl shutdown SIM` exits with "shutdown_exit", and every call is recorded.
+FAKE_XCRUN = r'''#!/usr/bin/env python3
+import json, sys
+from pathlib import Path
+
+state_file = Path(__file__).with_name("fake.json")
+fake = json.loads(state_file.read_text())
+args = sys.argv[1:]
+fake["calls"].append(" ".join(args))
+code = 0
+if args == ["simctl", "list", "devices", "--json"]:
+    state = fake["reads"].pop(0) if len(fake["reads"]) > 1 else fake["reads"][0]
+    devices = [{"udid": "OTHER", "name": "A developer's iPhone", "state": "Booted"}]
+    if state is not None:
+        devices.append({"udid": "SIM", "name": "ABYSM CI", "state": state})
+    print(json.dumps({"devices": {"com.apple.CoreSimulator.SimRuntime.iOS-27-0": devices}}))
+elif args == ["simctl", "shutdown", "SIM"]:
+    code = fake["shutdown_exit"]
+else:
+    code = 64
+state_file.write_text(json.dumps(fake))
+sys.exit(code)
+'''
+FAKE_SLEEP = '#!/bin/sh\necho "$1" >> "$(dirname "$0")/sleeps"\n'
 
 
 class IosTestScriptTests(unittest.TestCase):
-    """scripts/test-ios.sh: the check that the unit-test host app has exited (fake xcrun, no simulator)."""
+    """scripts/test-ios.sh: the simulator is shut down, and confirmed shut down, between the suites."""
 
     SCRIPT = (ROOT / "scripts" / "test-ios.sh").read_text()
 
-    def app_running(self, *, label_at: int | None, status: int = 0) -> subprocess.CompletedProcess:
-        """Run the script's app_running() under its own shell options against FAKE_XCRUN."""
-        function = re.search(r"^app_running\(\) \{\n.*?^\}\n", self.SCRIPT, re.M | re.S)
-        self.assertIsNotNone(function, "app_running() in scripts/test-ios.sh")
+    def shut_down(self, reads: list[str | None], *, shutdown_exit: int = 0) -> tuple[subprocess.CompletedProcess,
+                                                                                    list[str], list[str]]:
+        """Run the script's shut_down_simulator() under its own shell options against the fakes."""
+        functions = [re.search(rf"^{name}\(\) \{{\n.*?^\}}\n", self.SCRIPT, re.M | re.S)
+                     for name in ("simulator_state", "shut_down_simulator")]
+        self.assertTrue(all(functions), "simulator_state() and shut_down_simulator() in scripts/test-ios.sh")
         with tempfile.TemporaryDirectory() as tmp:
-            xcrun = Path(tmp) / "xcrun"
-            xcrun.write_text(FAKE_XCRUN.replace("LABEL_AT", str(-1 if label_at is None else label_at))
-                             .replace("STATUS", str(status)))
-            xcrun.chmod(0o755)
+            fakes = Path(tmp)
+            (fakes / "fake.json").write_text(json.dumps({"reads": reads, "shutdown_exit": shutdown_exit, "calls": []}))
+            for name, body in (("xcrun", FAKE_XCRUN), ("sleep", FAKE_SLEEP)):
+                (fakes / name).write_text(body)
+                (fakes / name).chmod(0o755)
             harness = "\n".join([
                 re.search(r"^set -euo pipefail$", self.SCRIPT, re.M).group(0),
                 "simulator_id=SIM",
-                re.search(r'^app_bundle_id="com\.apoorvdarshan\.Abysm"$', self.SCRIPT, re.M).group(0),
-                function.group(0),
-                "if app_running; then echo RUNNING; else echo GONE; fi",
+                *(function.group(0) for function in functions),
+                "if shut_down_simulator; then echo SHUT_DOWN; else echo NOT_SHUT_DOWN; fi",
             ])
-            return subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=120, check=False,
-                                  env=dict(os.environ, PATH=f"{tmp}{os.pathsep}{os.environ.get('PATH', '')}"))
+            result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=120, check=False,
+                                    env=dict(os.environ, PATH=f"{tmp}{os.pathsep}{os.environ.get('PATH', '')}"))
+            calls = json.loads((fakes / "fake.json").read_text())["calls"]
+            sleeps = (fakes / "sleeps").read_text().split() if (fakes / "sleeps").exists() else []
+        return result, calls, sleeps
 
-    def test_a_running_app_is_seen_wherever_launchctl_lists_it(self) -> None:
-        # Piped into `grep -q` under pipefail, an early match let grep quit, launchctl
-        # died of SIGPIPE, and the still-running app read as gone.
-        for label_at in (0, 5, 19999):
-            with self.subTest(label_at=label_at):
-                result = self.app_running(label_at=label_at)
-                self.assertEqual((result.returncode, result.stdout.strip()), (0, "RUNNING"), result.stderr)
+    def test_the_ui_tests_start_only_after_the_simulator_is_shut_down(self) -> None:
+        self.assertIn("run_bundle AbysmTests UnitTests || status=1\n\nshut_down_simulator || exit 1\n\n"
+                      "run_bundle AbysmUITests UITests || status=1\n", self.SCRIPT)
+        # The old check listed the simulator's launchd jobs, which fails once the
+        # simulator is shut down, and read that failure as "the app is gone".
+        self.assertNotIn("launchctl", self.SCRIPT)
 
-    def test_an_exited_app_is_seen_as_gone(self) -> None:
-        result = self.app_running(label_at=None)
-        self.assertEqual((result.returncode, result.stdout.strip()), (0, "GONE"), result.stderr)
+    def test_a_booted_or_shutting_down_simulator_is_waited_for_until_shut_down(self) -> None:
+        # Read before the shutdown, then polled: still going down once, then shut down.
+        for before, shutdown_exit in (("Booted", 0), ("Shutting Down", 149)):
+            with self.subTest(before=before):
+                result, calls, sleeps = self.shut_down([before, before, "Shutdown"], shutdown_exit=shutdown_exit)
+                self.assertEqual((result.returncode, result.stdout.splitlines()[-1]), (0, "SHUT_DOWN"), result.stderr)
+                self.assertIn(f"state after the unit tests: {before}", result.stdout)
+                self.assertIn("simctl shutdown SIM", calls)
+                self.assertEqual(sleeps, ["0.5"])
 
-    def test_an_unreadable_job_list_stops_the_run(self) -> None:
-        # Unknown is not "gone": the UI tests must not start without knowing.
-        result = self.app_running(label_at=None, status=3)
-        self.assertEqual((result.returncode, result.stdout), (1, ""), result.stderr)
-        self.assertIn("cannot list the simulator's launchd jobs", result.stderr)
+    def test_a_simulator_xcodebuild_already_shut_down_is_ready_at_once(self) -> None:
+        # simctl refuses to shut down a shut-down simulator (exit 149); that is fine.
+        result, calls, sleeps = self.shut_down(["Shutdown"], shutdown_exit=149)
+        self.assertEqual((result.returncode, result.stdout.splitlines()[-1]), (0, "SHUT_DOWN"), result.stderr)
+        self.assertIn("state after the unit tests: Shutdown", result.stdout)
+        self.assertEqual(sleeps, [])
+
+    def test_a_simulator_that_does_not_shut_down_stops_the_run(self) -> None:
+        result, _, sleeps = self.shut_down(["Booted"])
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "NOT_SHUT_DOWN"), result.stderr)
+        self.assertIn("still Booted, not shut down; not starting the UI tests", result.stderr)
+        self.assertEqual(len(sleeps), 60)
+
+    def test_a_simulator_simctl_does_not_list_stops_the_run(self) -> None:
+        result, calls, _ = self.shut_down([None])
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "NOT_SHUT_DOWN"), result.stderr)
+        self.assertIn("simctl lists 0 simulators with id SIM", result.stderr)
+        self.assertNotIn("simctl shutdown SIM", calls)
 
 
 class WorkflowWiringTests(unittest.TestCase):

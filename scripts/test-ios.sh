@@ -6,17 +6,16 @@
 # The unit tests run inside the app (their test host), and the UI tests launch
 # that same app. Running both in one `xcodebuild test` made the first UI test
 # race the still-running host's shutdown ("Failed to get background assertion
-# for target app"). So the app is built once, the unit tests run, the host is
-# stopped and confirmed gone, and only then do the UI tests start from a cold
-# launch. The UI tests run even when unit tests fail, but never while the host
-# may still be running (if it cannot be confirmed gone, the run fails). There
-# are no retries.
+# for target app"). So the app is built once, the unit tests run, the task-owned
+# simulator is shut down and confirmed shut down, and only then do the UI tests
+# start, on a fresh boot, from a cold launch. The UI tests run even when unit
+# tests fail, but never on a simulator that is not confirmed shut down first (the
+# run fails instead). There are no retries.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$repo_root"
 
-app_bundle_id="com.apoorvdarshan.Abysm"
 derived_data="${IOS_TEST_DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/Abysm-simulator-tests}"
 packages="${IOS_TEST_PACKAGES:-$derived_data/SourcePackages}"
 results="${IOS_TEST_RESULTS:-$derived_data/TestResults/$(date -u +%Y%m%dT%H%M%SZ)-$$}"
@@ -100,34 +99,44 @@ run_bundle() {
   return "$status"
 }
 
-# Whether the simulator still lists the app. The job list is read whole before it
-# is searched: piped into `grep -q` under pipefail, an early match let grep quit,
-# launchctl died of SIGPIPE, and a running app read as gone. A list that cannot
-# be read stops the run, since the UI tests must not start without knowing.
-app_running() {
-  local launchd_jobs list_status=0
-  launchd_jobs="$(xcrun simctl spawn "$simulator_id" launchctl list 2>/dev/null)" || list_status=$?
-  if (( list_status != 0 )); then
-    echo "error: cannot list the simulator's launchd jobs (exit $list_status); not starting the UI tests" >&2
-    exit 1
-  fi
-  [[ "$launchd_jobs" == *"UIKitApplication:${app_bundle_id}["* ]]
+# This run's simulator state as simctl reports it (Booted, Shutdown, ...).
+simulator_state() {
+  xcrun simctl list devices --json | python3 -c '
+import json, sys
+udid = sys.argv[1]
+states = [d["state"] for group in json.load(sys.stdin)["devices"].values() for d in group if d["udid"] == udid]
+if len(states) != 1:
+    sys.exit(f"error: simctl lists {len(states)} simulators with id {udid}")
+print(states[0])' "$simulator_id"
+}
+
+# Shut the simulator down between the suites and wait until simctl reports it
+# shut down. Nothing the unit tests started, their host app included, survives
+# a shutdown, and xcodebuild boots the simulator again for the UI tests, so the
+# first UI test launches the app cold instead of racing the host's exit. This
+# reads the device state, not the simulator's launchd jobs: those cannot be
+# listed once xcodebuild has shut the simulator down (simctl exits 149), and
+# that failure used to read as "the app is gone".
+shut_down_simulator() {
+  local before state
+  before="$(simulator_state)" || return 1
+  xcrun simctl shutdown "$simulator_id" >/dev/null 2>&1 || true  # fails if already shut down
+  for _ in $(seq 1 60); do
+    state="$(simulator_state)" || return 1
+    if [[ "$state" == "Shutdown" ]]; then
+      echo "simulator shut down before the UI tests (state after the unit tests: $before)"
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "error: the simulator is still $state, not shut down; not starting the UI tests" >&2
+  return 1
 }
 
 status=0
 run_bundle AbysmTests UnitTests || status=1
 
-# Stop the unit-test host and wait until it is gone, so the first UI test
-# launches the app cleanly instead of racing the host's shutdown.
-xcrun simctl terminate "$simulator_id" "$app_bundle_id" >/dev/null 2>&1 || true
-for _ in $(seq 1 60); do
-  app_running || break
-  sleep 0.5
-done
-if app_running; then
-  echo "error: the unit-test host app did not exit; not starting the UI tests" >&2
-  exit 1
-fi
+shut_down_simulator || exit 1
 
 run_bundle AbysmUITests UITests || status=1
 
