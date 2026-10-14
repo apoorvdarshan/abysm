@@ -1,7 +1,8 @@
 # Static analysis (SAST) of the Swift app with GitHub CodeQL.
 #
 # Swift needs a real compile for CodeQL to observe, so this builds the Abysm
-# scheme for the iOS Simulator (Debug, unsigned) on macOS with no build cache.
+# scheme for the iOS Simulator (Debug, unsigned, arm64 only: one architecture
+# gives CodeQL the same source at half the build time) with no build cache.
 # It uses macos-26 and its default Xcode 26 rather than xcode-27: CodeQL's
 # tracer starts build tools as x86_64, and Xcode 27's tools (swift-plugin-server,
 # sandbox-exec on macOS 27) are arm64-only, so a traced Xcode 27 build fails with
@@ -87,6 +88,7 @@ jobs:
             -disableAutomaticPackageResolution \
             -onlyUsePackageVersionsFromResolvedFile \
             -IDEPackageSupportDisableManifestSandbox=YES \
+            ARCHS=arm64 \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_INDEX_STORE_ENABLE=NO
 
