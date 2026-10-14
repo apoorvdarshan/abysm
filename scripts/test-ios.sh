@@ -8,7 +8,9 @@
 # race the still-running host's shutdown ("Failed to get background assertion
 # for target app"). So the app is built once, the unit tests run, the host is
 # stopped and confirmed gone, and only then do the UI tests start from a cold
-# launch. Both phases always run; there are no retries.
+# launch. The UI tests run even when unit tests fail, but never while the host
+# may still be running (if it cannot be confirmed gone, the run fails). There
+# are no retries.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -98,8 +100,18 @@ run_bundle() {
   return "$status"
 }
 
+# Whether the simulator still lists the app. The job list is read whole before it
+# is searched: piped into `grep -q` under pipefail, an early match let grep quit,
+# launchctl died of SIGPIPE, and a running app read as gone. A list that cannot
+# be read stops the run, since the UI tests must not start without knowing.
 app_running() {
-  xcrun simctl spawn "$simulator_id" launchctl list 2>/dev/null | grep -qF "UIKitApplication:${app_bundle_id}["
+  local launchd_jobs list_status=0
+  launchd_jobs="$(xcrun simctl spawn "$simulator_id" launchctl list 2>/dev/null)" || list_status=$?
+  if (( list_status != 0 )); then
+    echo "error: cannot list the simulator's launchd jobs (exit $list_status); not starting the UI tests" >&2
+    exit 1
+  fi
+  [[ "$launchd_jobs" == *"UIKitApplication:${app_bundle_id}["* ]]
 }
 
 status=0
