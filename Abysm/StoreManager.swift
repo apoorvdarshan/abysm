@@ -31,6 +31,9 @@ final class StoreManager {
     /// Configure RevenueCat once, at launch, before anything touches `shared`.
     static func configure() {
         guard !Purchases.isConfigured else { return }
+        // Debug simulator test runs stay offline: no RevenueCat, StoreKit or
+        // network (always false in Release and on devices).
+        guard !TestSupport.isActive else { return }
         Purchases.logLevel = .warn
         Purchases.configure(withAPIKey: apiKey)
         _ = shared   // start the customer-info listener + initial refresh
@@ -52,6 +55,9 @@ final class StoreManager {
 
     private init() {
         isUnlocked = UserDefaults.standard.bool(forKey: Self.unlockedKey)
+        // configure() always sets up RevenueCat before `shared` exists, except
+        // in offline simulator test runs, which keep the cached unlock state.
+        guard Purchases.isConfigured else { return }
         // Catch entitlement changes that arrive outside a direct buy (Ask to Buy
         // approvals, restores, or a purchase made on another device).
         updatesTask = Task { [weak self] in
@@ -112,6 +118,7 @@ final class StoreManager {
 
     /// Restore prior purchases. Returns true if the unlock is now owned.
     func restore() async -> Bool {
+        guard Purchases.isConfigured else { return isUnlocked }
         if let info = try? await Purchases.shared.restorePurchases() {
             apply(info)
         } else {

@@ -35,6 +35,20 @@
                ReferencedContainer = "container:Abysm.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FAEC144E2E1686DA4B521142"
+               BuildableName = "AbysmUITests.xctest"
+               BlueprintName = "AbysmUITests"
+               ReferencedContainer = "container:Abysm.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -50,6 +64,15 @@
                BlueprintIdentifier = "AA0000000000000000000003"
                BuildableName = "AbysmTests.xctest"
                BlueprintName = "AbysmTests"
+               ReferencedContainer = "container:Abysm.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference skipped = "NO" parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "FAEC144E2E1686DA4B521142"
+               BuildableName = "AbysmUITests.xctest"
+               BlueprintName = "AbysmUITests"
                ReferencedContainer = "container:Abysm.xcodeproj">
             </BuildableReference>
          </TestableReference>

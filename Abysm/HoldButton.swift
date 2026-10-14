@@ -64,8 +64,20 @@ final class HoldButton: SKNode {
         accessibilityTraits = .button
     }
 
+    // A hidden control (the headlamp in the sunlit zone) is not offered or
+    // activated by accessibility.
+    override var isAccessibilityElement: Bool {
+        get { super.isAccessibilityElement && isVisibleInScene }
+        set { super.isAccessibilityElement = newValue }
+    }
+
+    override var accessibilityTraits: UIAccessibilityTraits {
+        get { isVisibleInScene ? super.accessibilityTraits : super.accessibilityTraits.union(.notEnabled) }
+        set { super.accessibilityTraits = newValue }
+    }
+
     override func accessibilityActivate() -> Bool {
-        guard !isHidden, alpha > 0, let accessibilityAction else { return false }
+        guard isVisibleInScene, let accessibilityAction else { return false }
         accessibilityAction()
         return true
     }

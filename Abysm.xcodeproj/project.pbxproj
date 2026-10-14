@@ -10,11 +10,6 @@
 		D0D0D0D000000000000000A3 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = D0D0D0D000000000000000A2 /* RevenueCat */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXFileReference section */
-		AA0000000000000000000001 /* AbysmTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AbysmTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		BABDCA882FE7834000D12C62 /* Abysm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Abysm.app; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
-
 /* Begin PBXContainerItemProxy section */
 		AA000000000000000000000A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -23,7 +18,20 @@
 			remoteGlobalIDString = BABDCA872FE7834000D12C62;
 			remoteInfo = Abysm;
 		};
+		C883A80E6DB412C56279B9C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BABDCA802FE7834000D12C62 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BABDCA872FE7834000D12C62;
+			remoteInfo = Abysm;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		28FD88933104455317A4686C /* AbysmUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AbysmUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000001 /* AbysmTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AbysmTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BABDCA882FE7834000D12C62 /* Abysm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Abysm.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
 		BABDCA9D2FE7834100D12C62 /* Exceptions for "Abysm" folder in "Abysm" target */ = {
@@ -49,9 +57,21 @@
 			path = Abysm;
 			sourceTree = "<group>";
 		};
+		ECE0E330265080064617A2A8 /* AbysmUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = AbysmUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		47981862930BD557AEB6D5CE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000000000000000000005 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -75,6 +95,7 @@
 			children = (
 				BABDCA8A2FE7834000D12C62 /* Abysm */,
 				AA0000000000000000000002 /* AbysmTests */,
+				ECE0E330265080064617A2A8 /* AbysmUITests */,
 				BABDCA892FE7834000D12C62 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -84,6 +105,7 @@
 			children = (
 				BABDCA882FE7834000D12C62 /* Abysm.app */,
 				AA0000000000000000000001 /* AbysmTests.xctest */,
+				28FD88933104455317A4686C /* AbysmUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -137,6 +159,27 @@
 			productReference = BABDCA882FE7834000D12C62 /* Abysm.app */;
 			productType = "com.apple.product-type.application";
 		};
+		FAEC144E2E1686DA4B521142 /* AbysmUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 53FF8FA0B101DD391A847F18 /* Build configuration list for PBXNativeTarget "AbysmUITests" */;
+			buildPhases = (
+				44BBD51BC81FA151AA831C96 /* Sources */,
+				47981862930BD557AEB6D5CE /* Frameworks */,
+				E49FCAD325F871A8FFB7C29E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9135ADC9037DDBF2AC3B4FD7 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				ECE0E330265080064617A2A8 /* AbysmUITests */,
+			);
+			name = AbysmUITests;
+			productName = AbysmUITests;
+			productReference = 28FD88933104455317A4686C /* AbysmUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -153,6 +196,10 @@
 					};
 					BABDCA872FE7834000D12C62 = {
 						CreatedOnToolsVersion = 26.5;
+					};
+					FAEC144E2E1686DA4B521142 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = BABDCA872FE7834000D12C62;
 					};
 				};
 			};
@@ -190,6 +237,7 @@
 			targets = (
 				BABDCA872FE7834000D12C62 /* Abysm */,
 				AA0000000000000000000003 /* AbysmTests */,
+				FAEC144E2E1686DA4B521142 /* AbysmUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -209,9 +257,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E49FCAD325F871A8FFB7C29E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		44BBD51BC81FA151AA831C96 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000000000000000000004 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -228,7 +290,60 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		9135ADC9037DDBF2AC3B4FD7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Abysm;
+			target = BABDCA872FE7834000D12C62 /* Abysm */;
+			targetProxy = C883A80E6DB412C56279B9C5 /* PBXContainerItemProxy */;
+		};
+		AA000000000000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BABDCA872FE7834000D12C62 /* Abysm */;
+			targetProxy = AA000000000000000000000A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		3505D6D0D867D9D68217F45F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23RV7FYH36;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.AbysmUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Abysm;
+			};
+			name = Release;
+		};
+		46256278A12C4057E20E2D1E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 23RV7FYH36;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.AbysmUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Abysm;
+			};
+			name = Debug;
+		};
 		AA0000000000000000000007 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -470,6 +585,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		53FF8FA0B101DD391A847F18 /* Build configuration list for PBXNativeTarget "AbysmUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3505D6D0D867D9D68217F45F /* Release */,
+				46256278A12C4057E20E2D1E /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		AA0000000000000000000009 /* Build configuration list for PBXNativeTarget "AbysmTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -498,14 +622,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin PBXTargetDependency section */
-		AA000000000000000000000B /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = BABDCA872FE7834000D12C62 /* Abysm */;
-			targetProxy = AA000000000000000000000A /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin XCRemoteSwiftPackageReference section */
 		D0D0D0D000000000000000A1 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
