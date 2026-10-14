@@ -185,13 +185,13 @@ editable, the listing step fails instead of skipping them silently.
 
 ## Screenshots
 
-`IOS_UPLOAD_SCREENSHOTS` uploads the App Store-ready marketing images already in
-the repo; nothing is resized or generated:
+`IOS_UPLOAD_SCREENSHOTS` uploads the App Store-ready images already in the
+repo; nothing is resized or generated:
 
 | App Store Connect slot | Source | Accepted sizes |
 |------------------------|--------|----------------|
-| `APP_IPHONE_67` (iPhone 6.9") | [`marketing/app-store/iphone/mockups/`](../marketing/app-store/iphone/mockups/) | 2796×1290 (landscape) or 1290×2796 |
-| `APP_IPAD_PRO_3GEN_129` (iPad 13") | [`marketing/app-store/ipad/mockups/`](../marketing/app-store/ipad/mockups/) | 2752×2064, 2732×2048 or their portrait sizes |
+| `APP_IPHONE_67` (iPhone 6.9") | [`store/metadata/screenshots/ios/iphone/`](metadata/screenshots/ios/iphone/) | 2796×1290 (landscape) or 1290×2796 |
+| `APP_IPAD_PRO_3GEN_129` (iPad 13") | [`store/metadata/screenshots/ios/ipad/`](metadata/screenshots/ios/ipad/) | 2752×2064, 2732×2048 or their portrait sizes |
 
 Each set is replaced in file-name order (1–10 PNGs) for the `en-US` listing,
 and the run waits until App Store Connect has processed every image. A set that

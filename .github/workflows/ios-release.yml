@@ -129,8 +129,6 @@ jobs:
             /Abysm.xcodeproj/
             /Abysm.storekit
             /Abysm/StoreManager.swift
-            /marketing/app-store/iphone/mockups/
-            /marketing/app-store/ipad/mockups/
             /requirements-store.txt
             /RELEASE_NOTES.md
             /.github/workflows/
@@ -240,7 +238,7 @@ jobs:
           persist-credentials: false
           sparse-checkout-cone-mode: false
           # The app, its project and test folders, and the log redactor; never
-          # web/ or marketing/.
+          # web/ or store/.
           sparse-checkout: |
             /Abysm/
             /Abysm.xcodeproj/
@@ -519,8 +517,6 @@ jobs:
           sparse-checkout: |
             /scripts/store/
             /store/
-            /marketing/app-store/iphone/mockups/
-            /marketing/app-store/ipad/mockups/
             /requirements-store.txt
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
