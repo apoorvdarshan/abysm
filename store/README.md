@@ -23,7 +23,8 @@ v1.0.1 tag ─► unit + UI tests (ios-tests.yml) ─► resolve switches
        IOS_UPLOAD_BUILD ─► next build number from App Store Connect
                         ─► archive Release ─► verify bundle id / version / build in every bundle
                         ─► cloud-signed export + upload
-                        ─► wait until THIS build is VALID (poll 30 s, up to 120 min from upload start)
+                        ─► wait-for-build job: until THIS build is VALID
+                           (poll 30 s, up to 120 min from upload start)
        IOS_UPLOAD_LISTING / IOS_UPLOAD_WHATS_NEW / IOS_UPLOAD_SCREENSHOTS ─► version metadata
        IOS_SUBMIT_REVIEW ─► select this run's build, read it back, set release type
                          ─► attach Ready-to-Submit catalog products
@@ -35,6 +36,31 @@ A tag that is not exactly `v<MARKETING_VERSION>` (for example `v1.0.0` while the
 project says `1.0`, or `v1.1.0-beta.1`) fails before anything is built and
 creates no GitHub Release. One tag runs one pipeline; the former
 `github-release.yml` workflow is folded into this one.
+
+Tag runs share one concurrency group with `queue: max`: releases run one at a
+time, in order, and a newer tag never cancels one that is still waiting. Each
+manual validation run has its own group, so it never waits behind or cancels a
+release.
+
+Waiting for App Store Connect to process the upload is its own job,
+`wait-for-build`, which hands the processed build's id to the
+`app-store-connect` job (listing, What's New, screenshots, review). If that job
+fails, **Re-run failed jobs** reuses the processed build instead of waiting
+again against the original upload deadline (which would always time out). A
+re-run never extends that deadline: a timed-out wait fails again.
+
+When the build job fails, its xcodebuild/altool logs are kept for 7 days as the
+`ios-release-logs-<run id>-<attempt>` artifact, with the App Store Connect key
+ID and issuer ID replaced by `<ASC_KEY_ID>` / `<ASC_ISSUER_ID>`.
+
+**Release notes.** App Store What's New comes only from
+`store/metadata/ios/<locale>/whats_new.txt` and is checked (present, non-empty,
+within Apple's 4000-character limit, in every locale) before the build starts,
+but only when `IOS_UPLOAD_WHATS_NEW` is on; with it off, a tag never fails over
+What's New text. `RELEASE_NOTES.md` only feeds the GitHub Release: a matching
+`## v1.0.1` section becomes its notes, and without one GitHub generates them
+(`--generate-notes`). A matching section that is present but empty fails the
+GitHub Release step instead of publishing blank notes.
 
 A manual **Run workflow** (`workflow_dispatch`) is a validation run: it archives
 with the CI signing identity, exports with cloud-managed distribution signing
@@ -155,7 +181,7 @@ required product cannot be attached, the version is not submitted.
 | [`scripts/store/export_listing.py`](../scripts/store/export_listing.py) | Read-only export of the App Store listing into `store/metadata/` |
 | [`scripts/store/validate_catalog.py`](../scripts/store/validate_catalog.py) | Catalog vs. StoreKit file vs. app code |
 | [`scripts/store/print_gates.py`](../scripts/store/print_gates.py) | Print the switches (never touches a store) |
-| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build, selection read-back, token refresh, listing and screenshot checks |
+| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build, selection read-back, token refresh, listing and screenshot checks, workflow wiring (release queue, wait-for-build job, log redaction, optional release notes) |
 | [`scripts/release_notes.py`](../scripts/release_notes.py) | GitHub Release notes from the matching `RELEASE_NOTES.md` section (else GitHub generates them) |
 
 [`requirements-store.txt`](../requirements-store.txt) (PyJWT, hash-pinned) is
