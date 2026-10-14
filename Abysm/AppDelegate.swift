@@ -13,6 +13,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Debug simulator test launches only (a no-op in Release and on devices).
+        TestSupport.prepareLaunch()
         // Set up RevenueCat before anything reads the unlock state.
         StoreManager.configure()
         return true

@@ -1,0 +1,92 @@
+name: Store release checks
+
+# Offline checks of the iOS release tooling: switches, tag rule, build wait,
+# build selection, listing/screenshot inputs and the product catalog. No
+# credentials and no network calls to App Store Connect; nothing is uploaded.
+on:
+  pull_request:
+    paths:
+      - 'scripts/store/**'
+      - 'scripts/release_notes.py'
+      - 'store/**'
+      - 'requirements-store.txt'
+      - 'RELEASE_NOTES.md'
+      - 'Abysm.storekit'
+      - 'Abysm/StoreManager.swift'
+      - 'Abysm.xcodeproj/project.pbxproj'
+      - 'marketing/app-store/*/mockups/**'
+      - '.github/workflows/ios-release.yml'
+      - '.github/workflows/store-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/store/**'
+      - 'scripts/release_notes.py'
+      - 'store/**'
+      - 'requirements-store.txt'
+      - 'RELEASE_NOTES.md'
+      - 'Abysm.storekit'
+      - 'Abysm/StoreManager.swift'
+      - 'Abysm.xcodeproj/project.pbxproj'
+      - 'marketing/app-store/*/mockups/**'
+      - '.github/workflows/ios-release.yml'
+      - '.github/workflows/store-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-checks-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/
+            /store/
+            /Abysm.xcodeproj/
+            /Abysm.storekit
+            /Abysm/StoreManager.swift
+            /marketing/app-store/iphone/mockups/
+            /marketing/app-store/ipad/mockups/
+            /requirements-store.txt
+            /RELEASE_NOTES.md
+            /.github/workflows/
+
+      - name: Print the iOS release switches (must stay safe by default)
+        env:
+          IOS_RELEASE_AUTOMATION: ${{ vars.IOS_RELEASE_AUTOMATION }}
+          IOS_UPLOAD_BUILD: ${{ vars.IOS_UPLOAD_BUILD }}
+          IOS_UPLOAD_LISTING: ${{ vars.IOS_UPLOAD_LISTING }}
+          IOS_UPLOAD_WHATS_NEW: ${{ vars.IOS_UPLOAD_WHATS_NEW }}
+          IOS_UPLOAD_SCREENSHOTS: ${{ vars.IOS_UPLOAD_SCREENSHOTS }}
+          IOS_SUBMIT_REVIEW: ${{ vars.IOS_SUBMIT_REVIEW }}
+          IOS_PUBLIC_RELEASE: ${{ vars.IOS_PUBLIC_RELEASE }}
+          IOS_BUILD_POLL_SECONDS: ${{ vars.IOS_BUILD_POLL_SECONDS }}
+          IOS_BUILD_WAIT_MINUTES: ${{ vars.IOS_BUILD_WAIT_MINUTES }}
+        run: python3 scripts/store/print_gates.py
+
+      - name: Test switches, tag rule, build wait and selection, listing and screenshots
+        run: python3 -m unittest discover -s scripts/store -p 'test_*.py' -v
+
+      - name: Validate the product catalog
+        run: python3 scripts/store/validate_catalog.py
+
+      - name: Dry-run every App Store Connect operation (no network)
+        env:
+          UPLOAD_LISTING: "true"
+          UPLOAD_SCREENSHOTS: "true"
+          SUBMIT_IOS_REVIEW: "true"
+          PUBLIC_RELEASE: "false"
+        run: python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
+
+      - name: Install the hash-pinned store tooling
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt

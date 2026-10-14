@@ -2,6 +2,11 @@
 
 App Store Connect submission details for ABYSM v1.0, build 2. Each field is in a code block for easy copy-paste.
 
+> The listing text that the iOS Release workflow uploads lives in
+> [`store/metadata/ios/`](store/metadata/ios/) (exported from the live listing; see
+> [`store/README.md`](store/README.md)). Change it there; this file keeps the category
+> and reviewer notes.
+
 ## App Name
 
     ABYSM - Dive the Deep Sea
