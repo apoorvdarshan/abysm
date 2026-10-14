@@ -12,6 +12,8 @@ import http.client
 import io
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1134,6 +1136,11 @@ class ReleaseNotesTests(unittest.TestCase):
                     self.assertEqual(release_notes.main(["v1.0.2"]), 1)
                 self.assertEqual(out.getvalue().strip(), "- Fixes")
 
+    def test_missing_notes_file_means_generated_notes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.object(release_notes, "NOTES", Path(tmp) / "RELEASE_NOTES.md"):
+                self.assertEqual(quiet(release_notes.main, ["v1.0.1"]), release_notes.MISSING)
+
 
 class ExportListingTests(unittest.TestCase):
     def test_writes_fields_and_removes_cleared_ones(self) -> None:
@@ -1171,6 +1178,72 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn("if: env.MODE == 'release'", self.WORKFLOW)
         self.assertIn('tags:\n      - "v*"', self.WORKFLOW)
         self.assertNotIn("pull_request", self.WORKFLOW)
+
+    def job(self, name: str) -> str:
+        """Text of one top-level job, up to the next job (jobs are indented two spaces)."""
+        match = re.search(rf"^  {re.escape(name)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)", self.WORKFLOW, re.M | re.S)
+        self.assertIsNotNone(match, name)
+        return match.group(1)
+
+    def test_tag_runs_queue_in_one_group(self) -> None:
+        # Releases run one at a time, a third run never cancels a pending one,
+        # and each validation run keeps its own group.
+        self.assertIn(
+            "group: ios-release-${{ github.event_name == 'push' && 'release' || github.run_id }}",
+            self.WORKFLOW,
+        )
+        self.assertIn("cancel-in-progress: false", self.WORKFLOW)
+        self.assertRegex(self.WORKFLOW, r"(?m)^  queue: max$")
+
+    def test_build_wait_is_its_own_job(self) -> None:
+        wait = self.job("wait-for-build")
+        self.assertIn("needs: [quality, prepare, build]", wait)
+        self.assertIn("needs.prepare.outputs.upload_build == 'true'", wait)
+        self.assertIn("needs.build.result == 'success'", wait)
+        self.assertIn("build_id: ${{ steps.wait.outputs.build_id }}", wait)
+        self.assertIn("ios_release.py wait-build", wait)
+        timeout = int(re.search(r"timeout-minutes: (\d+)", wait).group(1))
+        self.assertGreater(timeout, ios_release.WAIT_MINUTES[3])
+        self.assertEqual(self.WORKFLOW.count("ios_release.py wait-build"), 1)
+
+        store = self.job("app-store-connect")
+        self.assertIn("needs: [quality, prepare, build, wait-for-build]", store)
+        self.assertIn("BUILD_ID: ${{ needs.wait-for-build.outputs.build_id }}", store)
+        self.assertIn("needs.prepare.outputs.asc == 'true'", store)
+        self.assertNotIn("steps.wait", store)
+
+        release = self.job("github-release")
+        self.assertIn("needs: [quality, prepare, build, wait-for-build, app-store-connect]", release)
+        self.assertIn(
+            "(needs.wait-for-build.result == 'success' || needs.wait-for-build.result == 'skipped')",
+            release,
+        )
+
+    def test_build_logs_are_redacted_before_upload(self) -> None:
+        build = self.job("build")
+        self.assertIn("name: ios-release-logs-${{ github.run_id }}-${{ github.run_attempt }}", build)
+        program = re.search(r"perl -pi -e '([^']+)'", build)
+        self.assertIsNotNone(program)
+        self.assertLess(build.index("perl -pi"), build.index("actions/upload-artifact"))
+        if shutil.which("perl") is None:
+            self.skipTest("perl is not installed")
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "archive.log"
+            log.write_text("-authenticationKeyID AB1.C2 -authenticationKeyIssuerID 69a6-de7f\nAB1XC2\n")
+            env = dict(os.environ, ASC_KEY_ID="AB1.C2", ASC_ISSUER_ID="69a6-de7f")
+            subprocess.run(["perl", "-pi", "-e", program.group(1), str(log)], env=env, check=True)
+            self.assertEqual(
+                log.read_text(),
+                "-authenticationKeyID <ASC_KEY_ID> -authenticationKeyIssuerID <ASC_ISSUER_ID>\nAB1XC2\n",
+            )
+
+    def test_release_notes_never_block_a_release_that_does_not_use_them(self) -> None:
+        # What's New is checked before the build, only when its switch is on.
+        prepare = self.job("prepare")
+        self.assertIn("UPLOAD_WHATS_NEW: ${{ steps.gates.outputs.whats_new }}", prepare)
+        self.assertLess(prepare.index("asc_release.py --dry-run"), prepare.index("ios_release.py build-number"))
+        # A tag without a RELEASE_NOTES.md section still gets a GitHub Release.
+        self.assertIn("3) notes=(--generate-notes) ;;", self.job("github-release"))
 
     def test_old_release_workflow_is_gone(self) -> None:
         self.assertFalse((ROOT / ".github" / "workflows" / "github-release.yml").exists())
