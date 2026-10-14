@@ -17,7 +17,8 @@ would upload a build for the same tag.
 
 ```
 v1.0.1 tag ─► unit + UI tests (ios-tests.yml) ─► resolve switches
-  │             (tag must be exactly "v" + MARKETING_VERSION, e.g. v1.0.1 for 1.0.1)
+  │             (tag must be exactly "v" + MARKETING_VERSION, e.g. v1.0.1 for 1.0.1;
+  │              a "## v1.0.1" RELEASE_NOTES.md section, if present, must not be empty)
   └─ IOS_RELEASE_AUTOMATION off ─► GitHub Release only
   └─ on:
        IOS_UPLOAD_BUILD ─► next build number from App Store Connect
@@ -59,8 +60,10 @@ within Apple's 4000-character limit, in every locale) before the build starts,
 but only when `IOS_UPLOAD_WHATS_NEW` is on; with it off, a tag never fails over
 What's New text. `RELEASE_NOTES.md` only feeds the GitHub Release: a matching
 `## v1.0.1` section becomes its notes, and without one GitHub generates them
-(`--generate-notes`). A matching section that is present but empty fails the
-GitHub Release step instead of publishing blank notes.
+(`--generate-notes`). On a tag push the prepare job checks this before anything
+is built or uploaded: a matching section that is present but empty fails the run
+there, instead of after the store steps (the GitHub Release step repeats the
+check and never publishes blank notes).
 
 A manual **Run workflow** (`workflow_dispatch`) is a validation run: it archives
 with the CI signing identity, exports with cloud-managed distribution signing

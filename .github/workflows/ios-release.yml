@@ -22,7 +22,9 @@
 #   own job (wait-for-build, which outputs build_id), so "Re-run failed jobs" after
 #   a listing/screenshot/review failure keeps that result instead of waiting again
 #   against the original upload deadline. Build logs kept as an artifact on failure
-#   have the App Store Connect key ID and issuer ID redacted.
+#   have the App Store Connect key ID and issuer ID redacted. On tag runs, prepare
+#   checks the tag's RELEASE_NOTES.md section before anything is built: an empty
+#   section fails there; no section means GitHub generates the notes.
 #
 # Switches (repository Variables; missing = off, invalid values fail the run).
 # See store/README.md for the full table.
@@ -144,6 +146,18 @@ jobs:
           python3 -m unittest discover -s scripts/store -p 'test_*.py'
           python3 scripts/store/validate_catalog.py
           python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
+
+      # Tag runs only: the GitHub Release notes must be usable before anything is
+      # built or uploaded. github-release repeats this check when it runs.
+      - name: Check release notes
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          status=0
+          python3 scripts/release_notes.py "$TAG" > /dev/null || status=$?
+          # 0 = reviewed notes, 3 = no section (GitHub generates the notes); anything else fails.
+          [ "$status" -eq 0 ] || [ "$status" -eq 3 ] || exit "$status"
 
       - name: Choose the build number
         id: number
