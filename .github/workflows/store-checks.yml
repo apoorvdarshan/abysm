@@ -20,7 +20,6 @@ on:
       - 'Abysm.storekit'
       - 'Abysm/StoreManager.swift'
       - 'Abysm.xcodeproj/project.pbxproj'
-      - 'marketing/app-store/*/mockups/**'
       - '.github/workflows/ios-release.yml'
       - '.github/workflows/store-checks.yml'
   push:
@@ -35,7 +34,6 @@ on:
       - 'Abysm.storekit'
       - 'Abysm/StoreManager.swift'
       - 'Abysm.xcodeproj/project.pbxproj'
-      - 'marketing/app-store/*/mockups/**'
       - '.github/workflows/ios-release.yml'
       - '.github/workflows/store-checks.yml'
   workflow_dispatch:
@@ -62,8 +60,6 @@ jobs:
             /Abysm.xcodeproj/
             /Abysm.storekit
             /Abysm/StoreManager.swift
-            /marketing/app-store/iphone/mockups/
-            /marketing/app-store/ipad/mockups/
             /requirements-store.txt
             /RELEASE_NOTES.md
             /.github/workflows/

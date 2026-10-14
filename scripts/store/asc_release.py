@@ -8,7 +8,7 @@ switches (see store/README.md):
                       marketing/support URLs) and App Info (name, subtitle,
                       privacy policy URL) for every locale in store/metadata/ios/
   UPLOAD_WHATS_NEW    whats_new.txt for every locale
-  UPLOAD_SCREENSHOTS  iPhone 6.9" and iPad 13" screenshots from marketing/app-store/
+  UPLOAD_SCREENSHOTS  iPhone 6.9" and iPad 13" screenshots from store/metadata/screenshots/
   SUBMIT_IOS_REVIEW   select THIS run's build (read back + rechecked), then submit the
                       version and any Ready-to-Submit catalog products for review
   PUBLIC_RELEASE      release automatically after approval (else manual release)
@@ -102,17 +102,17 @@ APP_INFO_FIELDS = (
 )
 URL_ATTRIBUTES = {"marketingUrl", "supportUrl", "privacyPolicyUrl", "privacyChoicesUrl"}
 
-# Screenshots come straight from the repo's App Store-ready marketing images.
+# Screenshots come straight from the repo's App Store-ready images.
 # Display type → (source folder, accepted pixel sizes). ABYSM is landscape-only.
 SCREENSHOT_SETS: tuple[tuple[str, Path, frozenset[tuple[int, int]]], ...] = (
     (
         "APP_IPHONE_67",  # App Store Connect's 6.9"/6.7" iPhone slot
-        ROOT / "marketing" / "app-store" / "iphone" / "mockups",
+        ROOT / "store" / "metadata" / "screenshots" / "ios" / "iphone",
         frozenset({(2796, 1290), (1290, 2796)}),
     ),
     (
         "APP_IPAD_PRO_3GEN_129",  # 13"/12.9" iPad slot
-        ROOT / "marketing" / "app-store" / "ipad" / "mockups",
+        ROOT / "store" / "metadata" / "screenshots" / "ios" / "ipad",
         frozenset({(2752, 2064), (2064, 2752), (2732, 2048), (2048, 2732)}),
     ),
 )
