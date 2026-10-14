@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 import urllib.error
 from contextlib import redirect_stderr, redirect_stdout
@@ -1244,6 +1245,32 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertLess(prepare.index("asc_release.py --dry-run"), prepare.index("ios_release.py build-number"))
         # A tag without a RELEASE_NOTES.md section still gets a GitHub Release.
         self.assertIn("3) notes=(--generate-notes) ;;", self.job("github-release"))
+
+    def test_release_notes_are_checked_before_the_build(self) -> None:
+        prepare = self.job("prepare")
+        start = prepare.index("      - name: Check release notes\n")
+        end = prepare.find("\n      - ", start + 1)
+        step = prepare[start:] if end == -1 else prepare[start:end]
+        self.assertIn("if: github.event_name == 'push'", step)
+        self.assertIn("TAG: ${{ github.ref_name }}", step)
+        # Before App Store Connect is asked for a build number, so before any build.
+        self.assertLess(start, prepare.index("ios_release.py build-number"))
+        script = textwrap.dedent(step.split("run: |\n", 1)[1])
+
+        def check(notes: str | None) -> int:
+            with tempfile.TemporaryDirectory() as tmp:
+                (Path(tmp) / "scripts").mkdir()
+                shutil.copy(ROOT / "scripts" / "release_notes.py", Path(tmp) / "scripts")
+                if notes is not None:
+                    (Path(tmp) / "RELEASE_NOTES.md").write_text(notes)
+                result = subprocess.run(["bash", "-e", "-c", script], cwd=tmp, capture_output=True,
+                                        text=True, env=dict(os.environ, TAG=TAG), check=False)
+                return result.returncode
+
+        self.assertEqual(check(f"## {TAG}\n\n- Fixes\n"), 0)
+        self.assertEqual(check("## Unreleased\n\n- next\n"), 0)  # no section: generated notes
+        self.assertEqual(check(None), 0)  # no RELEASE_NOTES.md at all
+        self.assertEqual(check(f"## {TAG}\n\n## v1.0\n\n- old\n"), 1)  # empty section fails early
 
     def test_old_release_workflow_is_gone(self) -> None:
         self.assertFalse((ROOT / ".github" / "workflows" / "github-release.yml").exists())
