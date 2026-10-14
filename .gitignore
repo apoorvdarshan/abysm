@@ -36,3 +36,7 @@ node_modules/
 # CocoaPods / Carthage (unused now, future-proofing)
 Pods/
 Carthage/Build/
+
+# Python bytecode (release tooling under scripts/)
+__pycache__/
+*.pyc
