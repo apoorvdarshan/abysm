@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Offline tests for ABYSM's iOS release switches, build waiting, listing and review.
 
-No network: every App Store Connect call goes to an in-memory fake.
+No network: every App Store Connect call goes to an in-memory fake. Also checks
+that scripts/test-ios.sh shuts the simulator down between the unit and UI tests,
+against a fake xcrun (no simulator).
 Run: python3 -m unittest discover -s scripts/store -p 'test_*.py'
 
 Release runs (ios-release.yml's prepare job) set STORE_TESTS_SCOPE=release. The
@@ -707,11 +709,21 @@ class ScreenshotPlanTests(unittest.TestCase):
 
 
 class ScreenshotUploadClient:
-    """Screenshot sets with a capacity, asset uploads and processing states."""
+    """Screenshot sets with a capacity, asset uploads and processing states.
 
-    def __init__(self, existing: int, *, states: list[str] | None = None, checksums: list[str] | None = None) -> None:
+    `delivered` is the assetDeliveryState of each screenshot already in the set
+    (COMPLETE unless given; None leaves the state out). `states` are what the
+    run's wait reads from GET /appScreenshots/{id}, in order (the last repeats).
+    Like App Store Connect, a commit stores the checksum at once, before the
+    image is processed.
+    """
+
+    def __init__(self, existing: int, *, states: list[str] | None = None, checksums: list[str] | None = None,
+                 delivered: list[str | None] | None = None) -> None:
         self.shots = [f"OLD{i}" for i in range(existing)]
         self.checksums = dict(zip(self.shots, checksums or []))
+        self.delivery: dict[str, str | None] = dict(
+            zip(self.shots, delivered if delivered is not None else ["COMPLETE"] * existing))
         self.states = states or ["COMPLETE"]
         self.calls: list[tuple[str, str]] = []
         self.commits: list[dict] = []
@@ -720,6 +732,12 @@ class ScreenshotUploadClient:
     def writes(self) -> list[tuple[str, str]]:
         return [c for c in self.calls if c[0] != "GET"]
 
+    def listed(self, shot_id: str) -> dict:
+        attributes: dict = {"fileName": f"{shot_id}.png", "sourceFileChecksum": self.checksums.get(shot_id)}
+        if self.delivery.get(shot_id) is not None:
+            attributes["assetDeliveryState"] = {"state": self.delivery[shot_id], "errors": []}
+        return {"id": shot_id, "attributes": attributes}
+
     def get(self, path: str) -> dict:
         self.calls.append(("GET", path))
         if "/appStoreVersionLocalizations" in path and path.startswith("/appStoreVersions/"):
@@ -727,9 +745,10 @@ class ScreenshotUploadClient:
         if path.endswith("/appScreenshotSets") or "/appScreenshotSets?" in path:
             return {"data": [{"id": "SET", "attributes": {"screenshotDisplayType": "APP_IPHONE_67"}}]}
         if "/appScreenshotSets/SET/appScreenshots" in path:
-            return {"data": [{"id": s, "attributes": {"sourceFileChecksum": self.checksums.get(s)}} for s in self.shots]}
+            return {"data": [self.listed(s) for s in self.shots]}
         if path.startswith("/appScreenshots/"):
             state = self.states.pop(0) if len(self.states) > 1 else self.states[0]
+            self.delivery[path.rsplit("/", 1)[1]] = state
             return {"data": {"attributes": {"fileName": "x.png", "assetDeliveryState": {
                 "state": state, "errors": [{"description": "bad image"}] if state == "FAILED" else []}}}}
         raise AssertionError(f"unexpected GET {path}")
@@ -741,13 +760,18 @@ class ScreenshotUploadClient:
         new_id = f"NEW{len(self.shots)}-{self.uploads}"
         self.uploads += 1
         self.shots.append(new_id)
+        self.delivery[new_id] = "AWAITING_UPLOAD"
         return {"data": {"id": new_id, "attributes": {"uploadOperations": [
             {"url": "https://upload.example/x", "offset": 0, "length": body["data"]["attributes"]["fileSize"],
              "method": "PUT", "requestHeaders": [{"name": "Content-Type", "value": "image/png"}]}]}}}
 
     def patch(self, path: str, body: dict) -> dict:
         self.calls.append(("PATCH", path))
-        self.commits.append(body["data"]["attributes"])
+        attributes = body["data"]["attributes"]
+        self.commits.append(attributes)
+        shot_id = path.rsplit("/", 1)[1]
+        self.checksums[shot_id] = attributes.get("sourceFileChecksum")
+        self.delivery[shot_id] = "UPLOAD_COMPLETE"
         return {"data": body["data"]}
 
     def request(self, method: str, path: str, body: dict | None = None):
@@ -820,6 +844,68 @@ class ScreenshotUploadTests(unittest.TestCase):
             quiet(asc_release.wait_for_screenshots, stuck, ["S1"], timeout=20, poll_seconds=5,
                   now=clock.now, sleep=clock.sleep)
         self.assertEqual(clock.time, 20)
+
+    def test_the_repo_images_count_as_uploaded_only_once_apple_has_processed_them(self) -> None:
+        # The commit stores sourceFileChecksum before Apple processes the image, so a set
+        # left by a failed or timed-out wait already holds the repo's checksums.
+        with tempfile.TemporaryDirectory() as tmp:
+            plan = self.plan(tmp, 3)
+            same = [asc_release.md5_hex(p) for p in plan[0][1]]
+            for unfinished in ("FAILED", "UPLOAD_COMPLETE", "AWAITING_UPLOAD", None):
+                delivered = ["COMPLETE", unfinished, "COMPLETE"]
+                with self.subTest(state=unfinished):
+                    # Editable: the whole set is uploaded again, and the new images are waited for.
+                    client = ScreenshotUploadClient(existing=3, checksums=same, delivered=delivered)
+                    waited: list[str] = []
+                    differing = quiet(asc_release.upload_screenshots, client, version_id="V1", locale="en-US",
+                                      plan=plan, wait=lambda c, ids: waited.extend(ids))
+                    self.assertEqual(differing, ["APP_IPHONE_67"])
+                    self.assertEqual(waited, client.shots)
+                    self.assertFalse({"OLD0", "OLD1", "OLD2"} & set(client.shots), client.shots)
+                    # Locked: fails without a write and names the unfinished image.
+                    locked = ScreenshotUploadClient(existing=3, checksums=same, delivered=delivered)
+                    err = io.StringIO()
+                    with self.assertRaises(SystemExit), redirect_stdout(io.StringIO()), redirect_stderr(err):
+                        asc_release.upload_screenshots(locked, version_id="V1", locale="en-US", plan=plan,
+                                                       wait=lambda c, ids: None, editable=False, state="IN_REVIEW")
+                    self.assertIn(f"OLD1.png: {unfinished or 'no processing state'}", err.getvalue())
+                    self.assertIn("screenshots cannot change while the version is IN_REVIEW", err.getvalue())
+                    self.assertEqual(locked.writes(), [])
+                    # Preflight: reported, nothing sent.
+                    preview = ScreenshotUploadClient(existing=3, checksums=same, delivered=delivered)
+                    out = io.StringIO()
+                    with redirect_stdout(out), redirect_stderr(io.StringIO()):
+                        differing = asc_release.upload_screenshots(preview, version_id="V1", locale="en-US",
+                                                                   plan=plan, wait=lambda c, ids: None, write=False)
+                    self.assertEqual((differing, preview.writes()), (["APP_IPHONE_67"], []))
+                    self.assertIn("would replace", out.getvalue())
+
+    def test_a_rerun_repairs_a_set_left_by_a_failed_or_timed_out_wait(self) -> None:
+        # Apple rejects an image, or is still processing it at the deadline; then
+        # "Re-run failed jobs" must upload the set again, not take it as done.
+        for outcome in ("FAILED", "UPLOAD_COMPLETE"):
+            with self.subTest(first_attempt=outcome), tempfile.TemporaryDirectory() as tmp:
+                plan = self.plan(tmp, 2)
+                clock = FakeClock(0)
+
+                def run(client: ScreenshotUploadClient) -> list[str]:
+                    return quiet(asc_release.upload_screenshots, client, version_id="V1", locale="en-US", plan=plan,
+                                 wait=lambda c, ids: asc_release.wait_for_screenshots(
+                                     c, ids, timeout=20, poll_seconds=5, now=clock.now, sleep=clock.sleep))
+
+                client = ScreenshotUploadClient(existing=2, states=[outcome])
+                with self.assertRaises(SystemExit):
+                    run(client)
+                first = list(client.shots)
+                self.assertEqual([client.checksums[s] for s in first], [asc_release.md5_hex(p) for p in plan[0][1]])
+                client.states = ["COMPLETE"]  # this time Apple processes the images
+                self.assertEqual(run(client), ["APP_IPHONE_67"])
+                self.assertTrue(set(first).isdisjoint(client.shots), client.shots)
+                self.assertEqual([client.delivery[s] for s in client.shots], ["COMPLETE", "COMPLETE"])
+                # Once the set is done, a further re-run sends nothing.
+                writes = len(client.writes())
+                self.assertEqual(run(client), [])
+                self.assertEqual(len(client.writes()), writes)
 
 
 def metadata_tree(tmp: str, files: dict[str, str], locale: str = "en-US") -> Path:
@@ -1067,7 +1153,7 @@ class ProductAttachTests(unittest.TestCase):
         ]
         client = ProductClient(collections)
         result = quiet(asc_release.attach_catalog_products, client, APP, intended_ids=self.INTENDED)
-        self.assertEqual((result.attached, result.added_items, result.has_products), (2, False, True))
+        self.assertEqual((result.attached, result.added_items), (2, False))
         self.assertEqual(client.posts, [])
 
     def test_draft_items_include_in_app_purchase_versions(self) -> None:
@@ -1106,7 +1192,6 @@ class ProductAttachTests(unittest.TestCase):
         quiet(asc_release.submit_for_review, client, APP, "AV1", "PREPARE_FOR_SUBMISSION", submission_id="SUB1")
         self.assertEqual([p for p, _ in client.posts], [])
         self.assertIn(("PATCH", "/reviewSubmissions/SUB1"), [(m, p) for m, p, _ in client.requests])
-        self.assertTrue(asc_release.draft_holds_app_version(client, "SUB1"))
         fresh = ProductClient({})
         quiet(asc_release.submit_for_review, fresh, APP, "AV1", "PREPARE_FOR_SUBMISSION", submission_id="SUB1")
         self.assertEqual([p for p, _ in fresh.posts], ["/reviewSubmissionItems"])
@@ -1222,7 +1307,8 @@ class FakeAsc:
     def __init__(self, *, state: str = "PREPARE_FOR_SUBMISSION", attached: str | None = "OLD",
                  revert_on_read: int | None = None, version_exists: bool = True, release_type: str | None = None,
                  version_text: dict | None = None, info_text: dict | None = None,
-                 screenshots: dict[str, list[str]] | None = None, unlock_state: str = "APPROVED",
+                 screenshots: dict[str, list[str]] | None = None,
+                 screenshot_states: dict[str, list[str]] | None = None, unlock_state: str = "APPROVED",
                  unlock_versions: list[dict] | None = None, items: list[dict] | None = None,
                  locales: tuple[str, ...] = ("en-US",)) -> None:
         self.state = state
@@ -1234,6 +1320,8 @@ class FakeAsc:
         self.version_text = dict(LIVE_TEXT if version_text is None else version_text)
         self.info_text = dict(LIVE_INFO if info_text is None else info_text)
         self.screenshots = screenshots or {}
+        # assetDeliveryState of each screenshot in a set (COMPLETE unless given).
+        self.screenshot_states = screenshot_states or {}
         self.unlock_state = unlock_state
         self.unlock_versions = unlock_versions if unlock_versions is not None else [
             {"id": "IV1", "attributes": {"version": 1, "state": "PREPARE_FOR_SUBMISSION"}}]
@@ -1269,8 +1357,11 @@ class FakeAsc:
                              for kind in self.screenshots]}
         if path.startswith("/appScreenshotSets/SET-"):
             kind = path.split("/")[2][len("SET-"):]
-            return {"data": [{"id": f"{kind}-{i}", "attributes": {"sourceFileChecksum": checksum}}
-                             for i, checksum in enumerate(self.screenshots[kind])]}
+            checksums = self.screenshots[kind]
+            states = self.screenshot_states.get(kind, ["COMPLETE"] * len(checksums))
+            return {"data": [{"id": f"{kind}-{i}", "attributes": {"sourceFileChecksum": checksum,
+                                                                 "assetDeliveryState": {"state": state}}}
+                             for i, (checksum, state) in enumerate(zip(checksums, states))]}
         if path.startswith("/builds/B9"):
             return {"data": build_row("B9"), "included": [pre_row()]}
         if path == "/appStoreVersions/V1/build":
@@ -1462,6 +1553,14 @@ class RerunTests(MainFlow):
         self.assertEqual(code, 1)
         self.assertIn("screenshots cannot change while the version is READY_FOR_REVIEW", output)
         self.assertEqual(differs.writes(), [])
+        # The repo's checksums are not enough: Apple must have processed every image.
+        unprocessed = FakeAsc(state="READY_FOR_REVIEW", attached="B9", release_type="MANUAL",
+                              screenshots=self.repo_checksums(),
+                              screenshot_states={IPHONE: ["UPLOAD_COMPLETE", "COMPLETE"]})
+        code, output = self.run_main(unprocessed, EVERYTHING)
+        self.assertEqual(code, 1, output)
+        self.assertIn("UPLOAD_COMPLETE", output)
+        self.assertEqual(unprocessed.writes(), [])
 
     def test_submitted_rerun_passes_only_when_nothing_would_change(self) -> None:
         for state in sorted(asc_release.SUBMITTED_VERSION_STATES):
@@ -1475,10 +1574,27 @@ class RerunTests(MainFlow):
                              FakeAsc(state=state, attached="B9", screenshots=self.repo_checksums(),
                                      info_text={"subtitle": "Old"}),
                              FakeAsc(state=state, attached="B9", screenshots={}),
+                             FakeAsc(state=state, attached="B9", screenshots=self.repo_checksums(),
+                                     screenshot_states={IPAD: ["COMPLETE", "FAILED"]}),
+                             FakeAsc(state=state, attached="B9", screenshots=self.repo_checksums(),
+                                     unlock_state="READY_TO_SUBMIT"),
                              FakeAsc(state=state, attached="OTHER", screenshots=self.repo_checksums())):
                     code, output = self.run_main(fake, EVERYTHING)
                     self.assertEqual(code, 1, output)
                     self.assertEqual(fake.writes(), [])
+
+    def test_submitted_rerun_never_sends_a_product_to_review_on_its_own(self) -> None:
+        # Unlock the Deep is Ready to Submit while the version is already in review, so
+        # it did not go out with the version. The re-run names it and writes nothing:
+        # no draft, no review item and no product-only submission.
+        for state in sorted(asc_release.SUBMITTED_VERSION_STATES):
+            with self.subTest(state=state):
+                fake = FakeAsc(state=state, attached="B9", unlock_state="READY_TO_SUBMIT")
+                code, output = self.run_main(fake, SUBMIT_ONLY)
+                self.assertEqual(code, 1, output)
+                self.assertEqual(fake.writes(), [])
+                self.assertIn(f"in-app purchase Unlock the Deep ({UNLOCK})", output)
+                self.assertIn("never sent to App Review without the version", output)
 
     def test_an_identical_rerun_in_an_editable_state_sends_nothing_but_the_submit(self) -> None:
         fake = FakeAsc(attached="B9", release_type="MANUAL", screenshots=self.repo_checksums())
@@ -1522,6 +1638,20 @@ class PreflightTests(MainFlow):
         code, _ = self.preflight(FakeAsc(state="WAITING_FOR_REVIEW", info_text={"subtitle": "Old"}),
                                  {"UPLOAD_LISTING": "true"})
         self.assertEqual(code, 1)
+
+    def test_screenshots_apple_has_not_processed_are_never_taken_as_done(self) -> None:
+        states = {IPAD: ["COMPLETE", "FAILED"]}
+        code, output = self.preflight(FakeAsc(screenshots=self.repo_checksums(), screenshot_states=states),
+                                      {"UPLOAD_SCREENSHOTS": "true"})
+        self.assertEqual(code, 0, output)
+        self.assertIn(f"{IPHONE} (en-US): 2 screenshot(s) already match the repo", output)
+        self.assertIn(f"{IPAD} (en-US): screenshots match the repo but are not all processed", output)
+        self.assertIn("would replace", output)
+        # Once screenshots are locked, a failed image fails the preflight before the build.
+        locked = FakeAsc(state="READY_FOR_REVIEW", screenshots=self.repo_checksums(), screenshot_states=states)
+        code, output = self.preflight(locked, {"UPLOAD_SCREENSHOTS": "true"})
+        self.assertEqual(code, 1, output)
+        self.assertIn(f"{IPAD}-1: FAILED", output)
 
     def test_states_and_inputs_that_would_stop_the_store_step_fail_early(self) -> None:
         cases = {
@@ -1741,6 +1871,101 @@ class ExportListingTests(unittest.TestCase):
         self.assertEqual(export_listing.pick_version(versions, "1.0.1")["id"], "B")
         with self.assertRaises(SystemExit):
             quiet(export_listing.pick_version, versions, "2.0")
+
+
+# Stand-ins for `xcrun simctl` and `sleep` in IosTestScriptTests (no simulator).
+# Each `simctl list devices --json` reports the next state from fake.json's
+# "reads" (the last one repeats; null means simctl does not list the simulator),
+# `simctl shutdown SIM` exits with "shutdown_exit", and every call is recorded.
+FAKE_XCRUN = r'''#!/usr/bin/env python3
+import json, sys
+from pathlib import Path
+
+state_file = Path(__file__).with_name("fake.json")
+fake = json.loads(state_file.read_text())
+args = sys.argv[1:]
+fake["calls"].append(" ".join(args))
+code = 0
+if args == ["simctl", "list", "devices", "--json"]:
+    state = fake["reads"].pop(0) if len(fake["reads"]) > 1 else fake["reads"][0]
+    devices = [{"udid": "OTHER", "name": "A developer's iPhone", "state": "Booted"}]
+    if state is not None:
+        devices.append({"udid": "SIM", "name": "ABYSM CI", "state": state})
+    print(json.dumps({"devices": {"com.apple.CoreSimulator.SimRuntime.iOS-27-0": devices}}))
+elif args == ["simctl", "shutdown", "SIM"]:
+    code = fake["shutdown_exit"]
+else:
+    code = 64
+state_file.write_text(json.dumps(fake))
+sys.exit(code)
+'''
+FAKE_SLEEP = '#!/bin/sh\necho "$1" >> "$(dirname "$0")/sleeps"\n'
+
+
+class IosTestScriptTests(unittest.TestCase):
+    """scripts/test-ios.sh: the simulator is shut down, and confirmed shut down, between the suites."""
+
+    SCRIPT = (ROOT / "scripts" / "test-ios.sh").read_text()
+
+    def shut_down(self, reads: list[str | None], *, shutdown_exit: int = 0) -> tuple[subprocess.CompletedProcess,
+                                                                                    list[str], list[str]]:
+        """Run the script's shut_down_simulator() under its own shell options against the fakes."""
+        functions = [re.search(rf"^{name}\(\) \{{\n.*?^\}}\n", self.SCRIPT, re.M | re.S)
+                     for name in ("simulator_state", "shut_down_simulator")]
+        self.assertTrue(all(functions), "simulator_state() and shut_down_simulator() in scripts/test-ios.sh")
+        with tempfile.TemporaryDirectory() as tmp:
+            fakes = Path(tmp)
+            (fakes / "fake.json").write_text(json.dumps({"reads": reads, "shutdown_exit": shutdown_exit, "calls": []}))
+            for name, body in (("xcrun", FAKE_XCRUN), ("sleep", FAKE_SLEEP)):
+                (fakes / name).write_text(body)
+                (fakes / name).chmod(0o755)
+            harness = "\n".join([
+                re.search(r"^set -euo pipefail$", self.SCRIPT, re.M).group(0),
+                "simulator_id=SIM",
+                *(function.group(0) for function in functions),
+                "if shut_down_simulator; then echo SHUT_DOWN; else echo NOT_SHUT_DOWN; fi",
+            ])
+            result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=120, check=False,
+                                    env=dict(os.environ, PATH=f"{tmp}{os.pathsep}{os.environ.get('PATH', '')}"))
+            calls = json.loads((fakes / "fake.json").read_text())["calls"]
+            sleeps = (fakes / "sleeps").read_text().split() if (fakes / "sleeps").exists() else []
+        return result, calls, sleeps
+
+    def test_the_ui_tests_start_only_after_the_simulator_is_shut_down(self) -> None:
+        self.assertIn("run_bundle AbysmTests UnitTests || status=1\n\nshut_down_simulator || exit 1\n\n"
+                      "run_bundle AbysmUITests UITests || status=1\n", self.SCRIPT)
+        # The old check listed the simulator's launchd jobs, which fails once the
+        # simulator is shut down, and read that failure as "the app is gone".
+        self.assertNotIn("launchctl", self.SCRIPT)
+
+    def test_a_booted_or_shutting_down_simulator_is_waited_for_until_shut_down(self) -> None:
+        # Read before the shutdown, then polled: still going down once, then shut down.
+        for before, shutdown_exit in (("Booted", 0), ("Shutting Down", 149)):
+            with self.subTest(before=before):
+                result, calls, sleeps = self.shut_down([before, before, "Shutdown"], shutdown_exit=shutdown_exit)
+                self.assertEqual((result.returncode, result.stdout.splitlines()[-1]), (0, "SHUT_DOWN"), result.stderr)
+                self.assertIn(f"state after the unit tests: {before}", result.stdout)
+                self.assertIn("simctl shutdown SIM", calls)
+                self.assertEqual(sleeps, ["0.5"])
+
+    def test_a_simulator_xcodebuild_already_shut_down_is_ready_at_once(self) -> None:
+        # simctl refuses to shut down a shut-down simulator (exit 149); that is fine.
+        result, calls, sleeps = self.shut_down(["Shutdown"], shutdown_exit=149)
+        self.assertEqual((result.returncode, result.stdout.splitlines()[-1]), (0, "SHUT_DOWN"), result.stderr)
+        self.assertIn("state after the unit tests: Shutdown", result.stdout)
+        self.assertEqual(sleeps, [])
+
+    def test_a_simulator_that_does_not_shut_down_stops_the_run(self) -> None:
+        result, _, sleeps = self.shut_down(["Booted"])
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "NOT_SHUT_DOWN"), result.stderr)
+        self.assertIn("still Booted, not shut down; not starting the UI tests", result.stderr)
+        self.assertEqual(len(sleeps), 60)
+
+    def test_a_simulator_simctl_does_not_list_stops_the_run(self) -> None:
+        result, calls, _ = self.shut_down([None])
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "NOT_SHUT_DOWN"), result.stderr)
+        self.assertIn("simctl lists 0 simulators with id SIM", result.stderr)
+        self.assertNotIn("simctl shutdown SIM", calls)
 
 
 class WorkflowWiringTests(unittest.TestCase):

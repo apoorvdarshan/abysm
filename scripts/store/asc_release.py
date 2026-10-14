@@ -14,11 +14,15 @@ switches (see store/README.md):
   PUBLIC_RELEASE      release automatically after approval (else manual release)
 
 Only fields, screenshots and selections that differ from App Store Connect are
-sent, so re-running the step is safe. Once the version is in a draft review
-submission (READY_FOR_REVIEW) its text can still change but its screenshots
-cannot; once it is submitted (WAITING_FOR_REVIEW, IN_REVIEW) nothing can, and a
-re-run succeeds only if App Store Connect already matches the repo and holds this
-run's build.
+sent, so re-running the step is safe. A screenshot set counts as matching only
+when it holds the repo's images in order and App Store Connect has processed
+every one, so a set left by a failed or timed-out wait is uploaded again. Once
+the version is in a draft review submission (READY_FOR_REVIEW) its text can
+still change but its screenshots cannot. Once it is submitted (WAITING_FOR_REVIEW,
+IN_REVIEW) nothing can, and a re-run writes nothing: it succeeds only if App
+Store Connect already matches the repo, review holds this run's build, and no
+catalog product is still due for review (a product is never sent to App Review
+without the version).
 
 `--dry-run` validates the local inputs only and makes no network calls.
 `--preflight` runs before anything is built: GET requests only, it fails when the
@@ -63,9 +67,10 @@ EDITABLE_VERSION_STATES = {
 # (listing, What's New, App Info) can still change; its screenshots cannot.
 TEXT_EDITABLE_VERSION_STATES = EDITABLE_VERSION_STATES | {"READY_FOR_REVIEW"}
 SUBMITTABLE_VERSION_STATES = EDITABLE_VERSION_STATES | {"READY_FOR_REVIEW"}
-# Already submitted: nothing can change. A re-run of the store step (for example
-# after the job failed once the submit had gone through) passes only when App
-# Store Connect already matches the repo and review holds this run's build.
+# Already submitted: nothing can change, and a re-run of the store step (for
+# example after the job failed once the submit had gone through) writes nothing.
+# It passes only when App Store Connect already matches the repo, review holds
+# this run's build, and no catalog product is left Ready to Submit.
 SUBMITTED_VERSION_STATES = {"WAITING_FOR_REVIEW", "IN_REVIEW"}
 # App Info (name, subtitle, privacy URL) is editable only while a new version is
 # prepared, including while that version waits in a draft review submission.
@@ -530,12 +535,28 @@ def ensure_screenshot_set(client: Any, version_loc_id: str, display_type: str) -
     return created["data"]
 
 
-def screenshot_checksums(client: Any, screenshot_set_id: str) -> list[str | None]:
-    """sourceFileChecksum of every screenshot in the set, in the set's order."""
-    return [
-        (shot.get("attributes") or {}).get("sourceFileChecksum")
-        for shot in iter_collection(client, f"/appScreenshotSets/{screenshot_set_id}/appScreenshots")
-    ]
+def screenshot_set_problem(client: Any, screenshot_set_id: str, pngs: list[Path]) -> str | None:
+    """Why the set does not already hold the repo's images, or None when it does.
+
+    The set matches only when it holds the repo's images (same checksums, same
+    order) and App Store Connect has processed every one (assetDeliveryState
+    COMPLETE). An upload's sourceFileChecksum is stored when it is committed,
+    before Apple processes the image, so a set left by a failed or timed-out wait
+    already has the repo's checksums but an image that is FAILED or still
+    processing. Such a set must be uploaded again, never taken as done.
+    """
+    shots = iter_collection(client, f"/appScreenshotSets/{screenshot_set_id}/appScreenshots")
+    if [(s.get("attributes") or {}).get("sourceFileChecksum") for s in shots] != [md5_hex(p) for p in pngs]:
+        return "differ from the repo"
+    unprocessed = []
+    for shot in shots:
+        attrs = shot.get("attributes") or {}
+        state = (attrs.get("assetDeliveryState") or {}).get("state")
+        if state != "COMPLETE":
+            unprocessed.append(f"{attrs.get('fileName') or shot.get('id')}: {state or 'no processing state'}")
+    if unprocessed:
+        return f"match the repo but are not all processed by App Store Connect ({', '.join(unprocessed)})"
+    return None
 
 
 def list_screenshot_ids(client: Any, screenshot_set_id: str) -> list[str]:
@@ -624,9 +645,11 @@ def upload_screenshots(
 ) -> list[str]:
     """Make each display type's set hold exactly the repo's images, in file-name order.
 
-    A set that already holds them (same checksums, same order) is left alone, so a
-    re-run uploads nothing. A set that differs is replaced only while screenshots
-    are editable; otherwise the run fails. With write=False (preflight) nothing is
+    A set that already holds them (same checksums, same order) and whose images
+    App Store Connect has all processed is left alone, so a re-run uploads
+    nothing. Any other set, including one with an image that failed or is still
+    processing after an earlier attempt, is replaced only while screenshots are
+    editable; otherwise the run fails. With write=False (preflight) nothing is
     sent. Returns the display types that differ.
     """
     version_loc = localization_for_locale(
@@ -636,20 +659,21 @@ def upload_screenshots(
     uploaded: list[str] = []
     for display_type, pngs in plan:
         existing = find_screenshot_set(client, version_loc["id"], display_type)
-        if existing is not None and screenshot_checksums(client, existing["id"]) == [md5_hex(p) for p in pngs]:
+        problem = "are missing" if existing is None else screenshot_set_problem(client, existing["id"], pngs)
+        if problem is None:
             print(f"  {display_type} ({locale}): {len(pngs)} screenshot(s) already match the repo")
             continue
         differing.append(display_type)
         if not editable:
             fail(
-                f"{display_type} ({locale}) screenshots differ from the repo, but screenshots cannot "
-                f"change while the version is {state or 'locked'}; remove the version from its review "
-                "submission in App Store Connect (or turn IOS_UPLOAD_SCREENSHOTS off), then rerun"
+                f"{display_type} ({locale}) screenshots {problem}; screenshots cannot change while the "
+                f"version is {state or 'locked'}, so remove the version from its review submission in "
+                "App Store Connect (or turn IOS_UPLOAD_SCREENSHOTS off), then rerun"
             )
         if not write:
-            print(f"  {display_type} ({locale}): would replace the set with {len(pngs)} screenshot(s)")
+            print(f"  {display_type} ({locale}): screenshots {problem}; would replace the set with {len(pngs)} screenshot(s)")
             continue
-        print(f"  {display_type} ({locale}): {len(pngs)} screenshot(s)")
+        print(f"  {display_type} ({locale}): screenshots {problem}; replacing the set with {len(pngs)} screenshot(s)")
         if existing is None:
             existing = ensure_screenshot_set(client, version_loc["id"], display_type)
         set_id = existing["id"]
@@ -704,10 +728,6 @@ class ProductAttachResult:
         # Products in the draft now, attached by this call or by an earlier attempt.
         self.attached = attached
         self.added_items = added_items
-
-    @property
-    def has_products(self) -> bool:
-        return self.attached > 0
 
 
 # Subscription states that can still be (re)attached to a review.
@@ -764,14 +784,6 @@ def draft_item_version_ids(client: Any, submission_id: str) -> set[str]:
             if related.get("id"):
                 ids.add(related["id"])
     return ids
-
-
-def draft_holds_app_version(client: Any, submission_id: str) -> bool:
-    for item in iter_collection(client, draft_items_path(submission_id)):
-        related = (((item.get("relationships") or {}).get("appStoreVersion") or {}).get("data")) or {}
-        if related.get("id"):
-            return True
-    return False
 
 
 def submit_review_submission(client: Any, submission_id: str) -> None:
@@ -1182,19 +1194,18 @@ def main() -> None:
         return
 
     if do_submit and submitted:
-        print(f"submit skipped — the version is already {state} with this run's build")
-        try:
-            result = attach_catalog_products(client, app_id)
-        except ProductSubmitError as exc:
-            fail(str(exc))
-        # Products attached to a fresh draft are not submitted by themselves. Submit
-        # a product-only draft so late products still reach review; never a draft
-        # that holds an app version.
-        if result.has_products and result.submission_id:
-            if draft_holds_app_version(client, result.submission_id):
-                fail("refusing to submit a draft that contains an app version; remove it in App Store Connect and rerun")
-            submit_review_submission(client, result.submission_id)
-            print(f"  submitted product review submission {result.submission_id}")
+        # Nothing is written once the version is submitted. A catalog product still
+        # due for review did not go out with the version, and it is never sent to
+        # App Review on its own (no draft, no item, no product-only submission).
+        items, problems = catalog_review_items(client, app_id, intended_product_ids())
+        left_behind = [item_label for item_label, *_ in items] + problems
+        if left_behind:
+            fail(
+                f"version {args.version!r} is already {state}, but these catalog products did not go to App "
+                "Review with it: " + "; ".join(left_behind) + ". A product is never sent to App Review without "
+                "the version: submit it in App Store Connect yourself (or with the next version), then rerun"
+            )
+        print(f"submit skipped — the version is already {state} with this run's build; nothing was changed")
     elif do_submit:
         print("selecting this run's build…")
         select_build(client, version_id, args.build_id, args.version, args.build_number)

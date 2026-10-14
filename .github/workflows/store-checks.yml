@@ -2,15 +2,18 @@ name: Store release checks
 
 # Offline checks of the iOS release tooling: switches, tag rule, build wait,
 # build selection, listing/screenshot inputs, release notes, log redaction and the
-# product catalog. No credentials and no network calls to App Store Connect;
-# nothing is uploaded. Unlike a release run, this always checks the repository's
-# listing and screenshots, whatever the switches say. A newer push to a pull
-# request cancels its older run; pushes to main and manual runs are never cancelled.
+# product catalog, plus scripts/test-ios.sh's simulator shutdown between the unit
+# and UI tests (against a fake xcrun, no simulator). No credentials and no network
+# calls to App Store Connect; nothing is uploaded. Unlike a release run, this
+# always checks the repository's listing and screenshots, whatever the switches
+# say. A newer push to a pull request cancels its older run; pushes to main and
+# manual runs are never cancelled.
 on:
   pull_request:
     paths:
       - 'scripts/store/**'
       - 'scripts/release_notes.py'
+      - 'scripts/test-ios.sh'
       - 'store/**'
       - 'requirements-store.txt'
       - 'RELEASE_NOTES.md'
@@ -25,6 +28,7 @@ on:
     paths:
       - 'scripts/store/**'
       - 'scripts/release_notes.py'
+      - 'scripts/test-ios.sh'
       - 'store/**'
       - 'requirements-store.txt'
       - 'RELEASE_NOTES.md'

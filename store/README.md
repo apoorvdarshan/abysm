@@ -61,9 +61,9 @@ through:
 
 | Version state when the job re-runs | What the re-run does |
 |------------------------------------|----------------------|
-| Prepare for Submission (or rejected) | Sends only changed text, App Info and screenshot sets; selects this run's build unless it is already selected; submits |
-| `READY_FOR_REVIEW` (in a draft submission, for example after a failed submit) | Text and App Info can still change; screenshots must already match the repo (Apple locks them); submits the draft |
-| `WAITING_FOR_REVIEW` / `IN_REVIEW` (the submit went through) | Changes nothing. Passes only if review holds this run's build and the listing, What's New and screenshots already match the repo; otherwise fails without writing |
+| Prepare for Submission (or rejected) | Sends only changed text, App Info and screenshot sets (a set with an image that failed or is still processing counts as changed and is uploaded again); selects this run's build unless it is already selected; submits |
+| `READY_FOR_REVIEW` (in a draft submission, for example after a failed submit) | Text and App Info can still change; screenshots must already match the repo and be processed (Apple locks them); submits the draft |
+| `WAITING_FOR_REVIEW` / `IN_REVIEW` (the submit went through) | Writes nothing. Passes only if review holds this run's build, the listing, What's New and screenshots already match the repo (every screenshot processed), and no catalog product is still Ready to Submit; otherwise fails without writing. A product left behind is never sent to App Review on its own: submit it in App Store Connect yourself (or with the next version) |
 
 A brand-new run (a new tag, or **Re-run all jobs**) uploads a new build, which
 can never replace one already in review: its preflight fails before anything is
@@ -195,10 +195,14 @@ the repo; nothing is resized or generated:
 
 Each set is replaced in file-name order (1–10 PNGs) for the `en-US` listing,
 and the run waits until App Store Connect has processed every image. A set that
-already holds exactly these images (same checksums, same order) is left alone,
-so a re-run uploads nothing. A missing folder, an empty set, more than 10 files
-or any other size fails the run with a clear message before anything is
-uploaded.
+already holds exactly these images (same checksums, same order) and whose
+images App Store Connect has all processed is left alone, so a re-run uploads
+nothing. App Store Connect records an image's checksum as soon as it is
+uploaded, before processing, so a set left by an attempt whose wait failed or
+timed out is not taken as done: the re-run uploads it again and waits, or fails
+if the version's screenshots are already locked. A missing folder, an empty
+set, more than 10 files or any other size fails the run with a clear message
+before anything is uploaded.
 
 ## In-app purchases
 
@@ -211,11 +215,13 @@ catalog products in `READY_TO_SUBMIT` join the same draft review submission as
 the version (one-time purchases as `inAppPurchaseVersion` items, subscriptions
 as `subscriptionVersion` items) and go to App Review together with it, in the
 single submit after the final build recheck; if that recheck fails, nothing is
-submitted. The deprecated `inAppPurchaseSubmissions` endpoint, which sends a
-product to review on its own, is never used. Unlock the Deep is already
-approved, so it is never resubmitted; products missing from the catalog are
-never submitted. If a required product cannot be attached, the version is not
-submitted.
+submitted. A product never goes to App Review without the version: the
+deprecated `inAppPurchaseSubmissions` endpoint is never used, and neither is a
+product-only review submission. If a re-run finds the version already submitted
+while a catalog product is still Ready to Submit, it fails without writing.
+Unlock the Deep is already approved, so it is never resubmitted; products
+missing from the catalog are never submitted. If a required product cannot be
+attached, the version is not submitted.
 
 ## Scripts
 
@@ -227,7 +233,7 @@ submitted.
 | [`scripts/store/validate_catalog.py`](../scripts/store/validate_catalog.py) | Catalog vs. StoreKit file vs. app code |
 | [`scripts/store/print_gates.py`](../scripts/store/print_gates.py) | Print the switches, showing invalid values as `INVALID` (never touches a store) |
 | [`scripts/store/redact_logs.py`](../scripts/store/redact_logs.py) | Redact the App Store Connect key/issuer IDs from failed-build logs before they become an artifact |
-| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, preflight, safe re-runs in every version state, products going out with the version, token refresh, listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python) |
+| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, token refresh, listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
 | [`scripts/release_notes.py`](../scripts/release_notes.py) | GitHub Release notes from the matching `RELEASE_NOTES.md` section (else GitHub generates them); a duplicated section fails |
 
 [`requirements-store.txt`](../requirements-store.txt) (PyJWT, hash-pinned) is
