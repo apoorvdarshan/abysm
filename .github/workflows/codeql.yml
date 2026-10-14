@@ -1,0 +1,72 @@
+# Static analysis (SAST) with GitHub CodeQL for the languages that need no build:
+#
+#   actions                .github/workflows/*.yml
+#   javascript-typescript  web/ (landing page, build script and Cloudflare Worker)
+#   python                 scripts/ (release tooling) and fuzz/
+#
+# Each job checks out only its folders plus .github. The Swift app is analyzed by
+# codeql-swift.yml, which needs a macOS build and runs only when the app changes.
+# A newer push to a pull request cancels its older run; pushes to main and the
+# weekly scheduled run are never cancelled.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: codeql-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            sparse-checkout: |
+              /.github/
+          - language: javascript-typescript
+            sparse-checkout: |
+              /.github/
+              /web/*
+              !/web/assets/
+          - language: python
+            sparse-checkout: |
+              /.github/
+              /scripts/
+              /fuzz/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: ${{ matrix.sparse-checkout }}
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: "/language:${{ matrix.language }}"

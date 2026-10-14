@@ -4,13 +4,14 @@
 #   pip             the hash-locked App Store Connect tooling (requirements-store.in
 #                   compiled to requirements-store.txt), which runs next to the App
 #                   Store Connect key in the release jobs
+#   pip (/fuzz)     the hash-locked Atheris fuzzer in fuzz/requirements.txt (fuzz.yml)
 #   swift           the RevenueCat package pinned in the Xcode project's Package.resolved
 #   npm             the website's deploy tooling in web/ (wrangler and what it pulls in)
 #
 # Each ecosystem comes as one grouped PR. Updates to the app or to ios-tests.yml
 # run the iOS tests on a paid macOS runner, so the Swift package and the actions
 # are checked monthly; the store tooling and the website, which run no macOS
-# checks, weekly.
+# checks, weekly; the fuzzer monthly.
 
 version: 2
 updates:
@@ -33,6 +34,16 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "Store tooling"
+
+  - package-ecosystem: pip
+    directory: /fuzz
+    schedule:
+      interval: monthly
+    groups:
+      fuzzing:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Fuzzing"
 
   - package-ecosystem: swift
     directory: /

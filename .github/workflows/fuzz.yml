@@ -1,0 +1,74 @@
+name: Fuzzing
+
+# Atheris fuzz targets for the release tooling (fuzz/README.md): log redaction,
+# release switches and release notes. 60 seconds per target on pull requests and
+# pushes to main that touch scripts/ or fuzz/; 10 minutes per target weekly.
+# Synthetic inputs only: no credentials, no network. A newer push to a pull
+# request cancels its older run; pushes to main, scheduled and manual runs are
+# never cancelled.
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'fuzz/**'
+      - '.github/workflows/fuzz.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'fuzz/**'
+      - '.github/workflows/fuzz.yml'
+  schedule:
+    - cron: "41 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  fuzz:
+    name: Fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [redact_logs, release_gates, release_notes]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /scripts/
+            /fuzz/
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install the hash-pinned fuzzer
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r fuzz/requirements.txt
+
+      - name: Fuzz ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
+          SECONDS_PER_TARGET: ${{ github.event_name == 'schedule' && '600' || '60' }}
+          ARTIFACTS: ${{ runner.temp }}/fuzz-artifacts
+        run: |
+          mkdir -p "$ARTIFACTS"
+          python3 "fuzz/${TARGET}_fuzz.py" -max_total_time="$SECONDS_PER_TARGET" \
+            -rss_limit_mb=2048 -print_final_stats=1 -artifact_prefix="$ARTIFACTS/"
+
+      - name: Keep failing inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-${{ matrix.target }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/fuzz-artifacts
+          if-no-files-found: ignore
+          retention-days: 14
