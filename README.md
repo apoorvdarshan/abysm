@@ -103,7 +103,7 @@ npx wrangler deploy
 bash scripts/test-ios.sh
 ```
 
-Builds the Debug app for a simulator it creates (and deletes afterwards) and runs both suites; it fails if either suite runs no tests. Results go to `~/Library/Developer/Xcode/DerivedData/Abysm-simulator-tests/TestResults/`.
+Builds the Debug app once for a simulator it creates (and deletes afterwards), runs the unit tests, stops the app, then runs the UI tests from a cold launch, so the first UI test never races the unit-test host's shutdown. It fails if either suite fails or runs no tests, and never retries. Results (`UnitTests.xcresult`, `UITests.xcresult` and logs) go to `~/Library/Developer/Xcode/DerivedData/Abysm-simulator-tests/TestResults/`.
 
 - **AbysmTests** (unit): the creature and landmark catalog, zone boundaries and water colour, the free dive vs. the 1,000 m gate, saving and Continue, the paywall's state machine, controls and the depth read-out, VoiceOver behaviour of hidden buttons, diver physics limits, and localization coverage.
 - **AbysmUITests** (UI, on the real SpriteKit screens): the title menu, the sound setting across launches, starting a dive, swimming and rising, pause → resume → main menu → Continue, resuming a saved depth, and the "Unlock the Deep" gate (shown, restore checked, dismissed — never bought).

@@ -1,9 +1,11 @@
 name: iOS tests
 
 # Unit (AbysmTests) and UI (AbysmUITests) tests on an iOS Simulator. Debug
-# simulator builds only: nothing is signed, archived or uploaded. Runs only when
-# the app, its tests, its project or this workflow change; release tags call it
-# from ios-release.yml before anything is built for the App Store.
+# simulator builds only: nothing is signed, archived or uploaded. The app is
+# built once; the unit tests run, the app is stopped, and the UI tests then start
+# from a cold launch (scripts/test-ios.sh). Runs only when the app, its tests,
+# its project or this workflow change; release tags call it from ios-release.yml
+# before anything is built for the App Store.
 on:
   pull_request:
     paths:
