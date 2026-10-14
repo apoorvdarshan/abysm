@@ -1,8 +1,11 @@
 name: Store release checks
 
 # Offline checks of the iOS release tooling: switches, tag rule, build wait,
-# build selection, listing/screenshot inputs and the product catalog. No
-# credentials and no network calls to App Store Connect; nothing is uploaded.
+# build selection, listing/screenshot inputs, release notes, log redaction and the
+# product catalog. No credentials and no network calls to App Store Connect;
+# nothing is uploaded. Unlike a release run, this always checks the repository's
+# listing and screenshots, whatever the switches say. A newer push to a pull
+# request cancels its older run; pushes to main and manual runs are never cancelled.
 on:
   pull_request:
     paths:
@@ -60,6 +63,11 @@ jobs:
             /requirements-store.txt
             /RELEASE_NOTES.md
             /.github/workflows/
+
+      # The release jobs use the same pinned Python, never the runner's system one.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
 
       - name: Print the iOS release switches (must stay safe by default)
         env:

@@ -112,14 +112,14 @@ Test runs are offline: in Debug simulator builds launched by XCTest (or with `--
 
 ### Releases
 
-GitHub Actions builds, signs and uploads releases; Xcode Cloud is being removed for ABYSM and must not be re-created. A release tag is exactly `v` + the project's `MARKETING_VERSION` — for version 1.0.1:
+GitHub Actions builds, signs and uploads releases; Xcode Cloud was removed for ABYSM on 2026-10-14 and must not be re-created. A release tag is exactly `v` + the project's `MARKETING_VERSION` — for version 1.0.1:
 
 ```sh
 git tag -a v1.0.1 -m "ABYSM 1.0.1"
 git push origin v1.0.1
 ```
 
-The tag runs the tests, then the **iOS Release** workflow, which uploads, updates the listing or submits for review only for the switches you turned on (all off by default), and finally creates the GitHub Release (notes from a matching `RELEASE_NOTES.md` section, otherwise generated). Any other `v*` tag fails without releasing anything. **Run workflow** on iOS Release only validates a signed build with App Store Connect. See [`store/README.md`](store/README.md) for the switches, secrets, listing metadata and screenshots.
+The tag runs the tests, then the **iOS Release** workflow, which uploads, updates the listing or submits for review only for the switches you turned on (all off by default), and finally creates the GitHub Release (notes from a matching `RELEASE_NOTES.md` section, otherwise generated). Any other `v*` tag fails without releasing anything. With a listing, What's New, screenshot or review switch on, create the version (e.g. 1.0.1) in App Store Connect before tagging: a read-only preflight checks it before anything is built. **Run workflow** on iOS Release only validates a signed build with App Store Connect. See [`store/README.md`](store/README.md) for the switches, secrets, listing metadata and screenshots.
 
 ## 🔗 Links & support
 
