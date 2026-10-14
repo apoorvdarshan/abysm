@@ -50,7 +50,7 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout-cone-mode: false
-          # Only what the build and tests read; never web/ or marketing/.
+          # Only what the build and tests read; never web/ or store/.
           sparse-checkout: |
             /Abysm/
             /Abysm.xcodeproj/
