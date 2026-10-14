@@ -9,9 +9,10 @@ key=value lines to $GITHUB_OUTPUT when it is set):
                 A release tag must be exactly v<MARKETING_VERSION>.
   build-number  Next CFBundleVersion: max(project value, highest ASC build + 1).
   wait-build    Poll App Store Connect until the build uploaded by THIS run is
-                processed (VALID, unexpired, matching app/version/build number).
-                Fails on timeout, processing failure, ambiguity or mismatch and
-                never falls back to another build.
+                processed (VALID, unexpired, matching app/version/build number,
+                uploaded after this run's upload started). Fails on timeout,
+                processing failure, ambiguity or mismatch and never falls back to
+                another build; a build without an upload time is never accepted.
 
 See store/README.md for what each switch controls.
 """
@@ -281,11 +282,19 @@ def evaluate_builds(
     build = matches[0]
     attrs = build.get("attributes") or {}
     uploaded = attrs.get("uploadedDate")
-    if uploaded and parse_asc_date(uploaded) < uploaded_after - UPLOAD_CLOCK_SKEW_SECONDS:
-        raise ReleaseError(
-            f"build {build_number} was uploaded at {uploaded}, before this run's upload; "
-            "refusing to use an older build"
-        )
+    if uploaded:
+        try:
+            uploaded_at = parse_asc_date(uploaded)
+        except (AttributeError, TypeError, ValueError):
+            raise ReleaseError(
+                f"build {build_number} has an unreadable uploadedDate {uploaded!r}; "
+                "cannot prove it is the build this run uploaded"
+            ) from None
+        if uploaded_at < uploaded_after - UPLOAD_CLOCK_SKEW_SECONDS:
+            raise ReleaseError(
+                f"build {build_number} was uploaded at {uploaded}, before this run's upload; "
+                "refusing to use an older build"
+            )
     state = attrs.get("processingState")
     if state in {"FAILED", "INVALID"}:
         raise ReleaseError(f"App Store Connect processing ended in {state} for build {build_number}")
@@ -293,6 +302,10 @@ def evaluate_builds(
         return BuildState.WAITING, f"processing state {state or 'unknown'}", None
     if attrs.get("expired"):
         raise ReleaseError(f"build {build_number} is expired")
+    if not uploaded:
+        # Fail closed: without an upload time this could be an older build with the
+        # same number. Keep waiting (it times out at the deadline), never pass.
+        return BuildState.WAITING, "processed, but App Store Connect reports no uploadedDate yet", None
     return BuildState.READY, f"build {build_number} is VALID", build
 
 

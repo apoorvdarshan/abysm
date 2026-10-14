@@ -103,7 +103,7 @@ npx wrangler deploy
 bash scripts/test-ios.sh
 ```
 
-Builds the Debug app for a simulator it creates (and deletes afterwards) and runs both suites; it fails if either suite runs no tests. Results go to `~/Library/Developer/Xcode/DerivedData/Abysm-simulator-tests/TestResults/`.
+Builds the Debug app once for a simulator it creates (and deletes afterwards), runs the unit tests, stops the app, then runs the UI tests from a cold launch, so the first UI test never races the unit-test host's shutdown. It fails if either suite fails or runs no tests, and never retries. Results (`UnitTests.xcresult`, `UITests.xcresult` and logs) go to `~/Library/Developer/Xcode/DerivedData/Abysm-simulator-tests/TestResults/`.
 
 - **AbysmTests** (unit): the creature and landmark catalog, zone boundaries and water colour, the free dive vs. the 1,000 m gate, saving and Continue, the paywall's state machine, controls and the depth read-out, VoiceOver behaviour of hidden buttons, diver physics limits, and localization coverage.
 - **AbysmUITests** (UI, on the real SpriteKit screens): the title menu, the sound setting across launches, starting a dive, swimming and rising, pause → resume → main menu → Continue, resuming a saved depth, and the "Unlock the Deep" gate (shown, restore checked, dismissed — never bought).
@@ -112,14 +112,14 @@ Test runs are offline: in Debug simulator builds launched by XCTest (or with `--
 
 ### Releases
 
-GitHub Actions builds, signs and uploads releases; Xcode Cloud is being removed for ABYSM and must not be re-created. A release tag is exactly `v` + the project's `MARKETING_VERSION` — for version 1.0.1:
+GitHub Actions builds, signs and uploads releases; Xcode Cloud was removed for ABYSM on 2026-10-14 and must not be re-created. A release tag is exactly `v` + the project's `MARKETING_VERSION` — for version 1.0.1:
 
 ```sh
 git tag -a v1.0.1 -m "ABYSM 1.0.1"
 git push origin v1.0.1
 ```
 
-The tag runs the tests, then the **iOS Release** workflow, which uploads, updates the listing or submits for review only for the switches you turned on (all off by default), and finally creates the GitHub Release (notes from a matching `RELEASE_NOTES.md` section, otherwise generated). Any other `v*` tag fails without releasing anything. **Run workflow** on iOS Release only validates a signed build with App Store Connect. See [`store/README.md`](store/README.md) for the switches, secrets, listing metadata and screenshots.
+The tag runs the tests, then the **iOS Release** workflow, which uploads, updates the listing or submits for review only for the switches you turned on (all off by default), and finally creates the GitHub Release (notes from a matching `RELEASE_NOTES.md` section, otherwise generated). Any other `v*` tag fails without releasing anything. With a listing, What's New, screenshot or review switch on, create the version (e.g. 1.0.1) in App Store Connect before tagging: a read-only preflight checks it before anything is built. **Run workflow** on iOS Release only validates a signed build with App Store Connect. See [`store/README.md`](store/README.md) for the switches, secrets, listing metadata and screenshots.
 
 ## 🔗 Links & support
 

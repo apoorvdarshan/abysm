@@ -1,9 +1,11 @@
 name: iOS tests
 
 # Unit (AbysmTests) and UI (AbysmUITests) tests on an iOS Simulator. Debug
-# simulator builds only: nothing is signed, archived or uploaded. Runs only when
-# the app, its tests, its project or this workflow change; release tags call it
-# from ios-release.yml before anything is built for the App Store.
+# simulator builds only: nothing is signed, archived or uploaded. The app is
+# built once; the unit tests run, the app is stopped, and the UI tests then start
+# from a cold launch (scripts/test-ios.sh). Runs only when the app, its tests,
+# its project or this workflow change; release tags call it from ios-release.yml
+# before anything is built for the App Store.
 on:
   pull_request:
     paths:
@@ -59,7 +61,7 @@ jobs:
 
       # Pinned Swift package sources only; tests always run fresh.
       - name: Cache pinned Swift packages
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ios-test-packages
           key: ios-spm-${{ runner.os }}-${{ runner.arch }}-xcode27-${{ hashFiles('Abysm.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
