@@ -93,6 +93,7 @@ final class AbysmUITests: XCTestCase {
     func testContinueResumesTheSavedDepth() {
         launch(savedDepth: 650)
         tap(waitForEnabled(button("CONTINUE")))
+        readAccessibilityDuringSceneFade(button("Toggle headlamp"))
         waitForLabel(depthHUD(), "Depth 650 meters, TWILIGHT ZONE")
         XCTAssertTrue(waitForEnabled(button("Toggle headlamp")).isEnabled, "the headlamp appears below 200 m")
         XCTAssertFalse(button("UNLOCK").isEnabled)
@@ -102,6 +103,7 @@ final class AbysmUITests: XCTestCase {
     func testDepthGateOffersTheUnlockAndCanBeDismissed() {
         launch(savedDepth: 1000)
         tap(waitForEnabled(button("CONTINUE")))
+        readAccessibilityDuringSceneFade(button("UNLOCK"))
 
         let unlock = waitForEnabled(button("UNLOCK"))
         XCTAssertTrue(button("KEEP EXPLORING").isEnabled)
@@ -153,6 +155,19 @@ final class AbysmUITests: XCTestCase {
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-testing-reset" }
         app.launch()
+    }
+
+    /// Reads the accessibility tree while the dive scene fades in (it starts
+    /// paused, so controls that appear with depth are still hidden). A control
+    /// that appears afterwards must still be offered: SpriteKit keeps the
+    /// elements it reported until the app posts a layout change, and a tree read
+    /// during the fade once hid the headlamp from VoiceOver and these tests.
+    @MainActor
+    private func readAccessibilityDuringSceneFade(_ element: XCUIElement) {
+        for _ in 0..<6 {
+            _ = element.exists
+            Thread.sleep(forTimeInterval: 0.1)
+        }
     }
 
     // MARK: Elements
