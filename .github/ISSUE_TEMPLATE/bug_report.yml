@@ -1,0 +1,63 @@
+name: Report a bug
+description: Tell us what went wrong in ABYSM.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This report is public. For security problems, use the [private reporting process](https://github.com/apoorvdarshan/abysm/blob/main/SECURITY.md) instead.
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: On your device, open the App Store, find ABYSM, and check Version History.
+      placeholder: "For example: 1.0"
+  - type: input
+    id: device-os
+    attributes:
+      label: Device and iOS version
+      placeholder: "For example: iPhone 16, iOS 26.1; or iPad Air, iPadOS 26.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: input
+    attributes:
+      label: Controls
+      options:
+        - Touch
+        - Game controller
+        - Both
+        - Not relevant
+    validations:
+      required: true
+  - type: input
+    id: depth
+    attributes:
+      label: Depth or zone
+      description: Where it happened, if it matters.
+      placeholder: "For example: about 3,800 m, near the Titanic"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start a new dive
+        2. Swim down to ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Attach screenshots or a screen recording if you can.
+      placeholder: What happened instead?
+    validations:
+      required: true

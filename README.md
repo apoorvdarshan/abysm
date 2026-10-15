@@ -12,6 +12,11 @@
   <img alt="Swift" src="https://img.shields.io/badge/Swift-5-orange?style=flat-square" />
   <img alt="Engine" src="https://img.shields.io/badge/SpriteKit-2d9bb0?style=flat-square" />
   <img alt="Languages" src="https://img.shields.io/badge/languages-16-2bb673?style=flat-square" />
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2bb673?style=flat-square" /></a>
+</p>
+
+<p align="center">
+  <a href="https://scorecard.dev/viewer/?uri=github.com/apoorvdarshan/abysm"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/apoorvdarshan/abysm/badge" /></a>
 </p>
 
 ---
@@ -110,6 +115,8 @@ Builds the Debug app once for a simulator it creates (and deletes afterwards), r
 
 Test runs are offline: in Debug simulator builds launched by XCTest (or with `--ui-testing`), RevenueCat is never configured, so no network, account or purchase is involved. Release and device builds are unaffected. The **iOS tests** workflow runs both suites on GitHub's `xcode-27` runner for pull requests and pushes to `main` that touch the app, its tests or its project.
 
+CodeQL analyzes the Swift app, the Python release tooling, the website and the workflows, and the release tooling's log redaction, release switches and release notes are fuzzed with Atheris (see [`fuzz/`](fuzz/README.md)).
+
 ### Releases
 
 GitHub Actions builds, signs and uploads releases; Xcode Cloud was removed for ABYSM on 2026-10-14 and must not be re-created. A release tag is exactly `v` + the project's `MARKETING_VERSION` — for version 1.0.1:
@@ -140,9 +147,13 @@ ABYSM has no account, no login, no ads, and no advertising or cross-app tracking
 
 App Store privacy label: **Purchases** (Purchase History) — not linked to your identity, not used for tracking.
 
+## 🤝 Contributing
+
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and submit changes, and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md).
+
 ## 📜 License
 
-© Apoorv Darshan. All rights reserved.
+ABYSM is released under the [MIT License](LICENSE). The Press Start 2P font is under the SIL Open Font License 1.1; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 

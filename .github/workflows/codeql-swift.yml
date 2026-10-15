@@ -1,0 +1,98 @@
+# Static analysis (SAST) of the Swift app with GitHub CodeQL.
+#
+# Swift needs a real compile for CodeQL to observe, so this builds the Abysm
+# scheme for the iOS Simulator (Debug, unsigned, arm64 only: one architecture
+# gives CodeQL the same source at half the build time) with no build cache.
+# It uses macos-26 and its default Xcode 26 rather than xcode-27: CodeQL's
+# tracer starts build tools as x86_64, and Xcode 27's tools (swift-plugin-server,
+# sandbox-exec on macOS 27) are arm64-only, so a traced Xcode 27 build fails with
+# "Bad CPU type in executable".
+# Nothing is signed, archived or uploaded. Runs when the app or its project
+# changes, on pushes to main that change them, and weekly. A newer push to a
+# pull request cancels its older run; pushes to main, scheduled and manual runs
+# are never cancelled.
+
+name: CodeQL (Swift)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Abysm/**'
+      - 'Abysm.xcodeproj/**'
+      - '.github/workflows/codeql-swift.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Abysm/**'
+      - 'Abysm.xcodeproj/**'
+      - '.github/workflows/codeql-swift.yml'
+  schedule:
+    - cron: "29 6 * * 1"
+  workflow_dispatch:
+
+permissions: read-all
+
+concurrency:
+  group: codeql-swift-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (swift)
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /Abysm/
+            /Abysm.xcodeproj/
+            /Abysm.storekit
+
+      # SwiftPM evaluates package manifests inside sandbox-exec, which cannot be
+      # spawned under CodeQL's build tracer. Resolve the pinned packages first,
+      # before CodeQL starts tracing, then build with the manifest sandbox off
+      # and no further resolution.
+      - name: Resolve the pinned Swift packages
+        run: |
+          xcodebuild -version
+          xcodebuild -resolvePackageDependencies \
+            -project Abysm.xcodeproj \
+            -scheme Abysm \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/codeql-packages" \
+            -onlyUsePackageVersionsFromResolvedFile
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: swift
+          build-mode: manual
+
+      - name: Build the app for the iOS Simulator (unsigned)
+        run: |
+          xcodebuild build \
+            -project Abysm.xcodeproj \
+            -scheme Abysm \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/codeql-build" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/codeql-packages" \
+            -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile \
+            -IDEPackageSupportDisableManifestSandbox=YES \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: "/language:swift"

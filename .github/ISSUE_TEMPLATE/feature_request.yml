@@ -1,0 +1,26 @@
+name: Request a feature
+description: Suggest an idea for ABYSM.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ABYSM is a calm exploration game with no goals, timers, or combat. Ideas that keep that feel fit best.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to add or change?
+      description: A creature, landmark, control, setting, language, or anything else.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it make the dive better?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: Optional references, screenshots, or alternatives you considered. For a new creature, its real depth range helps.
