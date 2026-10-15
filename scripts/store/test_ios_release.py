@@ -22,6 +22,7 @@ import http.client
 import io
 import json
 import os
+import plistlib
 import re
 import shutil
 import subprocess
@@ -295,6 +296,163 @@ class ProjectVersionTests(unittest.TestCase):
         path = self.pbx()
         with self.assertRaisesRegex(ReleaseError, "no build configuration"):
             ios_release.app_build_configurations(path, bundle_id="com.example.other")
+
+
+COMPLIANCE_PBX = """
+		AAA /* Debug */ = {{
+			isa = XCBuildConfiguration;
+			buildSettings = {{
+{debug}				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.Abysm;
+			}};
+			name = Debug;
+		}};
+		BBB /* Release */ = {{
+			isa = XCBuildConfiguration;
+			buildSettings = {{
+{release}				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.Abysm;
+			}};
+			name = Release;
+		}};
+		CCC /* Debug */ = {{
+			isa = XCBuildConfiguration;
+			buildSettings = {{
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.AbysmTests;
+			}};
+			name = Debug;
+		}};
+"""
+NO = "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO"
+YES = "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = YES"
+CODE = "INFOPLIST_KEY_ITSEncryptionExportComplianceCode = ABC123"
+PLIST_FILE = "INFOPLIST_FILE = Abysm/Info.plist"
+
+
+class ExportComplianceTests(unittest.TestCase):
+    """ITSAppUsesNonExemptEncryption must be declared, or App Store Connect asks about every build."""
+
+    def project(self, debug: list[str], release: list[str] | None = None, plist: dict | None = None) -> Path:
+        """A temporary project (app Debug/Release + a test target) and, if given, its Abysm/Info.plist."""
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        if plist is not None:
+            (root / "Abysm").mkdir()
+            (root / "Abysm" / "Info.plist").write_bytes(plistlib.dumps(plist))
+        lines = lambda settings: "".join(f"\t\t\t\t{line};\n" for line in settings)  # noqa: E731
+        pbxproj = root / "Abysm.xcodeproj" / "project.pbxproj"
+        pbxproj.parent.mkdir()
+        pbxproj.write_text(COMPLIANCE_PBX.format(debug=lines(debug), release=lines(debug if release is None else release)))
+        return pbxproj
+
+    def check(self, *args, **kwargs) -> str:
+        return ios_release.check_export_compliance(self.project(*args, **kwargs))
+
+    def info_plist(self, values: dict) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "Abysm.app" / "Info.plist"
+        path.parent.mkdir()
+        path.write_bytes(plistlib.dumps({"CFBundleIdentifier": ios_release.BUNDLE_ID, **values},
+                                        fmt=plistlib.FMT_BINARY))  # archived apps carry binary plists
+        return path
+
+    def test_the_real_app_declares_no_non_exempt_encryption(self) -> None:
+        self.assertEqual(ios_release.check_export_compliance(), "NO")
+        with (ROOT / "Abysm" / "Info.plist").open("rb") as handle:
+            self.assertIs(plistlib.load(handle)[ios_release.ENCRYPTION_KEY], False)
+
+    def test_no_from_the_build_setting_or_the_info_plist_passes(self) -> None:
+        self.assertEqual(self.check([NO]), "NO")
+        self.assertEqual(self.check([PLIST_FILE], plist={"ITSAppUsesNonExemptEncryption": False}), "NO")
+        self.assertEqual(self.check([NO, PLIST_FILE], plist={"ITSAppUsesNonExemptEncryption": False}), "NO")
+        self.assertEqual(self.check(['INFOPLIST_FILE = "$(SRCROOT)/Abysm/Info.plist"'],
+                                    plist={"ITSAppUsesNonExemptEncryption": False}), "NO")
+
+    def test_missing_declaration_fails_before_the_build(self) -> None:
+        for release, missing in ((None, "Debug, Release"), ([NO, PLIST_FILE], "Debug")):
+            with self.subTest(release=release), self.assertRaisesRegex(
+                    ReleaseError, rf"the app target \(com\.apoorvdarshan\.Abysm\) does not declare export "
+                                  rf"compliance \({missing}\)"):
+                self.check([PLIST_FILE], release, plist={"UILaunchScreen": {}})
+        with self.assertRaisesRegex(ReleaseError, "does not declare export compliance"):
+            self.check(["INFOPLIST_KEY_CFBundleDisplayName = ABYSM"])
+
+    def test_yes_needs_the_compliance_code(self) -> None:
+        with self.assertRaisesRegex(ReleaseError, "needs ITSEncryptionExportComplianceCode"):
+            self.check([YES])
+        with self.assertRaisesRegex(ReleaseError, "missing in .*: Release"):
+            self.check([YES, CODE], [YES])
+        self.assertEqual(self.check([YES, CODE]), "YES")
+        self.assertEqual(self.check([PLIST_FILE], plist={"ITSAppUsesNonExemptEncryption": True,
+                                                         "ITSEncryptionExportComplianceCode": "ABC123"}), "YES")
+
+    def test_mixed_or_unknown_values_fail(self) -> None:
+        cases = {
+            "Debug NO, Release YES": ([NO], [YES, CODE], None),
+            "build setting and Info.plist disagree": ([NO, PLIST_FILE], None, {"ITSAppUsesNonExemptEncryption": True}),
+            "unknown build setting": (["INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = maybe"], None, None),
+            "Info.plist string instead of a Boolean": ([PLIST_FILE], None, {"ITSAppUsesNonExemptEncryption": "NO"}),
+        }
+        for label, (debug, release, plist) in cases.items():
+            with self.subTest(label), self.assertRaisesRegex(ReleaseError, "must be one NO or YES"):
+                self.check(debug, release, plist=plist)
+
+    def test_an_info_plist_that_cannot_be_read_fails(self) -> None:
+        with self.assertRaisesRegex(ReleaseError, "cannot read"):
+            self.check([NO, PLIST_FILE])  # the file does not exist
+        with self.assertRaisesRegex(ReleaseError, "cannot resolve INFOPLIST_FILE"):
+            self.check([NO, "INFOPLIST_FILE = $(TARGET_NAME)/Info.plist"])
+
+    def test_the_archived_info_plist_is_checked_the_same_way(self) -> None:
+        check = ios_release.check_bundle_export_compliance
+        self.assertEqual(check(self.info_plist({"ITSAppUsesNonExemptEncryption": False})), "NO")
+        self.assertEqual(check(self.info_plist({"ITSAppUsesNonExemptEncryption": True,
+                                                "ITSEncryptionExportComplianceCode": "ABC123"})), "YES")
+        for values, message in (({}, r"the archived Abysm.app does not declare"),
+                                ({"ITSAppUsesNonExemptEncryption": True}, "needs ITSEncryptionExportComplianceCode"),
+                                ({"ITSAppUsesNonExemptEncryption": "false"}, "must be one NO or YES")):
+            with self.subTest(values=values), self.assertRaisesRegex(ReleaseError, message):
+                check(self.info_plist(values))
+
+    def test_the_command_line_check_fails_the_step(self) -> None:
+        script = str(HERE / "ios_release.py")
+        good = self.info_plist({"ITSAppUsesNonExemptEncryption": False})
+        bad = self.info_plist({})
+        result = subprocess.run([sys.executable, script, "export-compliance", "--info-plist", str(good)],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("ITSAppUsesNonExemptEncryption = NO (no non-exempt encryption)", result.stdout)
+        result = subprocess.run([sys.executable, script, "export-compliance", "--info-plist", str(bad)],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("error: the archived Abysm.app does not declare export compliance", result.stderr)
+        result = subprocess.run([sys.executable, script, "export-compliance"], capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_gates_check_it_only_when_this_run_builds(self) -> None:
+        for env, builds in (({"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF_NAME": "main"}, True),
+                            ({"GITHUB_EVENT_NAME": "push", "GITHUB_REF_NAME": TAG, "IOS_RELEASE_AUTOMATION": "true",
+                              "IOS_UPLOAD_BUILD": "true"}, True),
+                            ({"GITHUB_EVENT_NAME": "push", "GITHUB_REF_NAME": TAG}, False)):
+            missing = mock.patch.object(ios_release, "check_export_compliance",
+                                        side_effect=ReleaseError("Abysm does not declare export compliance"))
+            with self.subTest(env=env), missing as check, \
+                    mock.patch.object(ios_release, "project_marketing_version", return_value=VERSION), \
+                    mock.patch.dict(os.environ, env, clear=True), redirect_stdout(io.StringIO()), \
+                    redirect_stderr(io.StringIO()) as err:
+                if builds:
+                    with self.assertRaises(SystemExit):
+                        ios_release.main(["gates"])
+                    self.assertIn("does not declare export compliance", err.getvalue())
+                else:
+                    ios_release.main(["gates"])
+                    check.assert_not_called()
+        out = io.StringIO()
+        with mock.patch.dict(os.environ, {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF_NAME": "main"},
+                             clear=True), redirect_stdout(out):
+            ios_release.main(["gates"])
+        self.assertIn("export compliance: ITSAppUsesNonExemptEncryption = NO", out.getvalue())
 
 
 class BuildNumberTests(unittest.TestCase):
@@ -2266,6 +2424,22 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn("steps.gates.outputs.create_version == 'true'", self.step("prepare", "Install store tooling"))
         # Validation runs resolve it off whatever the switches say.
         self.assertFalse(gates(ALL_ON, event="workflow_dispatch", ref="main")["create_version"])
+
+    def test_export_compliance_is_checked_before_the_build_and_in_the_archive(self) -> None:
+        build = self.job("build")
+        verify = self.step("build", "Verify app identity and version in every bundle")
+        command = 'python3 scripts/store/ios_release.py export-compliance --info-plist "$main/Info.plist"'
+        self.assertIn(command, verify)
+        self.assertIn("/scripts/store/ios_release.py", build)  # in the build job's sparse checkout
+        # After the archive, before anything is exported, validated or uploaded.
+        self.assertLess(build.index("      - name: Archive Release\n"), build.index(command))
+        self.assertLess(build.index(command), build.index("      - name: Write export options\n"))
+        # The gates step reads the project's answer before anything is built, so
+        # prepare (and the pull request checks) need the app's Info.plist.
+        self.assertIn("/Abysm/Info.plist", self.job("prepare"))
+        checks = (ROOT / ".github" / "workflows" / "store-checks.yml").read_text()
+        self.assertIn("            /Abysm/Info.plist\n", checks)
+        self.assertEqual(checks.count("      - 'Abysm/Info.plist'\n"), 2)
 
     def test_unused_store_assets_never_block_a_release(self) -> None:
         offline = self.step("prepare", "Check the release tooling and inputs (offline)")
