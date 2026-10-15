@@ -73,7 +73,14 @@ summarize() {
 }
 
 build_status=0
-xcodebuild build-for-testing "${common[@]}" CODE_SIGNING_ALLOWED=NO > "$results/build.log" 2>&1 || build_status=$?
+# CI sets IOS_COMPILATION_CACHE to a directory it restores and saves, so
+# unchanged Swift and C files reuse earlier compiler outputs. The tests always run.
+cache_settings=()
+if [ -n "${IOS_COMPILATION_CACHE:-}" ]; then
+  cache_settings=(COMPILATION_CACHE_ENABLE_CACHING=YES "COMPILATION_CACHE_CAS_PATH=$IOS_COMPILATION_CACHE")
+fi
+
+xcodebuild build-for-testing "${common[@]}" ${cache_settings[@]+"${cache_settings[@]}"} CODE_SIGNING_ALLOWED=NO > "$results/build.log" 2>&1 || build_status=$?
 summarize "$results/build.log"
 if (( build_status != 0 )); then
   tail -n 40 "$results/build.log"
