@@ -7,35 +7,23 @@
 # tracer starts build tools as x86_64, and Xcode 27's tools (swift-plugin-server,
 # sandbox-exec on macOS 27) are arm64-only, so a traced Xcode 27 build fails with
 # "Bad CPU type in executable".
-# Nothing is signed, archived or uploaded. Runs when the app or its project
-# changes, on pushes to main that change them, and weekly. A newer push to a
-# pull request cancels its older run; pushes to main, scheduled and manual runs
-# are never cancelled.
+# Nothing is signed, archived or uploaded. The ~30-minute macOS build is too slow
+# for every pull request, so it runs weekly, for each release tag and on demand;
+# codeql.yml still analyzes the Python, JavaScript and workflows on every pull
+# request.
 
 name: CodeQL (Swift)
 
 on:
+  # Release tags (the same v* tags ios-release.yml ships), so every release is analyzed.
   push:
-    branches: [main]
-    paths:
-      - 'Abysm/**'
-      - 'Abysm.xcodeproj/**'
-      - '.github/workflows/codeql-swift.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'Abysm/**'
-      - 'Abysm.xcodeproj/**'
-      - '.github/workflows/codeql-swift.yml'
+    tags:
+      - "v*"
   schedule:
     - cron: "29 6 * * 1"
   workflow_dispatch:
 
 permissions: read-all
-
-concurrency:
-  group: codeql-swift-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   analyze:

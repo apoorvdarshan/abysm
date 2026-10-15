@@ -5,7 +5,7 @@
 #   python                 scripts/ (release tooling) and fuzz/
 #
 # Each job checks out only its folders plus .github. The Swift app is analyzed by
-# codeql-swift.yml, which needs a macOS build and runs only when the app changes.
+# codeql-swift.yml, which needs a macOS build and runs weekly and for each release tag.
 # A newer push to a pull request cancels its older run; pushes to main and the
 # weekly scheduled run are never cancelled.
 
