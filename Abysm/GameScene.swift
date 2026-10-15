@@ -445,12 +445,22 @@ final class GameScene: SKScene {
         isBoosting = false; prevBoost = false; prevTurbo = false
         player.physicsBody?.velocity = .zero      // hold the diver still
         pauseOverlay.isHidden = false
+        accessibleControlsChanged()
         highlightPause()
     }
 
     private func resumeGame() {
         menuPaused = false
         pauseOverlay.isHidden = true
+        accessibleControlsChanged()
+    }
+
+    /// SpriteKit keeps the accessibility elements it last reported, so a control
+    /// that appears or disappears (the headlamp below 200 m, the pause menu, the
+    /// paywall) stays missing or stale for VoiceOver until the layout is
+    /// announced as changed.
+    private func accessibleControlsChanged() {
+        UIAccessibility.post(notification: .layoutChanged, argument: nil)
     }
 
     private func toMainMenu() {
@@ -478,6 +488,7 @@ final class GameScene: SKScene {
         saveProgress()
         paywall.reset(price: StoreManager.shared.displayPrice)
         paywall.isHidden = false
+        accessibleControlsChanged()
         // Pull the real localized price in case it wasn't loaded yet.
         Task { @MainActor in
             await StoreManager.shared.loadProduct()
@@ -491,6 +502,7 @@ final class GameScene: SKScene {
     private func closePaywall(lift: Bool) {
         paywalled = false
         paywall.isHidden = true
+        accessibleControlsChanged()
         paywall.setBusy(false)
         if lift {
             gateCooldown = 0.8
@@ -782,7 +794,11 @@ final class GameScene: SKScene {
 
         // The headlamp button only matters once you leave the sunlit zone — hide
         // it up top (where it does nothing), show it from the Twilight zone down.
-        flashBtn.isHidden = meters < GameConfig.zones[1].topMeters
+        let hideLamp = meters < GameConfig.zones[1].topMeters
+        if flashBtn.isHidden != hideLamp {
+            flashBtn.isHidden = hideLamp
+            accessibleControlsChanged()
+        }
 
         // Water color is driven directly by depth, surface → black trench. It
         // shifts imperceptibly within a meter, so only rebuild the UIColor when
