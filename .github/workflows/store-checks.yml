@@ -19,6 +19,7 @@ on:
       - 'RELEASE_NOTES.md'
       - 'Abysm.storekit'
       - 'Abysm/StoreManager.swift'
+      - 'Abysm/Info.plist'
       - 'Abysm.xcodeproj/project.pbxproj'
       - '.github/workflows/ios-release.yml'
       - '.github/workflows/store-checks.yml'
@@ -33,6 +34,7 @@ on:
       - 'RELEASE_NOTES.md'
       - 'Abysm.storekit'
       - 'Abysm/StoreManager.swift'
+      - 'Abysm/Info.plist'
       - 'Abysm.xcodeproj/project.pbxproj'
       - '.github/workflows/ios-release.yml'
       - '.github/workflows/store-checks.yml'
@@ -60,6 +62,7 @@ jobs:
             /Abysm.xcodeproj/
             /Abysm.storekit
             /Abysm/StoreManager.swift
+            /Abysm/Info.plist
             /requirements-store.txt
             /RELEASE_NOTES.md
             /.github/workflows/

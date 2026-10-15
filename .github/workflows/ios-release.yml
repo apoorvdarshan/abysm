@@ -41,6 +41,12 @@
 # a missing one; otherwise create it in App Store Connect first) and be in a
 # state that allows the enabled steps.
 #
+# Export compliance: every run that builds checks the app's
+# ITSAppUsesNonExemptEncryption answer twice, in the project before anything is
+# built (ios_release.py gates) and in the archived app's Info.plist; a missing
+# answer, or YES without ITSEncryptionExportComplianceCode, fails the run
+# (otherwise review submission fails with usesNonExemptEncryption missing).
+#
 # Store tooling (requirements-store.txt) runs on a pinned Python from
 # actions/setup-python, never the runner's system Python, and store steps run
 # unbuffered (python3 -u) so their progress shows in the live log.
@@ -135,6 +141,7 @@ jobs:
             /Abysm.xcodeproj/
             /Abysm.storekit
             /Abysm/StoreManager.swift
+            /Abysm/Info.plist
             /requirements-store.txt
             /RELEASE_NOTES.md
             /.github/workflows/
@@ -264,14 +271,15 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout-cone-mode: false
-          # The app, its project and test folders, and the log redactor; never
-          # web/ or store/.
+          # The app, its project and test folders, the export compliance check
+          # and the log redactor; never web/ or store/.
           sparse-checkout: |
             /Abysm/
             /Abysm.xcodeproj/
             /Abysm.storekit
             /AbysmTests/
             /AbysmUITests/
+            /scripts/store/ios_release.py
             /scripts/store/redact_logs.py
 
       # Dependency sources only. Signed store archives are always built from
@@ -374,6 +382,10 @@ jobs:
             checked=$((checked + 1))
           done < <(printf '%s\0' "$main"; find "$main" -mindepth 1 -type d \( -name '*.app' -o -name '*.appex' \) -not -path '*/Frameworks/*' -print0)
           echo "verified $BUNDLE_ID $MARKETING_VERSION ($BUILD_NUMBER) in $checked app/extension bundle(s)"
+          # Export compliance in the archived app: without ITSAppUsesNonExemptEncryption
+          # (or with YES but no ITSEncryptionExportComplianceCode), App Store Connect
+          # asks about the build by hand and review submission fails.
+          python3 scripts/store/ios_release.py export-compliance --info-plist "$main/Info.plist"
 
       - name: Write export options
         run: |

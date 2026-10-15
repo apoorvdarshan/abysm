@@ -214,6 +214,27 @@ if the version's screenshots are already locked. A missing folder, an empty
 set, more than 10 files or any other size fails the run with a clear message
 before anything is uploaded.
 
+## Export compliance
+
+ABYSM declares its export compliance answer in
+[`Abysm/Info.plist`](../Abysm/Info.plist): `ITSAppUsesNonExemptEncryption` is
+`false`, so App Store Connect never asks about a build by hand. Without it,
+review submission fails with `usesNonExemptEncryption` missing (HTTP 409), as
+it did for another app sharing this pipeline.
+
+`false` is right while the game only uses exempt encryption: HTTPS (Apple's
+networking and the RevenueCat SDK, which also uses the Keychain, hashing and
+signature checks) and Apple's system crypto. If ABYSM ever adds its own
+encryption, set the key to `true` and add `ITSEncryptionExportComplianceCode`
+with the code App Store Connect issues for the app's encryption documentation.
+
+Every run that builds (release or validation) checks it twice: `ios_release.py
+gates` reads the app target's configurations before anything is built (the
+`INFOPLIST_KEY_ITSAppUsesNonExemptEncryption` build setting or the Info.plist
+key, which must agree), and the bundle check after the archive reads the archived
+app's `Info.plist` (`ios_release.py export-compliance --info-plist`). A missing
+answer, different or unknown values, or `true` without the code fails the run.
+
 ## In-app purchases
 
 ABYSM sells one non-consumable, **Unlock the Deep**
@@ -237,13 +258,13 @@ attached, the version is not submitted.
 
 | Script | Role |
 |--------|------|
-| [`scripts/store/ios_release.py`](../scripts/store/ios_release.py) | Switches and tag rule, build number, wait for this run's build |
+| [`scripts/store/ios_release.py`](../scripts/store/ios_release.py) | Switches and tag rule, export compliance check (project and archived app), build number, wait for this run's build |
 | [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Version creation (`--create-version`), read-only preflight (`--preflight`), listing, What's New, screenshots, build selection, products, App Review |
 | [`scripts/store/export_listing.py`](../scripts/store/export_listing.py) | Read-only export of the App Store listing into `store/metadata/` |
 | [`scripts/store/validate_catalog.py`](../scripts/store/validate_catalog.py) | Catalog vs. StoreKit file vs. app code |
 | [`scripts/store/print_gates.py`](../scripts/store/print_gates.py) | Print the switches, showing invalid values as `INVALID` (never touches a store) |
 | [`scripts/store/redact_logs.py`](../scripts/store/redact_logs.py) | Redact the App Store Connect key/issuer IDs from failed-build logs before they become an artifact |
-| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, version creation (only when missing, never next to a version still on its way to the store or older than an existing one), preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, token refresh, listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
+| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, export compliance (project and archived app), version creation (only when missing, never next to a version still on its way to the store or older than an existing one), preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, token refresh, listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
 | [`scripts/release_notes.py`](../scripts/release_notes.py) | GitHub Release notes from the matching `RELEASE_NOTES.md` section (else GitHub generates them); a duplicated section fails |
 
 [`requirements-store.txt`](../requirements-store.txt) (PyJWT, hash-pinned) is
