@@ -209,14 +209,23 @@ def decide_export_compliance(answers: Mapping[str, list[str]], codes: Mapping[st
 def check_export_compliance(pbxproj: Path = PBXPROJ, bundle_id: str = BUNDLE_ID) -> str:
     """The app's export compliance answer, read from the project before anything is built.
 
-    Every configuration of the app target must give the same answer, from its
-    INFOPLIST_KEY_ITSAppUsesNonExemptEncryption build setting or its Info.plist
-    file (ABYSM uses Abysm/Info.plist); both together must agree.
+    Each configuration of the app target (Debug and Release, both required) is
+    read on its own, so a value set only for Debug or only on another target
+    never counts for the Release build that ships. Each must give the same
+    answer, from its INFOPLIST_KEY_ITSAppUsesNonExemptEncryption build setting or
+    its Info.plist file (ABYSM uses Abysm/Info.plist); both together must agree,
+    and YES needs the compliance code in that same configuration.
     """
+    configurations = app_build_configurations(pbxproj, bundle_id)
+    if not {"Debug", "Release"} <= configurations.keys():
+        raise ReleaseError(
+            f"could not find the Debug and Release configurations of the {bundle_id} target "
+            f"(found {sorted(configurations)}); export compliance must be checked in both"
+        )
     source_root = pbxproj.parent.parent
     answers: dict[str, list[str]] = {}
     codes: dict[str, bool] = {}
-    for name, settings in app_build_configurations(pbxproj, bundle_id).items():
+    for name, settings in configurations.items():
         found: list[str] = []
         has_code = bool(settings.get(COMPLIANCE_CODE_SETTING, "").strip())
         if ENCRYPTION_SETTING in settings:
