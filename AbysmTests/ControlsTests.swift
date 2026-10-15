@@ -43,6 +43,32 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(hud.accessibilityLabel, "Depth 0 meters, SUNLIGHT ZONE", "breaching reads as the surface")
     }
 
+    func testResumedDiveOffersTheHeadlampFromItsFirstFrame() throws {
+        func presentDive(atMeters meters: CGFloat) -> GameScene {
+            let view = SKView(frame: CGRect(x: 0, y: 0, width: 852, height: 393))
+            let scene = GameScene(size: view.bounds.size)
+            scene.scaleMode = .resizeFill
+            scene.startDepthMeters = meters
+            scene.startX = 0
+            view.presentScene(scene)   // didMove runs now; no frame has been updated
+            return scene
+        }
+        func nodes(labelled label: String, in node: SKNode) -> [SKNode] {
+            (node.accessibilityLabel == label ? [node] : []) + node.children.flatMap { nodes(labelled: label, in: $0) }
+        }
+
+        let deep = presentDive(atMeters: 650)
+        let lamp = try XCTUnwrap(nodes(labelled: "Toggle headlamp", in: deep).first)
+        XCTAssertTrue(lamp.isAccessibilityElement, "the headlamp is offered below 200 m before any update")
+        XCTAssertFalse(lamp.accessibilityTraits.contains(.notEnabled))
+        XCTAssertFalse(nodes(labelled: "Depth 650 meters, TWILIGHT ZONE", in: deep).isEmpty,
+                       "the read-out shows the resumed depth from the first frame")
+
+        let shallow = presentDive(atMeters: 50)
+        let shallowLamp = try XCTUnwrap(nodes(labelled: "Toggle headlamp", in: shallow).first)
+        XCTAssertFalse(shallowLamp.isAccessibilityElement, "no headlamp in the sunlit zone")
+    }
+
     func testHiddenButtonsAreNotOfferedOrActivated() {
         let scene = SKScene(size: CGSize(width: 800, height: 400))
         let overlay = SKNode()

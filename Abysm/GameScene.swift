@@ -116,6 +116,11 @@ final class GameScene: SKScene {
 
         cameraNode.position = player.position
         layout()
+        // Show the starting depth from the first frame: the read-out, the water
+        // color, and the headlamp below 200 m. The scene stays paused through its
+        // fade-in, so waiting for update() left a resumed dive's headlamp hidden
+        // in the accessibility tree that VoiceOver (and UI tests) read meanwhile.
+        updateDepthEffects()
         // Re-run once UIKit has finished its first layout pass and the real
         // safe-area insets are available (they can read 0 inside didMove).
         DispatchQueue.main.async { [weak self] in self?.layout() }
