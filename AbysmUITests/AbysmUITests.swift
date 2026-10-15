@@ -36,7 +36,8 @@ final class AbysmUITests: XCTestCase {
         XCTAssertTrue(button("SOUND: ON").isEnabled)
         XCTAssertFalse(button("CONTINUE").isEnabled, "a first launch has no dive to continue")
         for link in ["PRIVACY", "TERMS", "RATE", "SHARE", "CONTACT 1", "CONTACT 2",
-                     "@APOORVDARSHAN", "@APOORVGAMES", "VOTE ON PRODUCT HUNT"] {
+                     "@APOORVDARSHAN", "@APOORVGAMES", "VOTE ON PRODUCT HUNT",
+                     "STAR ON GITHUB", "REPORT A BUG", "REQUEST A FEATURE"] {
             XCTAssertTrue(button(link).isEnabled, link)
         }
         XCTAssertTrue(text("A DIVE TO THE BOTTOM OF THE SEA").exists)

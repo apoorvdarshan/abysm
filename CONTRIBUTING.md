@@ -6,9 +6,11 @@ and iPad, with a small static website in `web/` and Python release tooling in
 
 ## Reporting bugs and requesting features
 
-- **Bugs:** open a [bug report](https://github.com/apoorvdarshan/abysm/issues/new?template=bug_report.yml).
-  Include the app version, device, iOS version, and steps to reproduce.
-- **Ideas:** open a [feature request](https://github.com/apoorvdarshan/abysm/issues/new?template=feature_request.yml).
+- **Bugs:** open a [bug report](https://github.com/apoorvdarshan/abysm/issues/new?template=bug_report.yml),
+  or tap the bug button on the game's title screen, which fills in the app
+  version, device, and iOS version for you. Add the steps to reproduce.
+- **Ideas:** open a [feature request](https://github.com/apoorvdarshan/abysm/issues/new?template=feature_request.yml),
+  or tap the light bulb button on the title screen.
 - **Security problems:** do not open an issue. Follow [SECURITY.md](SECURITY.md).
 
 Issues and pull requests are public. The maintainer reads every one and replies

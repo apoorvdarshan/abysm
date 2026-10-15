@@ -115,11 +115,21 @@ is not vendored in this repository and is distributed under the
 [MIT License](https://github.com/RevenueCat/purchases-ios/blob/main/LICENSE),
 Copyright (c) RevenueCat, Inc.
 
+## GitHub mark
+
+`Abysm/Assets.xcassets/ui_github.imageset` is a pixel-art rendering of the GitHub
+mark from [Primer Octicons](https://github.com/primer/octicons) (`mark-github`),
+which is available under the MIT License, Copyright (c) GitHub Inc. GitHub and
+the GitHub logo are trademarks of GitHub, Inc.; ABYSM uses the mark only to link
+to its repository.
+
 ## Asset credits
 
 - Pixel-art sprites in `Abysm/Assets.xcassets`, including the diver, the
   creatures, the app icon, and UI icons, were generated with
   [PixelLab](https://www.pixellab.ai) for ABYSM. Water gradients, particles, and
-  other textures are drawn in code (`Abysm/TextureFactory.swift`).
+  other textures are drawn in code (`Abysm/TextureFactory.swift`). The GitHub,
+  bug report and feature request icons (`ui_github`, `ui_bug`, `ui_feature`)
+  were drawn for ABYSM as pixel art from vector shapes.
 - Sound effects and ambient loops in `Abysm/Audio/` were synthesized for ABYSM;
   no recorded third-party audio is included.

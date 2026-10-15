@@ -10,12 +10,13 @@ body:
     id: app-version
     attributes:
       label: App version
-      description: On your device, open the App Store, find ABYSM, and check Version History.
+      description: Filled in when you report from the title screen's bug button. Otherwise, check ABYSM's Version History in the App Store.
       placeholder: "For example: 1.0"
   - type: input
     id: device-os
     attributes:
       label: Device and iOS version
+      description: Filled in when you report from the title screen. The exact model helps if you know it.
       placeholder: "For example: iPhone 16, iOS 26.1; or iPad Air, iPadOS 26.0"
     validations:
       required: true

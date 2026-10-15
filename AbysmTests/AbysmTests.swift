@@ -42,7 +42,7 @@ final class AbysmTests: XCTestCase {
             "pl", "pt-BR", "ru", "tr", "zh-Hans", "zh-Hant",
         ]
         let keys = localizationKeys()
-        XCTAssertEqual(keys.count, 195)
+        XCTAssertEqual(keys.count, 198)
 
         for locale in locales {
             let url = try XCTUnwrap(Bundle.main.url(forResource: locale, withExtension: "lproj"), locale)
@@ -54,6 +54,33 @@ final class AbysmTests: XCTestCase {
         }
     }
 
+    func testGitHubLinksOpenTheRepositoryAndItsIssueForms() throws {
+        XCTAssertEqual(ProjectLinks.repository.absoluteString, "https://github.com/apoorvdarshan/abysm")
+
+        let bug = try XCTUnwrap(URLComponents(
+            url: ProjectLinks.newIssue(.bugReport, appVersion: "1.0 (2)", deviceOS: "iPhone, iOS 26.1"),
+            resolvingAgainstBaseURL: false))
+        XCTAssertEqual(bug.host, "github.com")
+        XCTAssertEqual(bug.path, "/apoorvdarshan/abysm/issues/new")
+        XCTAssertEqual(bug.queryItems, [
+            URLQueryItem(name: "template", value: "bug_report.yml"),
+            URLQueryItem(name: "app-version", value: "1.0 (2)"),
+            URLQueryItem(name: "device-os", value: "iPhone, iOS 26.1"),
+        ])
+
+        let feature = try XCTUnwrap(URLComponents(url: ProjectLinks.newIssue(.featureRequest),
+                                                  resolvingAgainstBaseURL: false))
+        XCTAssertEqual(feature.path, "/apoorvdarshan/abysm/issues/new")
+        XCTAssertEqual(feature.queryItems, [URLQueryItem(name: "template", value: "feature_request.yml")],
+                       "a feature request carries no device details")
+
+        XCTAssertFalse(ProjectLinks.appVersion.contains("?"), ProjectLinks.appVersion)
+        XCTAssertTrue(ProjectLinks.deviceOS.contains(UIDevice.current.systemVersion), ProjectLinks.deviceOS)
+        for icon in ["ui_github", "ui_bug", "ui_feature"] {
+            XCTAssertNotNil(UIImage(named: icon), icon)
+        }
+    }
+
     func testStoreIdentifiersRemainStable() {
         XCTAssertEqual(StoreManager.productID, "com.apoorvdarshan.Abysm.unlockdeep")
         XCTAssertEqual(StoreManager.entitlementID, "deep")
@@ -62,6 +89,7 @@ final class AbysmTests: XCTestCase {
     private func localizationKeys() -> [String] {
         var keys = [
             "title.tagline", "menu.continue", "menu.new_game", "menu.sound_on", "menu.sound_off",
+            "menu.github", "menu.report_bug", "menu.request_feature",
             "pause.title", "pause.resume", "pause.main_menu",
             "paywall.title", "paywall.body", "paywall.unlock", "paywall.restore",
             "paywall.keep_exploring", "paywall.purchasing", "paywall.pending",
