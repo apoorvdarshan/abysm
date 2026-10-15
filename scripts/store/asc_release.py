@@ -1124,8 +1124,19 @@ def ensure_ios_app_store_version(client: Any, *, bundle_id: str, version_string:
             }
         },
     )
-    created = get_ios_app_store_version(client, app_id, version_string)
-    print(f"created App Store version {version_string} ({version_state(created) or 'state not reported yet'})")
+    # Read back with its own check: the version was just created, so the generic
+    # "version is missing" advice (turn on IOS_CREATE_VERSION) would be wrong here.
+    created = [
+        row
+        for row in list_ios_app_store_versions(client, app_id)
+        if (row.get("attributes") or {}).get("versionString") == version_string
+    ]
+    if len(created) != 1:
+        fail(
+            f"created App Store version {version_string}, but reading it back found {len(created)} records; "
+            "check it in App Store Connect before rerunning"
+        )
+    print(f"created App Store version {version_string} ({version_state(created[0]) or 'state not reported yet'})")
 
 
 def check_version_state(
@@ -1182,6 +1193,9 @@ def main() -> None:
             return
         if not args.version:
             fail("--create-version needs --version (the marketing version from the tag)")
+        # Checked before the dry run returns, so a dry run rejects what a live run would.
+        if version_key(args.version) is None:
+            fail(f"version {args.version!r} must look like 1.0 or 1.0.1")
         if args.dry_run:
             print(f"App Store Connect dry run — would create App Store version {args.version} if it is missing")
             return

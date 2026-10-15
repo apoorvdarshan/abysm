@@ -1765,12 +1765,28 @@ class CreateVersionTests(unittest.TestCase):
         self.assertEqual(fake.calls[-1][0], "GET", "the created version must be read back")
         self.assertIn(f"created App Store version {VERSION} (PREPARE_FOR_SUBMISSION)", output)
 
-    def test_a_created_version_that_does_not_read_back_fails(self) -> None:
-        fake = FakeAsc(version_exists=False)
-        fake.post = lambda path, body: fake.calls.append(("POST", path)) or {"data": {"id": "V1"}}  # type: ignore[method-assign]
-        code, output = self.create(fake)
-        self.assertEqual(code, 1)
-        self.assertIn(f"no iOS App Store version {VERSION!r}", output)
+    def test_a_created_version_that_does_not_read_back_once_fails_naming_it(self) -> None:
+        # Not listed yet (0 records) or listed twice (2 records): the run stops and
+        # points at App Store Connect, not at the switch that is already on.
+        for listed in (0, 2):
+            with self.subTest(listed=listed):
+                fake = FakeAsc(version_exists=False)
+
+                def post(path: str, body: dict, fake: FakeAsc = fake, listed: int = listed) -> dict:
+                    fake.calls.append(("POST", path))
+                    fake.bodies.append(("POST", path, body))
+                    fake.version_exists = listed == 2
+                    if listed == 2:
+                        fake.other_versions = [*fake.other_versions, (VERSION, "PREPARE_FOR_SUBMISSION")]
+                    return {"data": {"id": "V1"}}
+
+                fake.post = post  # type: ignore[method-assign]
+                code, output = self.create(fake)
+                self.assertEqual(code, 1)
+                self.assertIn(f"created App Store version {VERSION}, but reading it back found {listed} records; "
+                              "check it in App Store Connect before rerunning", output)
+                self.assertNotIn("turn on IOS_CREATE_VERSION", output)
+                self.assertEqual(fake.writes(), [("POST", "/appStoreVersions")])
 
     def test_another_version_on_its_way_blocks_creation(self) -> None:
         for state in ("PREPARE_FOR_SUBMISSION", "WAITING_FOR_REVIEW", "IN_REVIEW", "PENDING_DEVELOPER_RELEASE",
@@ -1820,6 +1836,16 @@ class CreateVersionTests(unittest.TestCase):
                 code, output = self.create(fake, version=bad)
                 self.assertEqual(code, 1)
                 self.assertIn("must look like 1.0 or 1.0.1", output)
+                self.assertEqual(fake.calls, [])
+
+    def test_dry_run_rejects_a_bad_version_like_a_live_run(self) -> None:
+        for bad in ("1.0.1-beta", "v1.0.1", "1.0.1.2", "١.٠"):
+            with self.subTest(bad=bad):
+                fake = FakeAsc(version_exists=False)
+                code, output = self.create(fake, None, "--dry-run", version=bad)
+                self.assertEqual(code, 1)
+                self.assertIn("must look like 1.0 or 1.0.1", output)
+                self.assertNotIn("would create", output)
                 self.assertEqual(fake.calls, [])
 
     def test_dry_run_preflight_and_missing_version_make_no_calls(self) -> None:
