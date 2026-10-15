@@ -137,6 +137,9 @@ The tag runs the tests, then the **iOS Release** workflow, which uploads, update
 - **Terms:** [abysm.apoorvdarshan.com/#terms](https://abysm.apoorvdarshan.com/#terms)
 - **Email support:** [ad13dtu@gmail.com](mailto:ad13dtu@gmail.com?subject=ABYSM%20Support)
 - **Email Apoorv:** [apoorvdarshan@gmail.com](mailto:apoorvdarshan@gmail.com?subject=ABYSM%20Support)
+- **Source code:** [github.com/apoorvdarshan/abysm](https://github.com/apoorvdarshan/abysm) — a ⭐ helps
+- **Report a bug:** [bug report form](https://github.com/apoorvdarshan/abysm/issues/new?template=bug_report.yml)
+- **Request a feature:** [feature request form](https://github.com/apoorvdarshan/abysm/issues/new?template=feature_request.yml)
 - **X:** [@apoorvdarshan](https://x.com/apoorvdarshan)
 - **Instagram:** [@apoorvgames](https://www.instagram.com/apoorvgames/)
 - **Product Hunt:** [Upvote for ABYSM](https://www.producthunt.com/products/abysm)

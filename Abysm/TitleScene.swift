@@ -42,7 +42,7 @@ final class TitleScene: SKScene {
     private var soundLbl: SKLabelNode?
     private let plankton = Particles.plankton()
 
-    // Legal, App Store, contact, and developer links — compact icon dock, right side.
+    // Legal, App Store, contact, developer and open-source links — compact icon dock, right side.
     private let privacyBtn = AccessibleButtonNode()
     private let termsBtn = AccessibleButtonNode()
     private let rateBtn = AccessibleButtonNode()
@@ -52,6 +52,9 @@ final class TitleScene: SKScene {
     private let followDeveloperBtn = AccessibleButtonNode()
     private let instagramBtn = AccessibleButtonNode()
     private let productHuntBtn = AccessibleButtonNode()
+    private let githubBtn = AccessibleButtonNode()
+    private let reportBugBtn = AccessibleButtonNode()
+    private let requestFeatureBtn = AccessibleButtonNode()
 
     private let btnW: CGFloat = 250, btnH: CGFloat = 46
     private let infoTileSize: CGFloat = 42
@@ -110,6 +113,9 @@ final class TitleScene: SKScene {
         infoIcon(followDeveloperBtn, image: "ui_follow_x", name: "@APOORVDARSHAN")
         infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVGAMES")
         infoIcon(productHuntBtn, image: "ui_product_hunt", name: "VOTE ON PRODUCT HUNT", iconSize: 38)
+        infoIcon(githubBtn, image: "ui_github", name: L("menu.github", "STAR ON GITHUB"), iconSize: 32)
+        infoIcon(reportBugBtn, image: "ui_bug", name: L("menu.report_bug", "REPORT A BUG"))
+        infoIcon(requestFeatureBtn, image: "ui_feature", name: L("menu.request_feature", "REQUEST A FEATURE"))
 
         privacyBtn.activationHandler = { [weak self] in self?.openWebSection("privacy") }
         termsBtn.activationHandler = { [weak self] in self?.openWebSection("terms") }
@@ -120,6 +126,9 @@ final class TitleScene: SKScene {
         followDeveloperBtn.activationHandler = { [weak self] in self?.openDeveloperProfile() }
         instagramBtn.activationHandler = { [weak self] in self?.openInstagramProfile() }
         productHuntBtn.activationHandler = { [weak self] in self?.openProductHunt() }
+        githubBtn.activationHandler = { [weak self] in self?.openOnGitHub(ProjectLinks.repository) }
+        reportBugBtn.activationHandler = { [weak self] in self?.openOnGitHub(ProjectLinks.newIssue(.bugReport)) }
+        requestFeatureBtn.activationHandler = { [weak self] in self?.openOnGitHub(ProjectLinks.newIssue(.featureRequest)) }
 
         // Ordered list for controller navigation (matches the visible buttons).
         if SaveManager.hasSave { items.append((continueBtn, { [weak self] in self?.continueGame() })) }
@@ -134,6 +143,9 @@ final class TitleScene: SKScene {
         items.append((followDeveloperBtn, { [weak self] in self?.openDeveloperProfile() }))
         items.append((instagramBtn, { [weak self] in self?.openInstagramProfile() }))
         items.append((productHuntBtn, { [weak self] in self?.openProductHunt() }))
+        items.append((githubBtn, { [weak self] in self?.openOnGitHub(ProjectLinks.repository) }))
+        items.append((reportBugBtn, { [weak self] in self?.openOnGitHub(ProjectLinks.newIssue(.bugReport)) }))
+        items.append((requestFeatureBtn, { [weak self] in self?.openOnGitHub(ProjectLinks.newIssue(.featureRequest)) }))
         highlightSelected()
 
         plankton.zPosition = 2
@@ -260,17 +272,19 @@ final class TitleScene: SKScene {
         newGameBtn.position = CGPoint(x: 0, y: y); y -= gap
         soundBtn.position = CGPoint(x: 0, y: y)
 
-        // Secondary actions form a compact 3 × 3 instrument dock on the right.
+        // Secondary actions form a compact 3 × 4 instrument dock on the right.
         let insets = view?.safeAreaInsets ?? .zero
         let dock = [privacyBtn, termsBtn, rateBtn,
                     shareBtn, contactAd13dtuBtn, contactApoorvBtn,
-                    followDeveloperBtn, instagramBtn, productHuntBtn]
+                    followDeveloperBtn, instagramBtn, productHuntBtn,
+                    githubBtn, reportBugBtn, requestFeatureBtn]
+        let rows = CGFloat((dock.count + 2) / 3)
         let stride = infoTileSize + infoTileGap
         let dockWidth = infoTileSize * 3 + infoTileGap * 2
         let dockCenterX = w / 2 - insets.right - dockWidth / 2 - 13
         for (index, node) in dock.enumerated() {
             let column = CGFloat(index % 3) - 1
-            let row = 1 - CGFloat(index / 3)
+            let row = (rows - 1) / 2 - CGFloat(index / 3)
             node.position = CGPoint(x: dockCenterX + column * stride, y: row * stride)
         }
     }
@@ -291,6 +305,9 @@ final class TitleScene: SKScene {
         if hitNode(followDeveloperBtn, p) { openDeveloperProfile(); return }
         if hitNode(instagramBtn, p) { openInstagramProfile(); return }
         if hitNode(productHuntBtn, p) { openProductHunt(); return }
+        if hitNode(githubBtn, p) { openOnGitHub(ProjectLinks.repository); return }
+        if hitNode(reportBugBtn, p) { openOnGitHub(ProjectLinks.newIssue(.bugReport)); return }
+        if hitNode(requestFeatureBtn, p) { openOnGitHub(ProjectLinks.newIssue(.featureRequest)); return }
         if !continueBtn.isHidden, hit(continueBtn, p) { continueGame() }
         else if hit(newGameBtn, p) { newGame() }
         else if hit(soundBtn, p) { toggleSound() }
@@ -410,6 +427,13 @@ final class TitleScene: SKScene {
     private func openProductHunt() {
         AudioManager.shared.playClick()
         guard let url = URL(string: "https://www.producthunt.com/products/abysm") else { return }
+        UIApplication.shared.open(url)
+    }
+
+    /// Open ABYSM's GitHub repository or one of its issue forms, handing off to the
+    /// GitHub app when installed so the player is signed in to star or report.
+    private func openOnGitHub(_ url: URL) {
+        AudioManager.shared.playClick()
         UIApplication.shared.open(url)
     }
 
