@@ -126,7 +126,8 @@ final class AbysmUITests: XCTestCase {
     func testUnlockedDiveContinuesPastTheGate() {
         launch(savedDepth: 1200, unlocked: true)
         tap(waitForEnabled(button("CONTINUE")))
-        waitForLabel(depthHUD(), "Depth 1200 meters, MIDNIGHT ZONE")
+        // The spoken read-out groups digits the locale's way (en_US: "1,200").
+        waitForLabel(depthHUD(), "Depth 1,200 meters, MIDNIGHT ZONE")
         XCTAssertFalse(button("UNLOCK").isEnabled, "an unlocked diver never meets the gate")
     }
 

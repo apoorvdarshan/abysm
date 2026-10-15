@@ -60,6 +60,7 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(try spoken("ja", 650), "深さ650メートル、ZONE")
         XCTAssertEqual(try spoken("en", 1), "Depth 1 meter, ZONE")
         XCTAssertEqual(try spoken("en", 650), "Depth 650 meters, ZONE")
+        XCTAssertEqual(try spoken("en", 10935), "Depth 10,935 meters, ZONE", "numbers are grouped for the locale")
     }
 
     func testResumedDiveOffersTheHeadlampFromItsFirstFrame() throws {
