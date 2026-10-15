@@ -426,7 +426,7 @@ final class TitleScene: SKScene {
     /// Open ABYSM's Product Hunt page.
     private func openProductHunt() {
         AudioManager.shared.playClick()
-        guard let url = URL(string: "https://www.producthunt.com/products/abysm") else { return }
+        guard let url = URL(string: "https://www.producthunt.com/products/abysm-2/") else { return }
         UIApplication.shared.open(url)
     }
 

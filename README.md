@@ -142,7 +142,7 @@ The tag runs the tests, then the **iOS Release** workflow, which uploads, update
 - **Request a feature:** [feature request form](https://github.com/apoorvdarshan/abysm/issues/new?template=feature_request.yml)
 - **X:** [@apoorvdarshan](https://x.com/apoorvdarshan)
 - **Instagram:** [@apoorvcodes](https://www.instagram.com/apoorvcodes/)
-- **Product Hunt:** [Upvote for ABYSM](https://www.producthunt.com/products/abysm)
+- **Product Hunt:** [Upvote for ABYSM](https://www.producthunt.com/products/abysm-2/)
 
 ## 🔒 Privacy
 
