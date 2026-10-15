@@ -309,17 +309,16 @@ COMPLIANCE_PBX = """
 		BBB /* Release */ = {{
 			isa = XCBuildConfiguration;
 			buildSettings = {{
-{release}				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.Abysm;
+{release}				PRODUCT_BUNDLE_IDENTIFIER = {release_bundle};
 			}};
 			name = Release;
 		}};
-		CCC /* Debug */ = {{
+		CCC /* Release */ = {{
 			isa = XCBuildConfiguration;
 			buildSettings = {{
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.AbysmTests;
+{other}				PRODUCT_BUNDLE_IDENTIFIER = com.apoorvdarshan.AbysmTests;
 			}};
-			name = Debug;
+			name = Release;
 		}};
 """
 NO = "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO"
@@ -331,8 +330,10 @@ PLIST_FILE = "INFOPLIST_FILE = Abysm/Info.plist"
 class ExportComplianceTests(unittest.TestCase):
     """ITSAppUsesNonExemptEncryption must be declared, or App Store Connect asks about every build."""
 
-    def project(self, debug: list[str], release: list[str] | None = None, plist: dict | None = None) -> Path:
-        """A temporary project (app Debug/Release + a test target) and, if given, its Abysm/Info.plist."""
+    def project(self, debug: list[str], release: list[str] | None = None, plist: dict | None = None, *,
+                other: tuple[str, ...] = ("INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = YES",),
+                release_bundle: str = "com.apoorvdarshan.Abysm") -> Path:
+        """A temporary project (app Debug/Release + a test target with `other` settings) and its Abysm/Info.plist."""
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
@@ -342,7 +343,8 @@ class ExportComplianceTests(unittest.TestCase):
         lines = lambda settings: "".join(f"\t\t\t\t{line};\n" for line in settings)  # noqa: E731
         pbxproj = root / "Abysm.xcodeproj" / "project.pbxproj"
         pbxproj.parent.mkdir()
-        pbxproj.write_text(COMPLIANCE_PBX.format(debug=lines(debug), release=lines(debug if release is None else release)))
+        pbxproj.write_text(COMPLIANCE_PBX.format(debug=lines(debug), release=lines(debug if release is None else release),
+                                                 other=lines(other), release_bundle=release_bundle))
         return pbxproj
 
     def check(self, *args, **kwargs) -> str:
@@ -358,6 +360,7 @@ class ExportComplianceTests(unittest.TestCase):
         return path
 
     def test_the_real_app_declares_no_non_exempt_encryption(self) -> None:
+        self.assertEqual(sorted(ios_release.app_build_configurations()), ["Debug", "Release"])
         self.assertEqual(ios_release.check_export_compliance(), "NO")
         with (ROOT / "Abysm" / "Info.plist").open("rb") as handle:
             self.assertIs(plistlib.load(handle)[ios_release.ENCRYPTION_KEY], False)
@@ -377,6 +380,27 @@ class ExportComplianceTests(unittest.TestCase):
                 self.check([PLIST_FILE], release, plist={"UILaunchScreen": {}})
         with self.assertRaisesRegex(ReleaseError, "does not declare export compliance"):
             self.check(["INFOPLIST_KEY_CFBundleDisplayName = ABYSM"])
+
+    def test_a_value_set_only_for_debug_or_only_on_another_target_fails(self) -> None:
+        # Debug alone, or Release alone, never stands in for the other configuration.
+        with self.assertRaisesRegex(ReleaseError, r"does not declare export compliance \(Release\)"):
+            self.check([NO], [])
+        with self.assertRaisesRegex(ReleaseError, r"does not declare export compliance \(Debug\)"):
+            self.check([], [NO])
+        # Another target's answer (here the tests' Release configuration) is not the app's.
+        with self.assertRaisesRegex(ReleaseError, r"does not declare export compliance \(Debug, Release\)"):
+            self.check([], other=(NO,))
+        self.assertEqual(self.check([NO], other=(YES,)), "NO")  # the tests' YES without a code is ignored
+
+    def test_both_app_configurations_must_exist(self) -> None:
+        # A Release configuration that does not build the app's bundle id cannot be
+        # checked, so a Debug-only answer never passes for it.
+        for bundle in ("$(APP_BUNDLE_ID)", "com.apoorvdarshan.Abysm.dev"):
+            with self.subTest(bundle=bundle), self.assertRaisesRegex(
+                    ReleaseError, r"could not find the Debug and Release configurations .*found \['Debug'\]"):
+                self.check([NO], release_bundle=bundle)
+        with self.assertRaisesRegex(ReleaseError, "no build configuration builds com.example.Other"):
+            ios_release.check_export_compliance(self.project([NO]), bundle_id="com.example.Other")
 
     def test_yes_needs_the_compliance_code(self) -> None:
         with self.assertRaisesRegex(ReleaseError, "needs ITSEncryptionExportComplianceCode"):
