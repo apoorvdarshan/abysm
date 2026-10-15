@@ -36,7 +36,7 @@ final class AbysmUITests: XCTestCase {
         XCTAssertTrue(button("SOUND: ON").isEnabled)
         XCTAssertFalse(button("CONTINUE").isEnabled, "a first launch has no dive to continue")
         for link in ["PRIVACY", "TERMS", "RATE", "SHARE", "CONTACT 1", "CONTACT 2",
-                     "@APOORVDARSHAN", "@APOORVGAMES", "VOTE ON PRODUCT HUNT",
+                     "@APOORVDARSHAN", "@APOORVCODES", "VOTE ON PRODUCT HUNT",
                      "STAR ON GITHUB", "REPORT A BUG", "REQUEST A FEATURE"] {
             XCTAssertTrue(button(link).isEnabled, link)
         }
@@ -126,7 +126,8 @@ final class AbysmUITests: XCTestCase {
     func testUnlockedDiveContinuesPastTheGate() {
         launch(savedDepth: 1200, unlocked: true)
         tap(waitForEnabled(button("CONTINUE")))
-        waitForLabel(depthHUD(), "Depth 1200 meters, MIDNIGHT ZONE")
+        // The spoken read-out groups digits the locale's way (en_US: "1,200").
+        waitForLabel(depthHUD(), "Depth 1,200 meters, MIDNIGHT ZONE")
         XCTAssertFalse(button("UNLOCK").isEnabled, "an unlocked diver never meets the gate")
     }
 

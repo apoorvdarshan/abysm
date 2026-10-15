@@ -217,7 +217,7 @@ final class GameScene: SKScene {
         cameraNode.addChild(flashBtn)
         flashBtn.setPressed(flashlightOn)   // reflect the default-on state
         flashBtn.isHidden = true            // shown once below the sunlit zone (updateDepthEffects)
-        flashBtn.configureAccessibility(label: "Toggle headlamp")
+        flashBtn.configureAccessibility(label: L("a11y.headlamp", "Toggle headlamp"))
         flashBtn.accessibilityAction = { [weak self] in self?.toggleFlashlight() }
 
         // "Rise to the surface" button (top-left) with a pixel up-arrow glyph.
@@ -225,7 +225,7 @@ final class GameScene: SKScene {
         upArrow.size = CGSize(width: 18, height: 15)
         upArrow.zPosition = 3
         surfaceBtn.addChild(upArrow)
-        surfaceBtn.configureAccessibility(label: "Rise to surface")
+        surfaceBtn.configureAccessibility(label: L("a11y.rise", "Rise to surface"))
         surfaceBtn.accessibilityAction = { [weak self] in self?.beginAscent() }
         cameraNode.addChild(surfaceBtn)
 
@@ -238,7 +238,7 @@ final class GameScene: SKScene {
         muteIcon.size = CGSize(width: 24, height: 16)
         muteIcon.zPosition = 3
         muteBtn.addChild(muteIcon)
-        muteBtn.configureAccessibility(label: "Mute or unmute sound")
+        muteBtn.configureAccessibility(label: L("a11y.mute", "Mute or unmute sound"))
         muteBtn.accessibilityAction = { [weak self] in self?.toggleMute() }
         cameraNode.addChild(muteBtn)
 
@@ -247,7 +247,7 @@ final class GameScene: SKScene {
         pauseIcon.size = CGSize(width: 18, height: 21)
         pauseIcon.zPosition = 3
         pauseBtn.addChild(pauseIcon)
-        pauseBtn.configureAccessibility(label: "Pause")
+        pauseBtn.configureAccessibility(label: L("a11y.pause", "Pause"))
         pauseBtn.accessibilityAction = { [weak self] in self?.openPause() }
         cameraNode.addChild(pauseBtn)
         buildPauseOverlay()
