@@ -16,6 +16,7 @@
 </p>
 
 <p align="center">
+  <a href="https://www.bestpractices.dev/projects/15505"><img alt="OpenSSF Best Practices" src="https://www.bestpractices.dev/projects/15505/badge" /></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/apoorvdarshan/abysm"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/apoorvdarshan/abysm/badge" /></a>
 </p>
 
