@@ -143,7 +143,6 @@ The tag runs the tests, then the **iOS Release** workflow, which uploads, update
 - **X:** [@apoorvdarshan](https://x.com/apoorvdarshan)
 - **Instagram:** [@apoorvgames](https://www.instagram.com/apoorvgames/)
 - **Product Hunt:** [Upvote for ABYSM](https://www.producthunt.com/products/abysm)
-- **TrustMRR:** [ABYSM on TrustMRR](https://trustmrr.com/startup/abysm-dive-the-deep-sea)
 
 ## 🔒 Privacy
 
