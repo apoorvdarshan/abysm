@@ -22,6 +22,10 @@ v1.0.1 tag ─► unit + UI tests (ios-tests.yml) ─► resolve switches
   │              empty or duplicated)
   └─ IOS_RELEASE_AUTOMATION off ─► GitHub Release only
   └─ on:
+       IOS_CREATE_VERSION ─► create the 1.0.1 App Store version if it is missing (an
+                             existing one is left alone; refuses, without writing, when
+                             another version is still on its way to the store or 1.0.1
+                             is not newer than every existing version)
        listing / What's New / screenshot / review switch on
                         ─► read-only preflight: the 1.0.1 App Store version exists and
                            its state, locales and due catalog products allow those steps
@@ -101,9 +105,10 @@ A manual **Run workflow** (`workflow_dispatch`) is a validation run: it archives
 with the CI signing identity, exports with cloud-managed distribution signing
 and validates the IPA with App Store Connect (`altool --validate-app`). It never
 uploads, edits the listing, submits or creates a GitHub Release, whatever the
-switches say. Apple refuses versions it has already approved, so fill in the
-optional **marketing_version** input with the next version (e.g. `1.0.1`); the
-build is validated as that version without changing the project.
+switches say, and never creates an App Store version. Apple refuses versions it
+has already approved, so fill in the optional **marketing_version** input with
+the next version (e.g. `1.0.1`); the build is validated as that version without
+changing the project.
 
 Submission stops instead of continuing when the build times out, fails
 processing, is expired, is ambiguous, belongs to another app or version, was
@@ -121,6 +126,7 @@ run, even when the master switch is off. Copy names from
 | Variable | When `true` |
 |----------|-------------|
 | `IOS_RELEASE_AUTOMATION` | Master switch. When off, every operation below is skipped and a tag only gets its GitHub Release |
+| `IOS_CREATE_VERSION` | Create the tag's App Store version (Prepare for Submission) when App Store Connect does not have it, before the preflight; the version is read back before the run continues. An existing version is left alone. Refuses, before anything is built and without writing, when another version is still on its way to the store (anything but Ready for Distribution, replaced or removed), the tag is not newer than every existing version, the bundle id resolves to another app, or the version is not a plain `1.0` / `1.0.1`. Tag runs only |
 | `IOS_UPLOAD_BUILD` | Build, sign and upload the binary to App Store Connect, then wait until it is processed |
 | `IOS_UPLOAD_LISTING` | Version text (description, keywords, promotional text, marketing and support URLs) and App Info (name, subtitle, privacy policy URL) from `store/metadata/ios/<locale>/`. Only changed fields are sent |
 | `IOS_UPLOAD_WHATS_NEW` | What's New from `store/metadata/ios/<locale>/whats_new.txt` (required for every locale when on) |
@@ -131,12 +137,16 @@ run, even when the master switch is off. Copy names from
 | `IOS_BUILD_WAIT_MINUTES` | Total wait, counted from upload start (upload + processing): default 120, 10–300 |
 
 Listing, What's New, screenshots and submission need the App Store version for
-the tag's version: create it (e.g. 1.0.1) in App Store Connect first and leave it
-in Prepare for Submission. With any of those switches on, a read-only preflight
-in the prepare job checks the version before anything is built, so a missing or
-locked version (or a missing localization, or a catalog product due for review
-that cannot be attached) fails the run before a binary is uploaded. A build-only
-release (`IOS_UPLOAD_BUILD` alone) does not need the version.
+the tag's version (e.g. 1.0.1) to exist in an editable state. With
+`IOS_CREATE_VERSION` on, the tag run creates a missing one itself (in Prepare for
+Submission) before the preflight; otherwise create it in App Store Connect first
+and leave it in Prepare for Submission. A version created by a run whose later
+steps fail stays in Prepare for Submission, and the next run for the same tag
+reuses it. With any of those switches on, a read-only preflight in the prepare
+job checks the version before anything is built, so a missing or locked version
+(or a missing localization, or a catalog product due for review that cannot be
+attached) fails the run before a binary is uploaded. A build-only release
+(`IOS_UPLOAD_BUILD` alone) does not need the version.
 
 ## Secrets
 
@@ -228,12 +238,12 @@ attached, the version is not submitted.
 | Script | Role |
 |--------|------|
 | [`scripts/store/ios_release.py`](../scripts/store/ios_release.py) | Switches and tag rule, build number, wait for this run's build |
-| [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Listing, What's New, screenshots, build selection, products, App Review |
+| [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Version creation (`--create-version`), read-only preflight (`--preflight`), listing, What's New, screenshots, build selection, products, App Review |
 | [`scripts/store/export_listing.py`](../scripts/store/export_listing.py) | Read-only export of the App Store listing into `store/metadata/` |
 | [`scripts/store/validate_catalog.py`](../scripts/store/validate_catalog.py) | Catalog vs. StoreKit file vs. app code |
 | [`scripts/store/print_gates.py`](../scripts/store/print_gates.py) | Print the switches, showing invalid values as `INVALID` (never touches a store) |
 | [`scripts/store/redact_logs.py`](../scripts/store/redact_logs.py) | Redact the App Store Connect key/issuer IDs from failed-build logs before they become an artifact |
-| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, token refresh, listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
+| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, version creation (only when missing, never next to a version still on its way to the store or older than an existing one), preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, token refresh, listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
 | [`scripts/release_notes.py`](../scripts/release_notes.py) | GitHub Release notes from the matching `RELEASE_NOTES.md` section (else GitHub generates them); a duplicated section fails |
 
 [`requirements-store.txt`](../requirements-store.txt) (PyJWT, hash-pinned) is
@@ -249,11 +259,12 @@ and again before every release run.
    pipeline always uses at least one more than App Store Connect's highest build).
 2. Before relying on signing changes, run **iOS Release → Run workflow** with the
    new version (validation only).
-3. **Create the 1.0.1 App Store version in App Store Connect first** (iOS App →
-   add version, leave it in Prepare for Submission) whenever a listing, What's
-   New, screenshot or review switch is on; the preflight fails the tag run before
-   the build without it. Then update `store/metadata/` and add `whats_new.txt`;
-   optionally add one `## v1.0.1` section to `RELEASE_NOTES.md`.
+3. Whenever a listing, What's New, screenshot or review switch is on, the 1.0.1
+   App Store version must exist. With `IOS_CREATE_VERSION` on, the tag run
+   creates it; otherwise **create it in App Store Connect first** (iOS App → add
+   version, leave it in Prepare for Submission). The preflight fails the tag run
+   before the build without it. Then update `store/metadata/` and add
+   `whats_new.txt`; optionally add one `## v1.0.1` section to `RELEASE_NOTES.md`.
 4. Turn on only the switches you want (the master switch plus each operation).
    Leave `IOS_SUBMIT_REVIEW` and `IOS_PUBLIC_RELEASE` off until you intend that release.
 5. Push the tag: `git tag -a v1.0.1 -m "ABYSM 1.0.1" && git push origin v1.0.1`.
