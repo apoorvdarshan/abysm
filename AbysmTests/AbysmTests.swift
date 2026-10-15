@@ -42,7 +42,7 @@ final class AbysmTests: XCTestCase {
             "pl", "pt-BR", "ru", "tr", "zh-Hans", "zh-Hant",
         ]
         let keys = localizationKeys()
-        XCTAssertEqual(keys.count, 198)
+        XCTAssertEqual(keys.count, 209)
 
         for locale in locales {
             let url = try XCTUnwrap(Bundle.main.url(forResource: locale, withExtension: "lproj"), locale)
@@ -90,6 +90,8 @@ final class AbysmTests: XCTestCase {
         var keys = [
             "title.tagline", "menu.continue", "menu.new_game", "menu.sound_on", "menu.sound_off",
             "menu.github", "menu.report_bug", "menu.request_feature",
+            "menu.privacy", "menu.terms", "menu.rate", "menu.share", "menu.contact", "menu.product_hunt",
+            "a11y.headlamp", "a11y.rise", "a11y.mute", "a11y.pause", "hud.depth_spoken",
             "pause.title", "pause.resume", "pause.main_menu",
             "paywall.title", "paywall.body", "paywall.unlock", "paywall.restore",
             "paywall.keep_exploring", "paywall.purchasing", "paywall.pending",

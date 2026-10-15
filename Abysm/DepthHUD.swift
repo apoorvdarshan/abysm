@@ -56,14 +56,17 @@ final class DepthHUD: SKNode {
     /// Rebuild the one-line label (meter in white, zone in cyan) and fit the pill.
     private func refresh() {
         let m = lastMeters == Int.min ? 0 : lastMeters
-        let z = lastZone.isEmpty ? "SUNLIGHT ZONE" : lastZone
+        let z = lastZone.isEmpty ? L("zone.sunlight.name", "SUNLIGHT ZONE") : lastZone
         let font = GameFont.uiFont(size: 11)
         let s = NSMutableAttributedString(string: "\(m)M",
                                           attributes: [.font: font, .foregroundColor: UIColor.white])
         s.append(NSAttributedString(string: "   \(z)",
                                     attributes: [.font: font, .foregroundColor: Palette.rgb(150, 236, 232)]))
         label.attributedText = s
-        accessibilityLabel = "Depth \(m) meters, \(z)"
+        // Spoken read-out; the catalog gives each language its plural forms of "meters".
+        accessibilityLabel = String.localizedStringWithFormat(
+            NSLocalizedString("hud.depth_spoken", value: "Depth %lld meters, %@", comment: "VoiceOver depth read-out"),
+            m, z)
 
         let w = label.frame.width + 26
         let h: CGFloat = 28

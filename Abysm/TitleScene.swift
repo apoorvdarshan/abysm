@@ -108,11 +108,11 @@ final class TitleScene: SKScene {
         infoIcon(termsBtn, image: "ui_terms", name: L("menu.terms", "TERMS"))
         infoIcon(rateBtn, image: "ui_rate", name: L("menu.rate", "RATE"))
         infoIcon(shareBtn, image: "ui_share", name: L("menu.share", "SHARE"))
-        infoIcon(contactAd13dtuBtn, image: "ui_contact", name: "CONTACT 1", badge: "1")
-        infoIcon(contactApoorvBtn, image: "ui_contact", name: "CONTACT 2", badge: "2")
+        infoIcon(contactAd13dtuBtn, image: "ui_contact", name: String(format: L("menu.contact", "CONTACT %lld"), 1), badge: "1")
+        infoIcon(contactApoorvBtn, image: "ui_contact", name: String(format: L("menu.contact", "CONTACT %lld"), 2), badge: "2")
         infoIcon(followDeveloperBtn, image: "ui_follow_x", name: "@APOORVDARSHAN")
-        infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVGAMES")
-        infoIcon(productHuntBtn, image: "ui_product_hunt", name: "VOTE ON PRODUCT HUNT", iconSize: 38)
+        infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVCODES")
+        infoIcon(productHuntBtn, image: "ui_product_hunt", name: L("menu.product_hunt", "VOTE ON PRODUCT HUNT"), iconSize: 38)
         infoIcon(githubBtn, image: "ui_github", name: L("menu.github", "STAR ON GITHUB"), iconSize: 32)
         infoIcon(reportBugBtn, image: "ui_bug", name: L("menu.report_bug", "REPORT A BUG"))
         infoIcon(requestFeatureBtn, image: "ui_feature", name: L("menu.request_feature", "REQUEST A FEATURE"))
@@ -416,10 +416,10 @@ final class TitleScene: SKScene {
         UIApplication.shared.open(url)
     }
 
-    /// Open the ABYSM developer account on Instagram.
+    /// Open the developer's Instagram profile.
     private func openInstagramProfile() {
         AudioManager.shared.playClick()
-        guard let url = URL(string: "https://www.instagram.com/apoorvgames/") else { return }
+        guard let url = URL(string: "https://www.instagram.com/apoorvcodes/") else { return }
         UIApplication.shared.open(url)
     }
 

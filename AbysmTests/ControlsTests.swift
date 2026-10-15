@@ -41,6 +41,25 @@ final class ControlsTests: XCTestCase {
         XCTAssertEqual(hud.accessibilityLabel, "Depth 590 meters, TWILIGHT ZONE")
         hud.update(depthMeters: -4, zone: "SUNLIGHT ZONE")
         XCTAssertEqual(hud.accessibilityLabel, "Depth 0 meters, SUNLIGHT ZONE", "breaching reads as the surface")
+        hud.update(depthMeters: 1, zone: "SUNLIGHT ZONE")
+        XCTAssertEqual(hud.accessibilityLabel, "Depth 1 meter, SUNLIGHT ZONE")
+    }
+
+    func testDepthReadOutUsesEachLanguagesPluralForms() throws {
+        func spoken(_ language: String, _ meters: Int) throws -> String {
+            let url = try XCTUnwrap(Bundle.main.url(forResource: language, withExtension: "lproj"), language)
+            let bundle = try XCTUnwrap(Bundle(url: url), language)
+            let format = bundle.localizedString(forKey: "hud.depth_spoken", value: nil, table: nil)
+            return String(format: format, locale: Locale(identifier: language), meters, "ZONE")
+        }
+        XCTAssertEqual(try spoken("ru", 1), "Глубина 1 метр, ZONE")
+        XCTAssertEqual(try spoken("ru", 3), "Глубина 3 метра, ZONE")
+        XCTAssertEqual(try spoken("ru", 650), "Глубина 650 метров, ZONE")
+        XCTAssertEqual(try spoken("pl", 2), "Głębokość 2 metry, ZONE")
+        XCTAssertEqual(try spoken("pl", 5), "Głębokość 5 metrów, ZONE")
+        XCTAssertEqual(try spoken("ja", 650), "深さ650メートル、ZONE")
+        XCTAssertEqual(try spoken("en", 1), "Depth 1 meter, ZONE")
+        XCTAssertEqual(try spoken("en", 650), "Depth 650 meters, ZONE")
     }
 
     func testResumedDiveOffersTheHeadlampFromItsFirstFrame() throws {
