@@ -1159,6 +1159,8 @@ class FakeAsc:
             return {"data": list(self.items.get(flag(args, "--submission"), []))}
         if args[:2] == ("review", "items-add"):
             item_type, item_id = flag(args, "--item-type"), flag(args, "--item-id")
+            if flag(args, "--submission") in self.submitted:
+                raise asc_cli.AscError(args, 5, "STATE_ERROR: the review submission is no longer editable")
             if item_id in self.refuse_items:
                 raise asc_cli.AscError(args, 5, "conflict")
             relation = ITEM_TYPES[item_type]
@@ -1173,6 +1175,8 @@ class FakeAsc:
             if "--confirm" not in args:
                 raise AssertionError("submitting needs --confirm")
             submission = flag(args, "--id")
+            if submission in self.submitted:
+                raise asc_cli.AscError(args, 5, "STATE_ERROR: the review submission was already submitted")
             self.submitted.append(submission)
             if submission in self.drafts:
                 self.drafts.remove(submission)
@@ -2185,6 +2189,29 @@ class LiveSubmitFlowTests(MainFlow):
                 self.assertEqual(fake.writes(), [])
                 self.assertEqual((fake.attached, fake.release_type), ("OLD", None))
 
+    def test_a_stopped_submit_leaves_the_listing_text_alone_too(self) -> None:
+        # Text stays editable in READY_FOR_REVIEW, so the draft check must come
+        # before the listing update, not just before the build selection.
+        for drafts, items in ((("SUB1",), [review_item("P", "inAppPurchaseVersion", "IV1")]), ((), None)):
+            fake = FakeAsc(state="READY_FOR_REVIEW", version_text={**LIVE_TEXT, "description": "Old", "whatsNew": "Older"},
+                           info_text={"subtitle": "Old"}, drafts=drafts, items=items)
+            with self.subTest(drafts=drafts):
+                code, output = self.run_main(fake, TEXT_AND_SUBMIT)
+                self.assertEqual(code, 1, output)
+                self.assertIn(f"version {VERSION} is READY_FOR_REVIEW, but no draft review submission holds it", output)
+                self.assertEqual(fake.writes(), [])
+                self.assertEqual((fake.version_text["description"], fake.info_text["subtitle"]), ("Old", "Old"))
+
+    def test_the_creative_review_taking_the_empty_draft_does_not_stop_the_version(self) -> None:
+        # The version's draft is chosen before any write; an empty one can then be
+        # used, and submitted, by the creative images' own review.
+        fake = FakeAsc(drafts=("EMPTY",))
+        code, output = self.run_main(fake, {**SUBMIT_ONLY, **CREATIVE})
+        self.assertEqual(code, 0, output)
+        self.assertEqual(fake.submitted, ["EMPTY", "NEW"])
+        self.assertEqual([item_id for _, item_id in items_added(fake)], ["IMG1", "IMG2", "V1"])
+        self.assertEqual(flag([c for c in fake.calls if c[:2] == ("review", "items-add")][-1], "--submission"), "NEW")
+
     def test_the_draft_holding_this_version_is_chosen_over_others(self) -> None:
         other = [review_item("P", "inAppPurchaseVersion", "IV1")]
         mine = [review_item("V", "appStoreVersion", "V1")]
@@ -2443,6 +2470,15 @@ class PreflightTests(MainFlow):
                 code, output = self.preflight(fake, switches)
                 self.assertEqual(code, 1, output)
                 self.assertIn(message, output)
+
+    def test_a_ready_for_review_version_with_no_draft_holding_it_fails_the_preflight(self) -> None:
+        fake = FakeAsc(state="READY_FOR_REVIEW", drafts=())
+        code, output = self.preflight(fake, {**SUBMIT_ONLY, "UPLOAD_LISTING": "true"})
+        self.assertEqual(code, 1, output)
+        self.assertIn(f"version {VERSION} is READY_FOR_REVIEW, but no draft review submission holds it", output)
+        held = FakeAsc(state="READY_FOR_REVIEW", items=[review_item("V", "appStoreVersion", "V1")])
+        code, output = self.preflight(held, {**SUBMIT_ONLY, "UPLOAD_LISTING": "true"})
+        self.assertEqual(code, 0, output)
 
     def test_preflight_needs_no_build_and_dry_run_is_separate(self) -> None:
         code, output = self.preflight(FakeAsc(), SUBMIT_ONLY)

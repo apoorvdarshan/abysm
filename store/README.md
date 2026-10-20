@@ -341,14 +341,15 @@ item added by hand never rides along; a draft holding creative images belongs to
 their own review and is never used for the version. The draft that already holds
 this version is reused; otherwise only a draft holding no app version is, so
 another version's draft is never touched. A `READY_FOR_REVIEW` version that no
-draft holds stops the run before anything is written, even before the build is
-selected. A product never goes to App
-Review without the version: the deprecated `inAppPurchaseSubmissions` endpoint
-is never used, and neither is a product-only review submission. If a re-run
-finds the version already submitted while a catalog product is still Ready to
-Submit, it fails without writing. Unlock the Deep is already approved, so it is
-never resubmitted; products missing from the catalog are never submitted. If a
-required product cannot be attached, the version is not submitted.
+draft holds stops the run (and the preflight) before anything is written: the
+draft is checked before the listing text, screenshots, images or build are
+touched. A product never goes to App Review without the version: the deprecated
+`inAppPurchaseSubmissions` endpoint is never used, and neither is a product-only
+review submission. If a re-run finds the version already submitted while a
+catalog product is still Ready to Submit, it fails without writing. Unlock the
+Deep is already approved, so it is never resubmitted; products missing from the
+catalog are never submitted. If a required product cannot be attached, the
+version is not submitted.
 
 ## Scripts
 
