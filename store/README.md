@@ -291,9 +291,9 @@ are checked with the other local inputs before the build, so a wrong file stops
 the run early. An image is matched in the Asset Library by file name and size,
 so give a changed image a new file name. A reservation left by an interrupted
 upload (`AWAITING_UPLOAD`) is ignored and the image is uploaded again. Images
-never take an empty leftover draft (the version may have chosen it); an
-unfinished draft holding only these images is finished instead of starting
-another. Apple reviews each new image on its own
+never take the draft the version and its products chose. An unfinished draft
+holding only these images is finished first, else an empty one, instead of
+starting another, so a rerun leaves no extra drafts. Apple reviews each new image on its own
 (ABYSM already has an approved version): a run uploads it, sends it to App
 Review in a submission of its own, and a later run places it on the `en-US`
 product page (or swaps it in for the image already there) once it is approved. A
