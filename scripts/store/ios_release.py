@@ -62,6 +62,14 @@ UPLOAD_CLOCK_SKEW_SECONDS = 600
 # asc exit codes worth retrying: HTTP 408 (18) and 429 (39), any 5xx (60-99), and
 # a call that ran out of time (124). Auth, usage and not-found errors stop at once.
 TRANSIENT_ASC_EXIT_CODES = {18, 39, 124} | set(range(60, 100))
+# asc retries only 429/503 itself and reports a dropped connection as a generic
+# exit 1, so the build wait also retries exit 1 when asc's message is one of
+# these network failures (the wait stays bounded by its deadline).
+NETWORK_ERROR = re.compile(
+    r"connection reset|connection refused|broken pipe|unexpected EOF|i/o timeout|TLS handshake timeout"
+    r"|no such host|network is unreachable|server misbehaving|context deadline exceeded|Client\.Timeout",
+    re.IGNORECASE,
+)
 
 # App Store versions: 1.0, 1.0.1, … (ASCII digits only).
 VERSION_PATTERN = re.compile(r"[0-9]+(\.[0-9]+){0,2}")
@@ -482,8 +490,11 @@ def wait_for_build(
 
 
 def is_transient_error(exc: BaseException) -> bool:
-    """Apple server errors, rate limits and timeouts are retried; anything else stops."""
-    return getattr(exc, "exit_code", None) in TRANSIENT_ASC_EXIT_CODES
+    """Apple server errors, rate limits, timeouts and network drops are retried; anything else stops."""
+    code = getattr(exc, "exit_code", None)
+    if code in TRANSIENT_ASC_EXIT_CODES:
+        return True
+    return code == 1 and bool(NETWORK_ERROR.search(str(exc)))
 
 
 def call_with_retries(

@@ -105,8 +105,10 @@ that runs it:
   whole `prepare` job on validation runs. asc refuses a write in that mode
   before sending it (exit 6).
 - On failure the error keeps asc's exit code and drops the key and issuer IDs.
-  The build wait retries only asc's server-side exit codes (HTTP 5xx, 408, 429
-  and timeouts); auth, usage and not-found errors stop at once.
+  The build wait retries asc's server-side exit codes (HTTP 5xx, 408, 429 and
+  timeouts) and network drops, which asc reports as a generic exit 1 with a
+  connection error; auth, usage and not-found errors stop at once. asc itself
+  retries GET requests that hit 429 or 503 (`ASC_MAX_RETRIES=5`).
 
 The binary itself is still exported and uploaded by `xcodebuild`. To move to a
 newer asc, change `ASC_VERSION` and both `ASC_SHA256` values from that release's
@@ -260,6 +262,13 @@ before anything is uploaded. asc uploads a set with `asc screenshots upload
 images, and waits for Apple to process each one; the run then reads the set
 back.
 
+The images are uploaded exactly as committed, so export them as RGB PNGs: App
+Store Connect, and asc before it uploads, refuses a PNG that stores an alpha
+channel (colour types 4 and 6, or a `tRNS` chunk) even when every pixel is
+opaque. With `IOS_UPLOAD_SCREENSHOTS` on, the preflight and the store step stop
+on such a file before any App Store Connect call; the offline dry run (and so
+the **Store release checks** workflow) names them as a warning.
+
 ## Creative assets
 
 `IOS_UPLOAD_CREATIVE_ASSETS` (off) keeps the product page header and search
@@ -272,16 +281,17 @@ store/creative/ios/
   search-results/   one search results image, 3:2, 1920×1280 to 3840×2560
 ```
 
-Each folder takes one PNG or JPEG. An image is matched in the Asset Library by
-file name and size, so give a changed image a new file name. Apple reviews each
-new image on its own (ABYSM already has an approved version): a run uploads it,
-sends it to App Review in a submission of its own, and a later run places it on
-the `en-US` product page (or swaps it in for the image already there) once it
-is approved. A rejected image stops the run with Apple's reason. While the
-version is in a review submission nothing is uploaded, sent or placed: images
-already in place or in App Review pass, anything else fails the run. Apple's
-rules for these images: no prices, website addresses, other platforms or Apple
-badges, and no transparency.
+Each folder takes one PNG without an alpha channel, or a JPEG; an image that
+stores alpha stops the run before any App Store Connect call. An image is
+matched in the Asset Library by file name and size, so give a changed image a
+new file name. Apple reviews each new image on its own (ABYSM already has an
+approved version): a run uploads it, sends it to App Review in a submission of
+its own, and a later run places it on the `en-US` product page (or swaps it in
+for the image already there) once it is approved. A rejected image stops the run
+with Apple's reason. While the version is in a review submission nothing is
+uploaded, sent or placed: images already in place or in App Review pass,
+anything else fails the run. Apple's rules for these images: no prices, website
+addresses, other platforms or Apple badges, and no transparency.
 
 ## Export compliance
 
@@ -320,7 +330,10 @@ Review together with it, in the single submit after the final build recheck; if
 that recheck fails, nothing is submitted. A reused draft is submitted only when
 it holds this version and nothing else but versions of catalog products, so an
 item added by hand never rides along; a draft holding creative images belongs to
-their own review and is never used for the version. A product never goes to App
+their own review and is never used for the version. The draft that already holds
+this version is reused; otherwise only a draft holding no app version is, so
+another version's draft is never touched. A `READY_FOR_REVIEW` version that no
+draft holds stops the run before anything is added. A product never goes to App
 Review without the version: the deprecated `inAppPurchaseSubmissions` endpoint
 is never used, and neither is a product-only review submission. If a re-run
 finds the version already submitted while a catalog product is still Ready to
@@ -333,13 +346,13 @@ required product cannot be attached, the version is not submitted.
 | Script | Role |
 |--------|------|
 | [`scripts/store/ios_release.py`](../scripts/store/ios_release.py) | Switches and tag rule, export compliance check (project and archived app), build number, wait for this run's build (asc read-only) |
-| [`scripts/store/asc_cli.py`](../scripts/store/asc_cli.py) | Installs the pinned, checksum-verified `asc` and runs it (credentials, read-only mode, telemetry off, redacted errors) |
+| [`scripts/store/asc_cli.py`](../scripts/store/asc_cli.py) | Installs the pinned, checksum-verified `asc` and runs it (credentials, read-only mode, telemetry off, redacted errors); tells whether a PNG stores alpha, which asc refuses |
 | [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Version creation (`--create-version`), read-only preflight (`--preflight`), listing, What's New, screenshots, header and search results images, build selection, products, App Review; every call through `asc` |
 | [`scripts/store/export_listing.py`](../scripts/store/export_listing.py) | Read-only export of the App Store listing into `store/metadata/` (asc read-only) |
 | [`scripts/store/validate_catalog.py`](../scripts/store/validate_catalog.py) | Catalog vs. StoreKit file vs. app code |
 | [`scripts/store/print_gates.py`](../scripts/store/print_gates.py) | Print the switches, showing invalid values as `INVALID` (never touches a store) |
 | [`scripts/store/redact_logs.py`](../scripts/store/redact_logs.py) | Redact the App Store Connect key/issuer IDs from failed-build logs before they become an artifact |
-| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests against a fake App Store Connect behind `asc`: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, export compliance (project and archived app), version creation (only when missing, never next to a version still on its way to the store or older than an existing one), the read-only preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, drafts holding items this release did not choose, creative assets (upload, review, placement, swap, locked versions, retries), the asc runner (credentials, read-only mode, redaction, pinned checksum), listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned asc and Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
+| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests against a fake App Store Connect behind `asc`: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time/network drops, selection read-back, export compliance (project and archived app), version creation (only when missing, never next to a version still on its way to the store or older than an existing one), the read-only preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, which draft is used and drafts holding items this release did not choose, screenshots and creative images with an alpha channel, creative assets (upload, review, placement, swap, locked versions, retries), the asc runner (credentials, read-only mode, redaction, pinned checksum), listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned asc and Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
 | [`scripts/release_notes.py`](../scripts/release_notes.py) | GitHub Release notes from the matching `RELEASE_NOTES.md` section (else GitHub generates them); a duplicated section fails |
 
 The store scripts need no Python packages: every App Store Connect call goes

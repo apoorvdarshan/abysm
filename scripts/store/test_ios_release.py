@@ -534,6 +534,17 @@ def pre_row(pre_id: str = "P1", version: str = VERSION, platform: str = "IOS") -
     return {"type": "preReleaseVersions", "id": pre_id, "attributes": {"version": version, "platform": platform}}
 
 
+def png_header(color_type: int, *, trns: bool = False) -> bytes:
+    """A PNG signature and IHDR (plus an optional tRNS chunk) with the given colour type."""
+    import zlib
+
+    def chunk(kind: bytes, body: bytes) -> bytes:
+        return len(body).to_bytes(4, "big") + kind + body + zlib.crc32(kind + body).to_bytes(4, "big")
+
+    ihdr = (16).to_bytes(4, "big") + (16).to_bytes(4, "big") + bytes([8, color_type, 0, 0, 0])
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + (chunk(b"tRNS", b"\x00\x00") if trns else b"") + chunk(b"IDAT", b"x")
+
+
 def asc_error(code: int) -> asc_cli.AscError:
     return asc_cli.AscError(("builds", "list"), code, "failed")
 
@@ -693,6 +704,18 @@ class TransientErrorTests(unittest.TestCase):
             with self.subTest(exc=repr(exc)):
                 self.assertFalse(ios_release.is_transient_error(exc))
 
+    def test_network_drops_reported_as_exit_1_are_retried(self) -> None:
+        for detail in ('Get "https://api.appstoreconnect.apple.com/v1/builds": read tcp: connection reset by peer',
+                       "dial tcp: lookup api.appstoreconnect.apple.com: no such host",
+                       "net/http: TLS handshake timeout", "unexpected EOF"):
+            with self.subTest(detail=detail):
+                self.assertTrue(ios_release.is_transient_error(asc_cli.AscError(("builds", "list"), 1, detail)))
+        for detail in ("invalid character '<' looking for beginning of value", "build not found"):
+            with self.subTest(detail=detail):
+                self.assertFalse(ios_release.is_transient_error(asc_cli.AscError(("builds", "list"), 1, detail)))
+        # The same message with another exit code keeps that code's rule.
+        self.assertFalse(ios_release.is_transient_error(asc_cli.AscError(("builds", "list"), 3, "connection reset")))
+
 
 class AscRunnerTests(unittest.TestCase):
     """scripts/store/asc_cli.py: the one place asc runs."""
@@ -727,7 +750,7 @@ class AscRunnerTests(unittest.TestCase):
         for name in ("ASC_PROFILE", "ASC_CONFIG_PATH"):
             self.assertNotIn(name, env)
         for name, value in (("ASC_BYPASS_KEYCHAIN", "1"), ("ASC_TELEMETRY_DISABLED", "1"), ("DO_NOT_TRACK", "1"),
-                            ("ASC_SKILLS_AUTO_CHECK", "0"), ("ASC_STRICT_AUTH", "1")):
+                            ("ASC_SKILLS_AUTO_CHECK", "0"), ("ASC_STRICT_AUTH", "1"), ("ASC_MAX_RETRIES", "5")):
             self.assertEqual(env[name], value, name)
         self.assertNotIn("ASC_READ_ONLY", env)
 
@@ -812,6 +835,16 @@ class AscRunnerTests(unittest.TestCase):
         # No environment variable can point the release at another executable.
         with mock.patch.dict(os.environ, {"ASC_BIN": "/tmp/evil"}):
             self.assertEqual(asc_cli.Asc().binary, "asc")
+
+    def test_alpha_is_detected_the_way_asc_refuses_it(self) -> None:
+        cases = {"rgb": (png_header(2), False), "rgba": (png_header(6), True), "gray-alpha": (png_header(4), True),
+                 "rgb-trns": (png_header(2, trns=True), True), "jpeg": (b"\xff\xd8\xff\xe0rest", False)}
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, (content, expected) in cases.items():
+                path = Path(tmp) / name
+                path.write_bytes(content)
+                with self.subTest(name=name):
+                    self.assertEqual(asc_cli.image_has_alpha(path), expected)
 
     def test_a_leading_at_sign_is_escaped(self) -> None:
         self.assertEqual(asc_release.asc_value("@apoorvcodes on Instagram"), "@@apoorvcodes on Instagram")
@@ -1310,9 +1343,10 @@ class BuildSelectionTests(unittest.TestCase):
             self.assertEqual(same.writes(), [])
 
 
-def png(path: Path, width: int, height: int) -> Path:
+def png(path: Path, width: int, height: int, *, color_type: int = 2) -> Path:
+    """A PNG header of the given size; RGB (colour type 2) unless asked, since asc refuses alpha."""
     path.write_bytes(b"\x89PNG\r\n\x1a\n" + (13).to_bytes(4, "big") + b"IHDR"
-                     + width.to_bytes(4, "big") + height.to_bytes(4, "big") + b"\x08\x06\x00\x00\x00")
+                     + width.to_bytes(4, "big") + height.to_bytes(4, "big") + bytes([8, color_type, 0, 0, 0]))
     return path
 
 
@@ -1374,6 +1408,17 @@ class ScreenshotUploadTests(unittest.TestCase):
     def upload(self, fake: FakeAsc, plan: list, **kwargs) -> list[str]:
         kwargs.setdefault("wait", lambda asc, loc, uploaded: None)
         return quiet(asc_release.upload_screenshots, fake, version_id="V1", locale="en-US", plan=plan, **kwargs)
+
+    def test_screenshots_that_store_alpha_are_named(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            rgb = png(Path(tmp) / "01-rgb.png", 2796, 1290)
+            rgba = png(Path(tmp) / "02-rgba.png", 2796, 1290, color_type=6)
+            trns = Path(tmp) / "03-trns.png"
+            trns.write_bytes(png_header(2, trns=True))
+            self.assertIsNone(asc_release.screenshot_alpha_problem([(IPHONE, [rgb])]))
+            problem = asc_release.screenshot_alpha_problem([(IPHONE, [rgb, rgba]), (IPAD, [trns])])
+            self.assertIn(f"{IPHONE}: 02-rgba.png; {IPAD}: 03-trns.png", problem)
+            self.assertIn("Re-export them as RGB PNGs", problem)
 
     def test_every_set_has_an_asc_device_type(self) -> None:
         self.assertEqual({display for display, *_ in asc_release.SCREENSHOT_SETS}, set(asc_release.DEVICE_TYPES))
@@ -1759,6 +1804,18 @@ class ProductAttachTests(unittest.TestCase):
         self.assertEqual([c[:2] for c in busy.writes()], [("review", "submissions-create"), ("review", "items-add")])
         self.assertEqual(result.submission_id, "NEW")
 
+    def test_a_draft_holding_an_app_version_is_never_used_for_products_alone(self) -> None:
+        theirs = [review_item("V", "appStoreVersion", "V0-0")]
+        fake = product_fake(drafts=("THEIRS",), draft_items={"THEIRS": theirs})
+        result = self.attach(fake, intended_ids={UNLOCK})
+        self.assertEqual(result.submission_id, "NEW")
+        self.assertEqual(fake.items["THEIRS"], theirs)
+        # The draft holding the version asked for is reused, and wins over an empty one.
+        mine = [review_item("V", "appStoreVersion", "V1")]
+        fake = product_fake(drafts=("EMPTY", "MINE"), draft_items={"MINE": mine})
+        self.assertEqual(asc_release.find_draft_submission(fake, APP, "V1"), "MINE")
+        self.assertEqual(asc_release.find_draft_submission(fake, APP), "EMPTY")
+
     def test_a_draft_holding_creative_images_is_never_used_for_products(self) -> None:
         creative = [review_item("IMG", "appAssetLibraryImage", "H")]
         fake = product_fake(drafts=("CREATIVE",), draft_items={"CREATIVE": creative})
@@ -1802,6 +1859,15 @@ class ProductAttachTests(unittest.TestCase):
                                               allowed_products={"IV1"})
             self.assertIn("holds items this release did not choose (X)", err.getvalue())
             self.assertEqual(fake.submitted, [])
+
+    def test_a_version_draft_must_hold_the_version(self) -> None:
+        fake = FakeAsc(items=[review_item("P", "inAppPurchaseVersion", "IV1")])
+        err = io.StringIO()
+        with redirect_stderr(err), self.assertRaises(SystemExit):
+            asc_release.check_draft_items(fake, "SUB1", version_id="V1", allowed_products={"IV1"})
+        self.assertIn("review submission SUB1 does not hold App Store version V1; not submitting it", err.getvalue())
+        held = FakeAsc(items=[review_item("V", "appStoreVersion", "V1"), review_item("P", "inAppPurchaseVersion", "IV1")])
+        quiet(asc_release.check_draft_items, held, "SUB1", version_id="V1", allowed_products={"IV1"})
 
     def test_catalog_products_are_intended(self) -> None:
         self.assertEqual(asc_release.intended_product_ids(), {UNLOCK})
@@ -2050,6 +2116,46 @@ class LiveSubmitFlowTests(MainFlow):
         self.assertEqual(fake.submitted, ["NEW"])
         self.assertEqual(fake.items["CREATIVE"], creative)
 
+    def test_a_ready_for_review_version_with_no_draft_holding_it_stops_before_writing_to_review(self) -> None:
+        # READY_FOR_REVIEW says a draft holds the version; the only draft here does not.
+        for drafts, items in ((("SUB1",), [review_item("P", "inAppPurchaseVersion", "IV1")]), ((), None)):
+            fake = FakeAsc(state="READY_FOR_REVIEW", attached="B9", release_type="MANUAL",
+                           unlock_state="READY_TO_SUBMIT", drafts=drafts, items=items)
+            with self.subTest(drafts=drafts):
+                code, output = self.run_main(fake, SUBMIT_ONLY)
+                self.assertEqual(code, 1)
+                self.assertIn(f"version {VERSION} is READY_FOR_REVIEW, but no draft review submission holds it", output)
+                self.assertEqual(fake.writes(), [])
+
+    def test_the_draft_holding_this_version_is_chosen_over_others(self) -> None:
+        other = [review_item("P", "inAppPurchaseVersion", "IV1")]
+        mine = [review_item("V", "appStoreVersion", "V1")]
+        fake = FakeAsc(state="READY_FOR_REVIEW", attached="B9", release_type="MANUAL", unlock_state="READY_TO_SUBMIT",
+                       drafts=("OTHER", "MINE"), draft_items={"OTHER": other, "MINE": mine})
+        code, output = self.run_main(fake, SUBMIT_ONLY)
+        self.assertEqual(code, 0, output)
+        self.assertEqual({flag(c, "--submission") for c in fake.writes() if c[:2] == ("review", "items-add")}, {"MINE"})
+        self.assertEqual(fake.submitted, ["MINE"])
+        self.assertEqual(fake.items["OTHER"], other)
+
+    def test_another_versions_draft_is_never_reused(self) -> None:
+        theirs = [review_item("V", "appStoreVersion", "V0-0")]
+        fake = FakeAsc(drafts=("THEIRS",), draft_items={"THEIRS": theirs})
+        code, output = self.run_main(fake, SUBMIT_ONLY)
+        self.assertEqual(code, 0, output)
+        self.assertIn(("review", "submissions-create"), [c[:2] for c in fake.writes()])
+        self.assertEqual(fake.submitted, ["NEW"])
+        self.assertEqual(fake.items["THEIRS"], theirs)
+
+    def test_a_rerun_with_nothing_to_send_leaves_no_empty_draft(self) -> None:
+        for state in sorted(asc_release.SUBMITTED_VERSION_STATES):
+            fake = FakeAsc(state=state, attached="B9", drafts=())
+            with self.subTest(state=state):
+                code, output = self.run_main(fake, SUBMIT_ONLY)
+                self.assertEqual(code, 0, output)
+                self.assertEqual(fake.writes(), [])
+                self.assertEqual(fake.drafts, [])
+
     def test_waiting_for_review_with_another_build_aborts(self) -> None:
         fake = FakeAsc(state="WAITING_FOR_REVIEW", attached="OTHER")
         code, _ = self.run_main(fake, SUBMIT_ONLY)
@@ -2159,6 +2265,26 @@ class RerunTests(MainFlow):
         self.assertEqual(code, 0, output)
         self.assertEqual(fake.writes(), [("review", "items-add", "--submission", "SUB1", "--item-type", "appStoreVersions",
                                           "--item-id", "V1", "--if-exists", "skip"), SUBMIT_CALL])
+
+    def test_screenshots_with_alpha_stop_before_any_asc_call(self) -> None:
+        png(self.shots[IPAD][1], 2752, 2064, color_type=6)
+        for mode in (("--preflight",), ()):
+            fake = FakeAsc()
+            with self.subTest(mode=mode):
+                code, output = self.run_main(fake, {"UPLOAD_SCREENSHOTS": "true"}, *mode, build=False)
+                self.assertEqual(code, 1, output)
+                self.assertIn(f"these screenshots store an alpha channel, which App Store Connect refuses (asc uploads "
+                              f"no PNG with alpha, even a fully opaque one): {IPAD}: 01.png", output)
+                self.assertEqual(fake.calls, [])
+        # The offline dry run reports it without failing.
+        fake = FakeAsc()
+        code, output = self.run_main(fake, {"UPLOAD_SCREENSHOTS": "true"}, "--dry-run", build=False)
+        self.assertEqual(code, 0, output)
+        self.assertIn("warning: these screenshots store an alpha channel", output)
+        self.assertIn("until then a run with UPLOAD_SCREENSHOTS on stops at its preflight", output)
+        # Other switches never read the screenshots.
+        code, output = self.run_main(FakeAsc(), {"UPLOAD_LISTING": "true"}, "--preflight", build=False)
+        self.assertEqual(code, 0, output)
 
     def test_a_first_run_uploads_what_differs_and_a_rerun_sends_nothing_new(self) -> None:
         fake = FakeAsc(version_text={**LIVE_TEXT, "description": "Old"}, info_text={"subtitle": "Old"})
@@ -2460,6 +2586,17 @@ class CreativeAssetTests(MainFlow):
         code, output = self.run_creative(fake)
         self.assertEqual(code, 0, output)
         self.assertEqual(len(fake.writes()), writes)
+
+    def test_an_image_with_alpha_fails_before_any_call(self) -> None:
+        (self.creative / "header" / "header.png").write_bytes(png_header(6))
+        for mode in ((), ("--preflight",), ("--dry-run",)):
+            fake = FakeAsc()
+            with self.subTest(mode=mode):
+                code, output = self.run_main(fake, CREATIVE, *mode, build=False)
+                self.assertEqual(code, 1, output)
+                self.assertIn("the product page header image header.png has an alpha channel, which App Store Connect "
+                              "refuses; re-export it as RGB", output)
+                self.assertEqual(fake.calls, [])
 
     def test_a_rejected_image_stops_the_run(self) -> None:
         fake = FakeAsc(library=[self.image("H", "header", "REJECTED")])
