@@ -116,11 +116,11 @@ Builds the Debug app once for a simulator it creates (and deletes afterwards), r
 
 Test runs are offline: in Debug simulator builds launched by XCTest (or with `--ui-testing`), RevenueCat is never configured, so no network, account or purchase is involved. Release and device builds are unaffected. The **iOS tests** workflow runs both suites on GitHub's `xcode-27` runner for pull requests and pushes to `main` that touch the app, its tests or its project.
 
-CodeQL analyzes the Swift app, the Python release tooling, the website and the workflows, and the release tooling's log redaction, release switches and release notes are fuzzed with Atheris (see [`fuzz/`](fuzz/README.md)).
+CodeQL analyzes the Swift app, the Python CI tests, the website and the workflows. The release tooling runs from [apoorvdarshan/store-release](https://github.com/apoorvdarshan/store-release), which tests and analyzes it and fuzzes its log redaction and release notes with Atheris.
 
 ### Releases
 
-GitHub Actions builds, signs and uploads releases; Xcode Cloud was removed for ABYSM on 2026-10-14 and must not be re-created. A release tag is exactly `v` + the project's `MARKETING_VERSION` — for version 1.0.1:
+GitHub Actions builds, signs and uploads releases, through the shared [apoorvdarshan/store-release](https://github.com/apoorvdarshan/store-release) workflows pinned by commit SHA; Xcode Cloud was removed for ABYSM on 2026-10-14 and must not be re-created. A release tag is exactly `v` + the project's `MARKETING_VERSION` — for version 1.0.1:
 
 ```sh
 git tag -a v1.0.1 -m "ABYSM 1.0.1"

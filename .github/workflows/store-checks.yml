@@ -1,119 +1,56 @@
-name: Store release checks
+# Store checks: validates the store data, the store-release config and these callers
+# against the pinned store-release version. Never uploads anything. Safe to run anytime.
+# Rendered by `run.py callers render --platform checks`.
+name: Store checks
 
-# Offline checks of the iOS release tooling: switches, tag rule, build wait,
-# build selection, listing/screenshot inputs (and the screenshots' RGB copies),
-# header and search results images, release notes, log redaction and the product
-# catalog, plus scripts/test-ios.sh's simulator shutdown between the unit and UI
-# tests (against a fake xcrun, no simulator). The hash-locked store tooling is
-# installed first, so the tests of the RGB copies (Pillow) can't skip here. No
-# credentials and no network calls to App Store Connect; nothing is uploaded.
-# Unlike a release run, this always checks the repository's listing, screenshots
-# and creative images, whatever the switches say. A newer push to a pull request
-# cancels its older run; pushes to main and manual runs are never cancelled.
 on:
-  pull_request:
-    paths:
-      - 'scripts/store/**'
-      - 'scripts/release_notes.py'
-      - 'scripts/test-ios.sh'
-      - 'store/**'
-      - 'requirements-store.txt'
-      - 'RELEASE_NOTES.md'
-      - 'Abysm.storekit'
-      - 'Abysm/StoreManager.swift'
-      - 'Abysm/Info.plist'
-      - 'Abysm.xcodeproj/project.pbxproj'
-      - '.github/workflows/ios-release.yml'
-      - '.github/workflows/store-checks.yml'
   push:
     branches: [main]
     paths:
-      - 'scripts/store/**'
-      - 'scripts/release_notes.py'
-      - 'scripts/test-ios.sh'
-      - 'store/**'
-      - 'requirements-store.txt'
-      - 'RELEASE_NOTES.md'
-      - 'Abysm.storekit'
-      - 'Abysm/StoreManager.swift'
-      - 'Abysm/Info.plist'
-      - 'Abysm.xcodeproj/project.pbxproj'
-      - '.github/workflows/ios-release.yml'
-      - '.github/workflows/store-checks.yml'
+      - "store/**"
+      - "RELEASE_NOTES.md"
+      - "Abysm.storekit"
+      - "Abysm/StoreManager.swift"
+      - "Abysm/Info.plist"
+      - "Abysm.xcodeproj/project.pbxproj"
+      - ".github/workflows/ios-release.yml"
+      - ".github/workflows/store-checks.yml"
+  pull_request:
+    paths:
+      - "store/**"
+      - "RELEASE_NOTES.md"
+      - "Abysm.storekit"
+      - "Abysm/StoreManager.swift"
+      - "Abysm/Info.plist"
+      - "Abysm.xcodeproj/project.pbxproj"
+      - ".github/workflows/ios-release.yml"
+      - ".github/workflows/store-checks.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# A newer push to a pull request cancels its older run; main and manual runs are never cancelled.
 concurrency:
   group: store-checks-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  offline:
+  checks:
+    uses: apoorvdarshan/store-release/.github/workflows/checks.yml@0b298d3e98267f8e98423b7b56c806c0c6f43f99 # v0.2.0
+    permissions:
+      contents: read
+
+  # One stable check name across store-release versions (not a required check in v0.2.0).
+  store-release:
+    needs: checks
+    if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
+    # It reads only the checks job's result: no token permission at all.
+    permissions: {}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            /scripts/
-            /store/
-            /Abysm.xcodeproj/
-            /Abysm.storekit
-            /Abysm/StoreManager.swift
-            /Abysm/Info.plist
-            /requirements-store.txt
-            /RELEASE_NOTES.md
-            /.github/workflows/
-
-      # The release jobs use the same pinned Python, never the runner's system one.
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-
-      - name: Print the iOS release switches (must stay safe by default)
+      - name: Require the store checks to pass
         env:
-          IOS_RELEASE_AUTOMATION: ${{ vars.IOS_RELEASE_AUTOMATION }}
-          IOS_CREATE_VERSION: ${{ vars.IOS_CREATE_VERSION }}
-          IOS_UPLOAD_BUILD: ${{ vars.IOS_UPLOAD_BUILD }}
-          IOS_UPLOAD_LISTING: ${{ vars.IOS_UPLOAD_LISTING }}
-          IOS_UPLOAD_WHATS_NEW: ${{ vars.IOS_UPLOAD_WHATS_NEW }}
-          IOS_UPLOAD_SCREENSHOTS: ${{ vars.IOS_UPLOAD_SCREENSHOTS }}
-          IOS_UPLOAD_CREATIVE_ASSETS: ${{ vars.IOS_UPLOAD_CREATIVE_ASSETS }}
-          IOS_SUBMIT_REVIEW: ${{ vars.IOS_SUBMIT_REVIEW }}
-          IOS_PUBLIC_RELEASE: ${{ vars.IOS_PUBLIC_RELEASE }}
-          IOS_BUILD_POLL_SECONDS: ${{ vars.IOS_BUILD_POLL_SECONDS }}
-          IOS_BUILD_WAIT_MINUTES: ${{ vars.IOS_BUILD_WAIT_MINUTES }}
-        run: python3 scripts/store/print_gates.py
-
-      # The release jobs install this hash-locked set before touching App Store
-      # Connect, so a broken pin (for example a Dependabot bump) fails here instead
-      # of in a release.
-      - name: Install and import the hash-pinned store tooling
-        run: |
-          python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt
-          python3 -c "import jwt, PIL.Image; print('store tooling imports OK')"
-
-      - name: Test switches, tag rule, build wait and selection, listing, screenshots and creative images
-        env:
-          # The tests of the screenshots' RGB copies need Pillow and must not skip here.
-          STORE_TESTS_NEED_PILLOW: "1"
-        run: python3 -m unittest discover -s scripts/store -p 'test_*.py' -v
-
-      - name: Validate the product catalog
-        run: python3 scripts/store/validate_catalog.py
-
-      # The screenshots are staged as RGB copies, as a release would; the
-      # committed header and search results images are checked for size, format
-      # and alpha (empty folders mean nothing to do).
-      - name: Dry-run every App Store Connect operation (no network)
-        env:
-          UPLOAD_LISTING: "true"
-          UPLOAD_SCREENSHOTS: "true"
-          UPLOAD_CREATIVE_ASSETS: "true"
-          SUBMIT_IOS_REVIEW: "true"
-          PUBLIC_RELEASE: "false"
-        run: python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
+          RESULT: ${{ needs.checks.result }}
+        run: test "$RESULT" = success

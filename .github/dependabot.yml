@@ -1,18 +1,15 @@
 # Dependabot version updates. Dependabot alerts are enabled in the repository
 # settings; this file keeps the pinned versions current:
-#   github-actions  the commit-SHA-pinned actions in every workflow
-#   pip             the hash-locked App Store Connect tooling (requirements-store.in
-#                   compiled to requirements-store.txt: PyJWT, and Pillow for the RGB
-#                   screenshot copies), which runs next to the App Store Connect key
-#                   in the release jobs
-#   pip (/fuzz)     the hash-locked Atheris fuzzer in fuzz/requirements.txt (fuzz.yml)
+#   github-actions  the commit-SHA-pinned actions in every workflow, and the
+#                   apoorvdarshan/store-release pin in the release callers
 #   swift           the RevenueCat package pinned in the Xcode project's Package.resolved
 #   npm             the website's deploy tooling in web/ (wrangler and what it pulls in)
 #
-# Each ecosystem comes as one grouped PR. Updates to the app or to ios-tests.yml
-# run the iOS tests on a paid macOS runner, so the Swift package and the actions
-# are checked monthly; the store tooling and the website, which run no macOS
-# checks, weekly; the fuzzer monthly.
+# Each ecosystem comes as one grouped PR, except the store-release pin, which gets
+# a PR of its own (see below). Updates to the app or to ios-tests.yml run the iOS
+# tests on a paid macOS runner, so the Swift package and the actions are checked
+# monthly; the website, which runs no macOS checks, weekly. The release tooling
+# itself (PyJWT, Pillow) is locked and updated in store-release.
 
 version: 2
 updates:
@@ -21,30 +18,22 @@ updates:
     schedule:
       interval: monthly
     groups:
+      # The release callers' pins (one SHA in ios-release.yml and store-checks.yml,
+      # with its "# vX.Y.Z" comment). Declared before the catch-all: a dependency
+      # joins the first group it matches, so a store-release bump always gets its
+      # own PR.
+      store-release:
+        patterns: ["apoorvdarshan/store-release*"]
       github-actions:
         patterns: ["*"]
+    # store-release pins run with the app's signing and App Store Connect
+    # credentials: a new release waits seven days before Dependabot proposes it.
+    # Security updates are never delayed by a cooldown.
+    cooldown:
+      default-days: 7
+      include: ["apoorvdarshan/store-release*"]
     commit-message:
       prefix: "CI"
-
-  - package-ecosystem: pip
-    directory: /
-    schedule:
-      interval: weekly
-    groups:
-      store-tooling:
-        patterns: ["*"]
-    commit-message:
-      prefix: "Store tooling"
-
-  - package-ecosystem: pip
-    directory: /fuzz
-    schedule:
-      interval: monthly
-    groups:
-      fuzzing:
-        patterns: ["*"]
-    commit-message:
-      prefix: "Fuzzing"
 
   - package-ecosystem: swift
     directory: /

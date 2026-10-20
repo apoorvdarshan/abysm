@@ -81,16 +81,19 @@ What to expect:
 
 - Secrets live only in GitHub Actions secrets. Release jobs run only for
   `v<MARKETING_VERSION>` tags, every store switch is off unless set, and build
-  logs are redacted before they are kept as artifacts
-  (`scripts/store/redact_logs.py`). If redaction fails, nothing is uploaded.
-- Every GitHub Action is pinned to a full commit SHA, and the Python release
-  tooling is installed only from hash-locked requirements.
+  logs are redacted before they are kept as artifacts. If redaction fails,
+  nothing is uploaded.
+- The release workflows are thin callers of
+  [apoorvdarshan/store-release](https://github.com/apoorvdarshan/store-release), pinned to a release's full
+  commit SHA; its Python tooling is installed only from hash-locked requirements.
+  Every other GitHub Action is pinned to a full commit SHA too.
 - Dependabot keeps dependencies current and opens security updates. Secret
   scanning and push protection are enabled.
 - CodeQL scans Swift, Python, JavaScript, and the workflows. OpenSSF Scorecard
   runs weekly and on every push to `main`.
-- The release tooling's security-relevant parsing (log redaction, release
-  switches, release notes) is fuzzed with Atheris (`fuzz/`).
+- The release tooling's tests live in store-release with the tooling, which
+  also fuzzes the log redaction and release notes ABYSM's releases use, with
+  Atheris.
 
 ## Solo-maintainer workflow
 
