@@ -26,16 +26,26 @@ v1.0.1 tag ─► unit + UI tests (ios-tests.yml) ─► resolve switches
                              existing one is left alone; refuses, without writing, when
                              another version is still on its way to the store or 1.0.1
                              is not newer than every existing version)
-       listing / What's New / screenshot / review switch on
+       IOS_UPLOAD_SCREENSHOTS ─► stage the screenshots as RGB copies (no alpha channel)
+       IOS_UPLOAD_CREATIVE_ASSETS ─► check the header / search results images
+                                     (size, format, no alpha, well-formed file)
+       listing / What's New / screenshot / creative asset / review switch on
                         ─► read-only preflight: the 1.0.1 App Store version exists and
-                           its state, locales and due catalog products allow those steps
+                           its state, locales and due catalog products allow those steps,
+                           a READY_FOR_REVIEW version's draft (with IOS_SUBMIT_REVIEW) and
+                           the images' Asset Library state (with IOS_UPLOAD_CREATIVE_ASSETS)
        IOS_UPLOAD_BUILD ─► next build number from App Store Connect
                         ─► archive Release ─► verify bundle id / version / build in every bundle
                         ─► cloud-signed export + upload
                         ─► wait-for-build job: until THIS build is VALID
                            (poll 30 s, up to 120 min from upload start)
+       IOS_SUBMIT_REVIEW ─► pick and check the version's draft review submission
+                            (read-only, before any write) and reserve it
        IOS_UPLOAD_LISTING / IOS_UPLOAD_WHATS_NEW / IOS_UPLOAD_SCREENSHOTS ─► version metadata
                            (only what differs from App Store Connect)
+       IOS_UPLOAD_CREATIVE_ASSETS ─► new images: Asset Library upload, then App Review
+                                     in a submission of their own
+                                  ─► approved images: placed on the version (en-US)
        IOS_SUBMIT_REVIEW ─► select this run's build, read it back, set release type
                          ─► add Ready-to-Submit catalog products to the draft submission
                          ─► recheck build + selection ─► submit version + products together
@@ -54,20 +64,23 @@ release.
 
 Waiting for App Store Connect to process the upload is its own job,
 `wait-for-build`, which hands the processed build's id to the
-`app-store-connect` job (listing, What's New, screenshots, review). If that job
-fails, **Re-run failed jobs** reuses the processed build instead of waiting
-again against the original upload deadline (which would always time out). A
-re-run never extends that deadline: a timed-out wait fails again.
+`app-store-connect` job (listing, What's New, screenshots, creative assets,
+review). If that job fails, **Re-run failed jobs** reuses the processed build
+instead of waiting again against the original upload deadline (which would
+always time out). A re-run never extends that deadline: a timed-out wait fails
+again.
 
 The `app-store-connect` job only sends what differs from App Store Connect, so
 re-running it is safe, including after a submission that only partly went
-through:
+through. Header and search results images already in the Asset Library are
+never uploaded again, an image already placed is left alone, and an interrupted
+image review is finished in the draft it left (see below).
 
 | Version state when the job re-runs | What the re-run does |
 |------------------------------------|----------------------|
-| Prepare for Submission (or rejected) | Sends only changed text, App Info and screenshot sets (a set with an image that failed or is still processing counts as changed and is uploaded again); selects this run's build unless it is already selected; submits |
-| `READY_FOR_REVIEW` (in a draft submission, for example after a failed submit) | Text and App Info can still change; screenshots must already match the repo and be processed (Apple locks them); submits the draft |
-| `WAITING_FOR_REVIEW` / `IN_REVIEW` (the submit went through) | Writes nothing. Passes only if review holds this run's build, the listing, What's New and screenshots already match the repo (every screenshot processed), and no catalog product is still Ready to Submit; otherwise fails without writing. A product left behind is never sent to App Review on its own: submit it in App Store Connect yourself (or with the next version) |
+| Prepare for Submission (or rejected) | Sends only changed text, App Info and screenshot sets (a set with an image that failed or is still processing counts as changed and is uploaded again); uploads, sends to App Review or places only the header and search results images that need it; selects this run's build unless it is already selected; submits |
+| `READY_FOR_REVIEW` (in a draft submission, for example after a failed submit) | Text and App Info can still change; screenshots must already match the repo and be processed (Apple locks them); header and search results images are not uploaded, reviewed or placed (one that still needs uploading or review fails the run, an approved one waits for a later run); submits the draft, which must hold this version |
+| `WAITING_FOR_REVIEW` / `IN_REVIEW` (the submit went through) | Writes nothing. Passes only if review holds this run's build, the listing, What's New and screenshots already match the repo (every screenshot processed), the header and search results images are in place, approved or in App Review, and no catalog product is still Ready to Submit; otherwise fails without writing. A product left behind is never sent to App Review on its own: submit it in App Store Connect yourself (or with the next version) |
 
 A brand-new run (a new tag, or **Re-run all jobs**) uploads a new build, which
 can never replace one already in review: its preflight fails before anything is
@@ -93,11 +106,12 @@ empty, or a tag with two `## v1.0.1` sections, fails the run there instead of
 after the store steps (the GitHub Release step repeats the check and never
 publishes blank or ambiguous notes).
 
-**Unused files never block a release.** The repository's listing and
-screenshots are checked before the build only when `IOS_UPLOAD_LISTING` /
-`IOS_UPLOAD_SCREENSHOTS` are on (the gated dry run in prepare), and only the
-tag's own `RELEASE_NOTES.md` section is checked. The tests that check those
-files whatever the switches say (and that no `RELEASE_NOTES.md` heading is
+**Unused files never block a release.** The repository's listing, screenshots
+and header / search results images are checked before the build only when
+`IOS_UPLOAD_LISTING` / `IOS_UPLOAD_SCREENSHOTS` / `IOS_UPLOAD_CREATIVE_ASSETS`
+are on (the gated dry run in prepare), and only the tag's own
+`RELEASE_NOTES.md` section is checked. The tests that check those files
+whatever the switches say (and that no `RELEASE_NOTES.md` heading is
 duplicated) run in the **Store release checks** workflow on pull requests and
 `main`, and are skipped in release runs (`STORE_TESTS_SCOPE=release`).
 
@@ -130,23 +144,26 @@ run, even when the master switch is off. Copy names from
 | `IOS_UPLOAD_BUILD` | Build, sign and upload the binary to App Store Connect, then wait until it is processed |
 | `IOS_UPLOAD_LISTING` | Version text (description, keywords, promotional text, marketing and support URLs) and App Info (name, subtitle, privacy policy URL) from `store/metadata/ios/<locale>/`. Only changed fields are sent |
 | `IOS_UPLOAD_WHATS_NEW` | What's New from `store/metadata/ios/<locale>/whats_new.txt` (required for every locale when on) |
-| `IOS_UPLOAD_SCREENSHOTS` | Replace the iPhone 6.9" and iPad 13" screenshots (see below) |
+| `IOS_UPLOAD_SCREENSHOTS` | Replace the iPhone 6.9", iPad 13", iPhone Duo and Apple Watch screenshots, uploaded as RGB copies (see below) |
+| `IOS_UPLOAD_CREATIVE_ASSETS` | Product page header and search results images from `store/creative/ios/`, checked (size, format, no alpha) before the build. A new image is uploaded to the Asset Library once and sent to App Review in a submission of its own; an approved image is placed on the version's en-US page while the version can be edited (see below). Empty folders mean nothing to do. Off: never read |
 | `IOS_SUBMIT_REVIEW` | Select this run's build and submit the version **and** any Ready-to-Submit catalog products for review. Requires `IOS_UPLOAD_BUILD` |
 | `IOS_PUBLIC_RELEASE` | Release automatically after approval. Off = you release it by hand. Requires `IOS_SUBMIT_REVIEW` |
 | `IOS_BUILD_POLL_SECONDS` | How often to check build processing: default 30, 10–600 |
 | `IOS_BUILD_WAIT_MINUTES` | Total wait, counted from upload start (upload + processing): default 120, 10–300 |
 
-Listing, What's New, screenshots and submission need the App Store version for
-the tag's version (e.g. 1.0.1) to exist in an editable state. With
-`IOS_CREATE_VERSION` on, the tag run creates a missing one itself (in Prepare for
-Submission) before the preflight; otherwise create it in App Store Connect first
-and leave it in Prepare for Submission. A version created by a run whose later
-steps fail stays in Prepare for Submission, and the next run for the same tag
-reuses it. With any of those switches on, a read-only preflight in the prepare
-job checks the version before anything is built, so a missing or locked version
-(or a missing localization, or a catalog product due for review that cannot be
-attached) fails the run before a binary is uploaded. A build-only release
-(`IOS_UPLOAD_BUILD` alone) does not need the version.
+Listing, What's New, screenshots, creative assets and submission need the App
+Store version for the tag's version (e.g. 1.0.1) to exist in an editable state.
+With `IOS_CREATE_VERSION` on, the tag run creates a missing one itself (in
+Prepare for Submission) before the preflight; otherwise create it in App Store
+Connect first and leave it in Prepare for Submission. A version created by a run
+whose later steps fail stays in Prepare for Submission, and the next run for the
+same tag reuses it. With any of those switches on, a read-only preflight in the
+prepare job checks the version before anything is built, so a missing or locked
+version (or a missing localization, a `READY_FOR_REVIEW` version that no usable
+draft holds, a header or search results image the version cannot take now, or a
+catalog product due for review that cannot be attached) fails the run before a
+binary is uploaded. A build-only release (`IOS_UPLOAD_BUILD` alone) does not
+need the version.
 
 ## Secrets
 
@@ -202,6 +219,8 @@ repo; nothing is resized or generated:
 |------------------------|--------|----------------|
 | `APP_IPHONE_67` (iPhone 6.9") | [`store/metadata/screenshots/ios/iphone/`](metadata/screenshots/ios/iphone/) | 2796×1290 (landscape) or 1290×2796 |
 | `APP_IPAD_PRO_3GEN_129` (iPad 13") | [`store/metadata/screenshots/ios/ipad/`](metadata/screenshots/ios/ipad/) | 2752×2064, 2732×2048 or their portrait sizes |
+| `APP_IPHONE_DUO` (iPhone Duo, optional) | [`store/metadata/screenshots/ios/iphone-duo/`](metadata/screenshots/ios/iphone-duo/) | outer screen 1398×2034 or inner screen 2007×2853 |
+| Apple Watch (optional) | [`store/metadata/screenshots/ios/watch/`](metadata/screenshots/ios/watch/) | each frame's size picks its set (below) |
 
 Each set is replaced in file-name order (1–10 PNGs) for the `en-US` listing,
 and the run waits until App Store Connect has processed every image. A set that
@@ -210,9 +229,93 @@ images App Store Connect has all processed is left alone, so a re-run uploads
 nothing. App Store Connect records an image's checksum as soon as it is
 uploaded, before processing, so a set left by an attempt whose wait failed or
 timed out is not taken as done: the re-run uploads it again and waits, or fails
-if the version's screenshots are already locked. A missing folder, an empty
-set, more than 10 files or any other size fails the run with a clear message
-before anything is uploaded.
+if the version's screenshots are already locked. A missing iPhone or iPad
+folder, an empty iPhone or iPad set, more than 10 files or any other size fails
+the run with a clear message before anything is uploaded.
+
+App Store screenshots are uploaded as RGB PNGs. App Store Connect refuses a PNG
+that stores an alpha channel, even when every pixel is opaque, and ABYSM's
+committed screenshots are RGBA, so the run stages a copy of each in a temporary
+folder: Pillow lays transparent pixels over black once and keeps the colour
+profile (ICC profile, sRGB, gamma and chromaticity chunks). The files in
+`store/metadata/screenshots/` are only read, never rewritten. The dry run, the
+preflight and the set checksum comparisons all use the same copies. Without
+Pillow, a file is copied as it is and one that stores alpha fails the run.
+Right before upload, `asc_release.py` refuses any copy that still stores alpha
+(PNG colour type 4 or 6, or a `tRNS` chunk) or is not a well-formed PNG
+(complete chunks with matching CRCs, image data of the size its header gives, a
+final `IEND`), before anything is sent.
+
+The live 1.1 sets (uploaded by hand as `image1.png` to `image5.png`) hold the
+same pixels as the repository's files, checked on 2026-10-20, but App Store
+Connect compares checksums, not pixels: the first run with
+`IOS_UPLOAD_SCREENSHOTS` on replaces both sets once with the RGB copies, and
+later runs find them matching.
+
+The iPhone Duo and Apple Watch sets are optional: ABYSM has none, and without
+PNGs in their folder the live sets in App Store Connect are left alone. Apple
+Watch screenshots go with the other sets when `store/metadata/screenshots/ios/watch/`
+holds PNGs. Each frame's size picks its set: 416×496 `APP_WATCH_SERIES_10`,
+422×514 or 410×502 `APP_WATCH_ULTRA`, 396×484 `APP_WATCH_SERIES_7`, 368×448
+`APP_WATCH_SERIES_4`, 312×390 `APP_WATCH_SERIES_3`; any other size fails the
+run. Like every set, a Watch set is replaced only when its files differ, and
+only compared while the version is in a review submission. Watch sets the
+repository has no frames for (such as an `APP_WATCH_ULTRA` set uploaded by hand)
+are left alone; remove them in App Store Connect if they should go.
+
+## Header and search results images
+
+With `IOS_UPLOAD_CREATIVE_ASSETS` on, the images in `store/creative/ios/` go to
+the App Store product page: `header/` takes one PNG of exactly 3840×1646, and
+`search-results/` one PNG or JPEG in 3:2, from 1920×1280 to 3840×2560. Neither
+may store alpha. `prepare` checks sizes, formats, alpha and that each file is
+a complete, well-formed image before anything is built, then (read-only) each
+image's Asset Library state the way the store step plans it, so an image the
+version cannot take now fails before the build. A slot without an image is left
+alone. ABYSM has no header or search results image yet: both folders hold only
+a README, so the switch has nothing to do until an image is committed.
+
+```
+store/creative/ios/
+  header/           one product page header PNG, exactly 3840×1646
+  search-results/   one search results PNG or JPEG, 3:2, 1920 to 3840 wide
+```
+
+They live in the app's Asset Library and are reviewed on their own, apart from
+the version:
+
+1. An image is uploaded once, matched by file name and size. A reservation an
+   interrupted upload left in `AWAITING_UPLOAD` (like a failed or archived image)
+   does not count, and the image is uploaded again. To change an image, commit
+   it under a new file name. An image App Review rejected stops the run until it
+   is replaced.
+2. A new image goes to App Review in a review submission of its own, never the
+   version's draft. A draft an earlier attempt left holding only some of the
+   images is finished first, else an empty draft, else a new one is created, so
+   re-runs never pile up drafts. The run submits it only when it holds exactly
+   these images.
+3. Once Apple approves an image, the run places it on the version's en-US
+   localization (`POST /v1/appAssetLibraryPlacements`, placement group
+   `DEFAULT_PROFILE`), only while the version can be edited (Prepare for
+   Submission or rejected). An image already placed there is left alone; another
+   image in the same slot is replaced in the same request. Approval takes a while,
+   so a new image is usually placed by the next release's run.
+
+While the version is in a review submission (`READY_FOR_REVIEW`,
+`WAITING_FOR_REVIEW` or `IN_REVIEW`), nothing is uploaded, reviewed or placed:
+an image that still needs uploading or review fails the run, and an approved
+image waits for a later run.
+
+With `IOS_SUBMIT_REVIEW` on, the run picks the version's draft review submission
+before anything is written: the draft that already holds the version, else a
+draft holding no app version, never one holding header or search results images.
+That draft is reserved for the version and its products, so image reviews never
+take it. A `READY_FOR_REVIEW` version that no such draft holds stops the run in
+`prepare`, before the build, and the store step checks it again before its first
+write.
+
+Apple's rules for these images: no prices, website addresses, other platforms or
+Apple badges, and no transparency.
 
 ## Export compliance
 
@@ -261,20 +364,22 @@ attached, the version is not submitted.
 | Script | Role |
 |--------|------|
 | [`scripts/store/ios_release.py`](../scripts/store/ios_release.py) | Switches and tag rule, export compliance check (project and archived app), build number, wait for this run's build |
-| [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Version creation (`--create-version`), read-only preflight (`--preflight`), listing, What's New, screenshots, build selection, products, App Review |
+| [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Version creation (`--create-version`), read-only preflight (`--preflight`), listing, What's New, iPhone / iPad / iPhone Duo / Apple Watch screenshots (uploaded as RGB copies), header and search results images, build selection, products, App Review |
 | [`scripts/store/export_listing.py`](../scripts/store/export_listing.py) | Read-only export of the App Store listing into `store/metadata/` |
 | [`scripts/store/validate_catalog.py`](../scripts/store/validate_catalog.py) | Catalog vs. StoreKit file vs. app code |
 | [`scripts/store/print_gates.py`](../scripts/store/print_gates.py) | Print the switches, showing invalid values as `INVALID` (never touches a store) |
 | [`scripts/store/redact_logs.py`](../scripts/store/redact_logs.py) | Redact the App Store Connect key/issuer IDs from failed-build logs before they become an artifact |
-| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, export compliance (project and archived app), version creation (only when missing, never next to a version still on its way to the store or older than an existing one), preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, token refresh, listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
+| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time, selection read-back, export compliance (project and archived app), version creation (only when missing, never next to a version still on its way to the store or older than an existing one), preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, which draft the version uses, token refresh, listing and screenshot checks, the screenshots' RGB copies and the alpha guard, Apple Watch and iPhone Duo sets, header and search results images (upload, review, placement, drafts), release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
 | [`scripts/release_notes.py`](../scripts/release_notes.py) | GitHub Release notes from the matching `RELEASE_NOTES.md` section (else GitHub generates them); a duplicated section fails |
 
-[`requirements-store.txt`](../requirements-store.txt) (PyJWT, hash-pinned) is
-installed only by jobs that call the App Store Connect API, always on Python
-3.13 from `actions/setup-python` (never the runner's system Python); those steps
-run unbuffered (`python3 -u`) so progress shows in the live log. The offline
-checks run in the **Store release checks** workflow for changes to these files,
-and again before every release run.
+[`requirements-store.txt`](../requirements-store.txt) (PyJWT, and Pillow for
+the RGB screenshot copies; hash-pinned) is installed only by jobs that call the
+App Store Connect API, always on Python 3.13 from `actions/setup-python` (never
+the runner's system Python), and in prepare before the offline checks; those
+steps run unbuffered (`python3 -u`) so progress shows in the live log. The
+offline checks run in the **Store release checks** workflow for changes to these
+files, with the store tooling installed first (`STORE_TESTS_NEED_PILLOW`, so the
+tests of the RGB copies cannot skip), and again before every release run.
 
 ## How to release
 
@@ -282,8 +387,8 @@ and again before every release run.
    pipeline always uses at least one more than App Store Connect's highest build).
 2. Before relying on signing changes, run **iOS Release → Run workflow** with the
    new version (validation only).
-3. Whenever a listing, What's New, screenshot or review switch is on, the 1.0.1
-   App Store version must exist. With `IOS_CREATE_VERSION` on, the tag run
+3. Whenever a listing, What's New, screenshot, creative asset or review switch
+   is on, the 1.0.1 App Store version must exist. With `IOS_CREATE_VERSION` on, the tag run
    creates it; otherwise **create it in App Store Connect first** (iOS App → add
    version, leave it in Prepare for Submission). The preflight fails the tag run
    before the build without it. Then update `store/metadata/` and add
@@ -295,11 +400,13 @@ and again before every release run.
 ## Dry run
 
 ```bash
+python3 -m pip install --require-hashes -r requirements-store.txt   # Pillow, for the RGB copies
 python3 -m unittest discover -s scripts/store -p 'test_*.py'
 python3 scripts/store/validate_catalog.py
 python3 scripts/store/print_gates.py
 UPLOAD_LISTING=true UPLOAD_SCREENSHOTS=true SUBMIT_IOS_REVIEW=true \
   python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
+UPLOAD_CREATIVE_ASSETS=true python3 scripts/store/asc_release.py --dry-run   # header / search images
 ```
 
 The preflight can also run locally with App Store Connect credentials
