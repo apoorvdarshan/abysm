@@ -3033,11 +3033,12 @@ class CreativeAssetTests(MainFlow):
 
     @repo_content
     def test_the_repository_images_pass_the_local_checks(self) -> None:
-        # ABYSM has no header or search results image yet: both folders hold only a README.
+        # ABYSM has no header or search results image yet: both folders hold only a README
+        # (hidden files such as Finder's .DS_Store, which git ignores, do not count).
         for folder, _, _, _ in asc_release.CREATIVE_SLOTS:
             with self.subTest(folder=folder):
                 slot = asc_release.DEFAULT_CREATIVE_DIR / folder
-                self.assertEqual(sorted(p.name for p in slot.iterdir()), ["README.md"])
+                self.assertEqual(sorted(p.name for p in slot.iterdir() if not p.name.startswith(".")), ["README.md"])
         self.assertEqual(quiet(asc_release.creative_sources, asc_release.DEFAULT_CREATIVE_DIR), [])
 
     def test_preflight_reads_the_switch(self) -> None:
