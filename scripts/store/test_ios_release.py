@@ -2170,16 +2170,20 @@ class LiveSubmitFlowTests(MainFlow):
         self.assertEqual(fake.submitted, ["NEW"])
         self.assertEqual(fake.items["CREATIVE"], creative)
 
-    def test_a_ready_for_review_version_with_no_draft_holding_it_stops_before_writing_to_review(self) -> None:
+    def test_a_ready_for_review_version_with_no_draft_holding_it_stops_before_any_write(self) -> None:
         # READY_FOR_REVIEW says a draft holds the version; the only draft here does not.
+        # The build is not selected yet and the release type differs, so selecting
+        # the build or setting the release type would write.
         for drafts, items in ((("SUB1",), [review_item("P", "inAppPurchaseVersion", "IV1")]), ((), None)):
-            fake = FakeAsc(state="READY_FOR_REVIEW", attached="B9", release_type="MANUAL",
+            fake = FakeAsc(state="READY_FOR_REVIEW", attached="OLD", release_type=None,
                            unlock_state="READY_TO_SUBMIT", drafts=drafts, items=items)
             with self.subTest(drafts=drafts):
                 code, output = self.run_main(fake, SUBMIT_ONLY)
                 self.assertEqual(code, 1)
                 self.assertIn(f"version {VERSION} is READY_FOR_REVIEW, but no draft review submission holds it", output)
+                # Checked before the build is selected, so nothing at all is written.
                 self.assertEqual(fake.writes(), [])
+                self.assertEqual((fake.attached, fake.release_type), ("OLD", None))
 
     def test_the_draft_holding_this_version_is_chosen_over_others(self) -> None:
         other = [review_item("P", "inAppPurchaseVersion", "IV1")]
@@ -2612,6 +2616,16 @@ class CreativeAssetTests(MainFlow):
         self.assertEqual(items_added(fake), [("appAssetLibraryImages", "IMG1"), ("appAssetLibraryImages", "IMG2")])
         self.assertFalse([c for c in fake.writes() if c[:2] == ("localizations", "placements")])
         self.assertEqual(fake.submitted, ["NEW"])
+
+    def test_an_interrupted_upload_is_uploaded_again(self) -> None:
+        # asc never deletes the reservation an interrupted upload leaves behind.
+        fake = FakeAsc(drafts=(), library=[self.image("STALE", "header", "AWAITING_UPLOAD")])
+        code, output = self.run_creative(fake)
+        self.assertEqual(code, 0, output)
+        uploads = [Path(flag(c, "--file")).name for c in fake.writes() if c[:3] == ("asset-library", "images", "upload")]
+        self.assertEqual(uploads, ["header.png", "search-results.png"])
+        self.assertNotIn("STALE", [item_id for _, item_id in items_added(fake)])
+        self.assertIn("AWAITING_UPLOAD", asc_release.CREATIVE_DEAD_STATES)
 
     def test_images_in_review_are_neither_reuploaded_nor_placed(self) -> None:
         fake = FakeAsc(library=[self.image("H", "header", "WAITING_FOR_REVIEW"),
