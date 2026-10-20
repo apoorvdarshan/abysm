@@ -289,8 +289,7 @@ store/creative/ios/
 Each folder takes one image, without an alpha channel. Sizes, formats and alpha
 are checked with the other local inputs before the build, so a wrong file stops
 the run early. An image is matched in the Asset Library by file name and size,
-so give a changed image a new file name. A reservation left by an interrupted
-upload (`AWAITING_UPLOAD`) is ignored and the image is uploaded again. Apple reviews each new image on its own
+so give a changed image a new file name. Apple reviews each new image on its own
 (ABYSM already has an approved version): a run uploads it, sends it to App
 Review in a submission of its own, and a later run places it on the `en-US`
 product page (or swaps it in for the image already there) once it is approved. A
@@ -341,8 +340,7 @@ item added by hand never rides along; a draft holding creative images belongs to
 their own review and is never used for the version. The draft that already holds
 this version is reused; otherwise only a draft holding no app version is, so
 another version's draft is never touched. A `READY_FOR_REVIEW` version that no
-draft holds stops the run before anything is written, even before the build is
-selected. A product never goes to App
+draft holds stops the run before anything is added. A product never goes to App
 Review without the version: the deprecated `inAppPurchaseSubmissions` endpoint
 is never used, and neither is a product-only review submission. If a re-run
 finds the version already submitted while a catalog product is still Ready to
