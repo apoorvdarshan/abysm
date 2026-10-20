@@ -534,15 +534,22 @@ def pre_row(pre_id: str = "P1", version: str = VERSION, platform: str = "IOS") -
     return {"type": "preReleaseVersions", "id": pre_id, "attributes": {"version": version, "platform": platform}}
 
 
-def png_header(color_type: int, *, trns: bool = False) -> bytes:
-    """A PNG signature and IHDR (plus an optional tRNS chunk) with the given colour type."""
+def png_header(color_type: int = 2, *, trns: bool = False, width: int = 16, height: int = 16) -> bytes:
+    """A PNG signature and IHDR (plus an optional tRNS chunk) with the given colour type and size."""
     import zlib
 
     def chunk(kind: bytes, body: bytes) -> bytes:
         return len(body).to_bytes(4, "big") + kind + body + zlib.crc32(kind + body).to_bytes(4, "big")
 
-    ihdr = (16).to_bytes(4, "big") + (16).to_bytes(4, "big") + bytes([8, color_type, 0, 0, 0])
+    ihdr = width.to_bytes(4, "big") + height.to_bytes(4, "big") + bytes([8, color_type, 0, 0, 0])
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + (chunk(b"tRNS", b"\x00\x00") if trns else b"") + chunk(b"IDAT", b"x")
+
+
+def jpeg_header(width: int, height: int) -> bytes:
+    """A JPEG with an APP0 segment and a baseline SOF0 frame header of the given size."""
+    app0 = b"\xff\xe0" + (16).to_bytes(2, "big") + b"JFIF\x00" + bytes(9)
+    sof0 = b"\xff\xc0" + (17).to_bytes(2, "big") + b"\x08" + height.to_bytes(2, "big") + width.to_bytes(2, "big") + bytes(12)
+    return b"\xff\xd8" + app0 + sof0 + b"\xff\xd9"
 
 
 def asc_error(code: int) -> asc_cli.AscError:
@@ -1215,6 +1222,16 @@ class CmdWaitBuildTests(unittest.TestCase):
         self.assertIs(captured["is_transient"], ios_release.is_transient_error)
         self.assertIn("build_id=B9", written)
 
+    def test_asc_errors_end_with_an_error_line_not_a_traceback(self) -> None:
+        err = io.StringIO()
+        with mock.patch.object(ios_release, "asc_client", side_effect=asc_cli.AscError(("apps", "view"), 3, "unauthorized")), \
+                mock.patch.dict(os.environ, {}, clear=True), redirect_stderr(err), redirect_stdout(io.StringIO()), \
+                self.assertRaises(SystemExit) as caught:
+            ios_release.main(["wait-build", "--version", VERSION, "--build", "3", "--started-at", str(STARTED),
+                              "--wait-minutes", "120", "--poll-seconds", "30"])
+        self.assertEqual(caught.exception.code, 1)
+        self.assertIn("error: asc apps view failed (exit 3)", err.getvalue())
+
     def test_another_app_record_stops_the_wait(self) -> None:
         for record in ({"id": APP, "attributes": {"bundleId": "com.example.other"}},
                        {"id": "999", "attributes": {"bundleId": ios_release.BUNDLE_ID}}):
@@ -1420,6 +1437,15 @@ class ScreenshotUploadTests(unittest.TestCase):
             problem = asc_release.screenshot_alpha_problem([(IPHONE, [rgb, rgba]), (IPAD, [trns])])
             self.assertIn(f"{IPHONE}: 02-rgba.png; {IPAD}: 03-trns.png", problem)
             self.assertIn("Re-export them as RGB PNGs", problem)
+
+    def test_screenshot_sizes_are_exactly_what_asc_accepts(self) -> None:
+        # `asc screenshots sizes --display-type <TYPE>` (asc 5.15.0).
+        asc_sizes = {
+            IPHONE: {(1260, 2736), (1290, 2796), (1320, 2868), (2736, 1260), (2796, 1290), (2868, 1320)},
+            IPAD: {(2048, 2732), (2064, 2752), (2732, 2048), (2752, 2064)},
+        }
+        self.assertEqual({display: set(accepted) for display, _, accepted in asc_release.SCREENSHOT_SETS}, asc_sizes)
+        self.assertNotIn((1284, 2778), asc_sizes[IPHONE])  # the 6.5" size, which the 6.7" set refuses
 
     def test_every_set_has_an_asc_device_type(self) -> None:
         self.assertEqual({display for display, *_ in asc_release.SCREENSHOT_SETS}, set(asc_release.DEVICE_TYPES))
@@ -1975,8 +2001,8 @@ class AscCliTests(unittest.TestCase):
             self.assertEqual(code, 1)
             self.assertIn("no header or search results image", output)
             (Path(tmp) / "header").mkdir()
-            (Path(tmp) / "header" / "a.png").write_bytes(b"x")
-            (Path(tmp) / "header" / "b.jpg").write_bytes(b"y")
+            (Path(tmp) / "header" / "a.png").write_bytes(png_header(width=3840, height=1646))
+            (Path(tmp) / "header" / "b.jpg").write_bytes(jpeg_header(3840, 1646))
             code, output = self.run_cli({"UPLOAD_CREATIVE_ASSETS": "true"}, "--creative-dir", tmp)
             self.assertEqual(code, 1)
             self.assertIn("takes one image", output)
@@ -2011,7 +2037,8 @@ class MainFlow(unittest.TestCase):
             (IPAD, ipad, frozenset({(2752, 2064)})),
         )
         self.creative = Path(tmp.name) / "creative"
-        for folder, data in (("header", b"header-image"), ("search-results", b"search-image")):
+        for folder, data in (("header", png_header(width=3840, height=1646)),
+                             ("search-results", png_header(width=3840, height=2560) + b"search")):
             (self.creative / folder).mkdir(parents=True)
             (self.creative / folder / f"{folder}.png").write_bytes(data)
 
@@ -2599,6 +2626,56 @@ class CreativeAssetTests(MainFlow):
                               "refuses; re-export it as RGB", output)
                 self.assertEqual(fake.calls, [])
 
+    def test_images_apple_would_refuse_fail_before_any_call(self) -> None:
+        cases = {
+            "header": [png_header(width=3840, height=2160), jpeg_header(3840, 1646), b"not an image"],
+            "search-results": [png_header(width=3000, height=2001), png_header(width=1800, height=1200),
+                               jpeg_header(4000, 2666)],
+        }
+        for folder, contents in cases.items():
+            path = self.creative / folder / f"{folder}.png"
+            original = path.read_bytes()
+            for content in contents:
+                path.write_bytes(content)
+                for mode in ((), ("--dry-run",)):
+                    fake = FakeAsc()
+                    with self.subTest(folder=folder, content=content[:24], mode=mode):
+                        code, output = self.run_main(fake, CREATIVE, *mode, build=False)
+                        self.assertEqual(code, 1, output)
+                        self.assertIn(f"image {folder}.png is", output)
+                        self.assertEqual(fake.calls, [])
+            path.write_bytes(original)
+
+    def test_sizes_apple_accepts_pass(self) -> None:
+        good = [("PRODUCT_PAGE_HEADER_ASSET", png_header(width=3840, height=1646)),
+                ("PRODUCT_PAGE_HEADER_ASSET", png_header(width=5244, height=2950)),
+                ("APP_STORE_SEARCH_RESULTS_ASSET", png_header(width=3840, height=2560)),
+                ("APP_STORE_SEARCH_RESULTS_ASSET", jpeg_header(1920, 1280)),
+                ("APP_STORE_SEARCH_RESULTS_ASSET", png_header(width=5244, height=2950))]
+        for placement, content in good:
+            path = self.creative / "probe"
+            path.write_bytes(content)
+            with self.subTest(placement=placement, content=content[:24]):
+                self.assertIsNone(asc_release.creative_size_problem(placement, path))
+        self.assertEqual(asc_release.image_dimensions(path), ("png", 5244, 2950))
+
+    def test_an_approved_image_on_a_locked_version_waits_without_failing(self) -> None:
+        # Approval can land between the submit and a rerun of the store job.
+        library = [self.image("H", "header", "APPROVED"), self.image("S", "search-results", "IN_REVIEW")]
+        for state in sorted(asc_release.SUBMITTED_VERSION_STATES | {"READY_FOR_REVIEW"}):
+            fake = FakeAsc(state=state, attached="B9", library=library)
+            with self.subTest(state=state):
+                code, output = self.run_creative(fake)
+                self.assertEqual(code, 0, output)
+                self.assertEqual(fake.writes(), [])
+                self.assertIn("header.png is approved; it is placed on a later run, once the version can be edited",
+                              output)
+        # The preflight reports it the same way.
+        fake = FakeAsc(state="WAITING_FOR_REVIEW", attached="B9", library=library)
+        code, output = self.run_main(fake, CREATIVE, "--preflight", build=False)
+        self.assertEqual(code, 0, output)
+        self.assertEqual(fake.writes(), [])
+
     def test_a_rejected_image_stops_the_run(self) -> None:
         fake = FakeAsc(library=[self.image("H", "header", "REJECTED")])
         code, output = self.run_creative(fake)
@@ -3170,11 +3247,22 @@ class WorkflowWiringTests(unittest.TestCase):
                 # asc replaced the hand-written API client and its PyJWT dependency.
                 self.assertNotIn("pip install", body)
         self.assertEqual(self.WORKFLOW.count(self.ASC_INSTALL), 3)
-        # The build job never runs asc: xcodebuild exports and uploads the binary.
-        self.assertNotIn("asc_cli.py", self.job("build"))
+        # The build job never installs or runs asc: xcodebuild exports and uploads the binary.
+        self.assertNotIn("asc_cli.py install", self.job("build"))
+        self.assertNotIn("asc_cli.py check", self.job("build"))
         self.assertNotIn("requirements-store", self.WORKFLOW)
         self.assertFalse((ROOT / "requirements-store.in").exists())
         self.assertFalse((ROOT / "requirements-store.txt").exists())
+
+    def test_the_build_job_checks_out_every_module_ios_release_imports(self) -> None:
+        # The build job runs `ios_release.py export-compliance` from a sparse checkout.
+        build = self.job("build")
+        source = (HERE / "ios_release.py").read_text()
+        local = [name for name in re.findall(r"^import (\w+)", source, re.M) if (HERE / f"{name}.py").exists()]
+        self.assertIn("asc_cli", local)
+        for name in local:
+            self.assertIn(f"            /scripts/store/{name}.py\n", build, name)
+        self.assertIn("            /scripts/store/ios_release.py\n", build)
 
     def test_validation_runs_use_asc_read_only(self) -> None:
         # Validation runs only reach the prepare job, and there asc refuses every write.

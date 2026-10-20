@@ -72,8 +72,8 @@ through:
 | Version state when the job re-runs | What the re-run does |
 |------------------------------------|----------------------|
 | Prepare for Submission (or rejected) | Sends only changed text, App Info and screenshot sets (a set with an image that failed or is still processing counts as changed and is uploaded again); uploads, sends to App Review or places only the creative images that need it; selects this run's build unless it is already selected; submits |
-| `READY_FOR_REVIEW` (in a draft submission, for example after a failed submit) | Text and App Info can still change; screenshots must already match the repo and be processed, and creative images must already be in place or in App Review (Apple locks them); submits the draft, which must hold this version |
-| `WAITING_FOR_REVIEW` / `IN_REVIEW` (the submit went through) | Writes nothing. Passes only if review holds this run's build, the listing, What's New and screenshots already match the repo (every screenshot processed), the creative images are in place or in App Review, and no catalog product is still Ready to Submit; otherwise fails without writing. A product left behind is never sent to App Review on its own: submit it in App Store Connect yourself (or with the next version) |
+| `READY_FOR_REVIEW` (in a draft submission, for example after a failed submit) | Text and App Info can still change; screenshots must already match the repo and be processed, and creative images must already be in place, approved or in App Review (Apple locks them); submits the draft, which must hold this version |
+| `WAITING_FOR_REVIEW` / `IN_REVIEW` (the submit went through) | Writes nothing. Passes only if review holds this run's build, the listing, What's New and screenshots already match the repo (every screenshot processed), the creative images are in place, approved or in App Review, and no catalog product is still Ready to Submit; otherwise fails without writing. A product left behind is never sent to App Review on its own: submit it in App Store Connect yourself (or with the next version) |
 
 A brand-new run (a new tag, or **Re-run all jobs**) uploads a new build, which
 can never replace one already in review: its preflight fails before anything is
@@ -245,8 +245,12 @@ repo; nothing is resized or generated:
 
 | App Store Connect slot | Source | Accepted sizes |
 |------------------------|--------|----------------|
-| `APP_IPHONE_67` (iPhone 6.9") | [`store/metadata/screenshots/ios/iphone/`](metadata/screenshots/ios/iphone/) | 2796×1290 (landscape) or 1290×2796 |
+| `APP_IPHONE_67` (iPhone 6.9") | [`store/metadata/screenshots/ios/iphone/`](metadata/screenshots/ios/iphone/) | 2868×1320, 2796×1290 or 2736×1260 (landscape), or their portrait sizes |
 | `APP_IPAD_PRO_3GEN_129` (iPad 13") | [`store/metadata/screenshots/ios/ipad/`](metadata/screenshots/ios/ipad/) | 2752×2064, 2732×2048 or their portrait sizes |
+
+The accepted sizes are exactly the ones asc accepts for each display type
+(`asc screenshots sizes --display-type APP_IPHONE_67`); the 6.5" 2778×1284 size
+is not among them.
 
 Each set is replaced in file-name order (1–10 PNGs) for the `en-US` listing,
 and the run waits until App Store Connect has processed every image. A set that
@@ -278,19 +282,22 @@ before turning the switch on:
 ```
 store/creative/ios/
   header/           one product page header image, 3840×1646 PNG
-  search-results/   one search results image, 3:2, 1920×1280 to 3840×2560
+  search-results/   one search results image, 3:2 PNG or JPEG, 1920×1280 to 3840×2560
+                    (a 5244×2950 PNG is a universal image that fits either slot)
 ```
 
-Each folder takes one PNG without an alpha channel, or a JPEG; an image that
-stores alpha stops the run before any App Store Connect call. An image is
-matched in the Asset Library by file name and size, so give a changed image a
-new file name. Apple reviews each new image on its own (ABYSM already has an
-approved version): a run uploads it, sends it to App Review in a submission of
-its own, and a later run places it on the `en-US` product page (or swaps it in
-for the image already there) once it is approved. A rejected image stops the run
-with Apple's reason. While the version is in a review submission nothing is
-uploaded, sent or placed: images already in place or in App Review pass,
-anything else fails the run. Apple's rules for these images: no prices, website
+Each folder takes one image, without an alpha channel. Sizes, formats and alpha
+are checked with the other local inputs before the build, so a wrong file stops
+the run early. An image is matched in the Asset Library by file name and size,
+so give a changed image a new file name. Apple reviews each new image on its own
+(ABYSM already has an approved version): a run uploads it, sends it to App
+Review in a submission of its own, and a later run places it on the `en-US`
+product page (or swaps it in for the image already there) once it is approved. A
+rejected image stops the run with Apple's reason. While the version is in a
+review submission nothing is uploaded, sent or placed: images already in place
+or in App Review pass, and an image approved meanwhile is not a mismatch (it is
+placed on a later run, once the version can be edited); a new or unsubmitted
+image fails the run. Apple's rules for these images: no prices, website
 addresses, other platforms or Apple badges, and no transparency.
 
 ## Export compliance
