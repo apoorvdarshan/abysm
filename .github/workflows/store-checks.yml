@@ -3,15 +3,11 @@ name: Store release checks
 # Offline checks of the iOS release tooling: switches, tag rule, build wait,
 # build selection, listing/screenshot inputs, release notes, log redaction and the
 # product catalog, plus scripts/test-ios.sh's simulator shutdown between the unit
-# and UI tests (against a fake xcrun, no simulator). The App Store Connect parts
-# run against a fake asc. It also installs the pinned App Store Connect CLI (asc)
-# and checks its version, so a pin whose download or SHA-256 no longer matches
-# fails here, and installs the hash-locked Pillow that converts screenshots to
-# RGB copies, so its tests cannot skip here. No credentials and no network calls
-# to App Store Connect; nothing is uploaded. Unlike a release run, this always
-# checks the repository's listing and screenshots, whatever the switches say. A
-# newer push to a pull request cancels its older run; pushes to main and manual
-# runs are never cancelled.
+# and UI tests (against a fake xcrun, no simulator). No credentials and no network
+# calls to App Store Connect; nothing is uploaded. Unlike a release run, this
+# always checks the repository's listing and screenshots, whatever the switches
+# say. A newer push to a pull request cancels its older run; pushes to main and
+# manual runs are never cancelled.
 on:
   pull_request:
     paths:
@@ -67,8 +63,8 @@ jobs:
             /Abysm.storekit
             /Abysm/StoreManager.swift
             /Abysm/Info.plist
-            /RELEASE_NOTES.md
             /requirements-store.txt
+            /RELEASE_NOTES.md
             /.github/workflows/
 
       # The release jobs use the same pinned Python, never the runner's system one.
@@ -80,47 +76,29 @@ jobs:
         env:
           IOS_RELEASE_AUTOMATION: ${{ vars.IOS_RELEASE_AUTOMATION }}
           IOS_CREATE_VERSION: ${{ vars.IOS_CREATE_VERSION }}
-          IOS_CREATE_PRODUCTS: ${{ vars.IOS_CREATE_PRODUCTS }}
           IOS_UPLOAD_BUILD: ${{ vars.IOS_UPLOAD_BUILD }}
           IOS_UPLOAD_LISTING: ${{ vars.IOS_UPLOAD_LISTING }}
           IOS_UPLOAD_WHATS_NEW: ${{ vars.IOS_UPLOAD_WHATS_NEW }}
           IOS_UPLOAD_SCREENSHOTS: ${{ vars.IOS_UPLOAD_SCREENSHOTS }}
-          IOS_UPLOAD_CREATIVE_ASSETS: ${{ vars.IOS_UPLOAD_CREATIVE_ASSETS }}
           IOS_SUBMIT_REVIEW: ${{ vars.IOS_SUBMIT_REVIEW }}
           IOS_PUBLIC_RELEASE: ${{ vars.IOS_PUBLIC_RELEASE }}
           IOS_BUILD_POLL_SECONDS: ${{ vars.IOS_BUILD_POLL_SECONDS }}
           IOS_BUILD_WAIT_MINUTES: ${{ vars.IOS_BUILD_WAIT_MINUTES }}
         run: python3 scripts/store/print_gates.py
 
-      # A broken pin (for example a Dependabot bump) fails here, not in a release.
-      - name: Install and import the store tooling
-        run: |
-          python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt
-          python3 -c "import PIL.Image; print('store tooling imports OK')"
-
       - name: Test switches, tag rule, build wait and selection, listing and screenshots
-        env:
-          # The screenshot conversion tests need Pillow and must not skip here.
-          STORE_TESTS_NEED_PILLOW: "1"
         run: python3 -m unittest discover -s scripts/store -p 'test_*.py' -v
 
       - name: Validate the product catalog
         run: python3 scripts/store/validate_catalog.py
 
-      # Creative images are left out: store/creative/ios has none while
-      # IOS_UPLOAD_CREATIVE_ASSETS is off (the unit tests cover that step).
       - name: Dry-run every App Store Connect operation (no network)
         env:
           UPLOAD_LISTING: "true"
           UPLOAD_SCREENSHOTS: "true"
           SUBMIT_IOS_REVIEW: "true"
           PUBLIC_RELEASE: "false"
-        run: |
-          python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
-          python3 scripts/store/asc_products.py create  # CREATE_IOS_PRODUCTS unset: skipped, no calls
+        run: python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
 
-      # Proves the pinned release still downloads and matches its checksum.
-      - name: Install and check the pinned App Store Connect CLI (no store calls)
-        run: |
-          python3 scripts/store/asc_cli.py install --dest "$RUNNER_TEMP/asc-bin"
-          PATH="$RUNNER_TEMP/asc-bin:$PATH" python3 scripts/store/asc_cli.py check
+      - name: Install the hash-pinned store tooling
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt

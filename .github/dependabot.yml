@@ -1,16 +1,12 @@
 # Dependabot version updates. Dependabot alerts are enabled in the repository
 # settings; this file keeps the pinned versions current:
 #   github-actions  the commit-SHA-pinned actions in every workflow
-#   pip (/)         the hash-locked store tooling (requirements-store.in compiled to
-#                   requirements-store.txt): Pillow, which converts screenshots to RGB
-#                   in the release jobs that hold the App Store Connect key
+#   pip             the hash-locked App Store Connect tooling (requirements-store.in
+#                   compiled to requirements-store.txt), which runs next to the App
+#                   Store Connect key in the release jobs
 #   pip (/fuzz)     the hash-locked Atheris fuzzer in fuzz/requirements.txt (fuzz.yml)
 #   swift           the RevenueCat package pinned in the Xcode project's Package.resolved
 #   npm             the website's deploy tooling in web/ (wrangler and what it pulls in)
-#
-# The release jobs' App Store Connect CLI (asc) is a single binary pinned by
-# version and SHA-256 in scripts/store/asc_cli.py, which Dependabot cannot read;
-# move it to a newer release by hand (see store/README.md).
 #
 # Each ecosystem comes as one grouped PR. Updates to the app or to ios-tests.yml
 # run the iOS tests on a paid macOS runner, so the Swift package and the actions
@@ -31,11 +27,6 @@ updates:
 
   - package-ecosystem: pip
     directory: /
-    # Only the root requirements-store files. Dependabot's pip support also reads
-    # requirements files one folder down, so without this it would bump
-    # fuzz/requirements.txt here as well, duplicating the /fuzz entry's PR.
-    exclude-paths:
-      - "*/**"
     schedule:
       interval: weekly
     groups:
