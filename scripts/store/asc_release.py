@@ -187,8 +187,7 @@ CREATIVE_UNSUBMITTED_STATES = {"PREPARE_FOR_SUBMISSION", "READY_FOR_REVIEW", "CO
 # deletes it); it is ignored like a failed one, so the next run uploads the image again.
 CREATIVE_DEAD_STATES = {"REJECTED", "FAILED", "ARCHIVED", "AWAITING_UPLOAD"}
 
-# The catalog's product groups (asc_products.PRODUCT_GROUPS maps each to its App Store type).
-CATALOG_PRODUCT_GROUPS = ("subscriptions", "consumables", "non_consumables", "tips")
+CATALOG_GROUPS = ("nonConsumables", "consumables", "subscriptions")
 
 
 def fail(msg: str) -> None:
@@ -582,14 +581,9 @@ def stage_screenshots(plan: list[tuple[str, list[Path]]], dest: Path) -> list[tu
     return staged
 
 
-def file_checksum(raw: bytes) -> str:
-    """The MD5 App Store Connect records as an uploaded image's sourceFileChecksum."""
-    return hashlib.md5(raw, usedforsecurity=False).hexdigest()  # noqa: S324 - Apple's checksum
-
-
 def md5_hex(path: Path) -> str:
     """The checksum App Store Connect stores as an uploaded screenshot's sourceFileChecksum."""
-    return file_checksum(path.read_bytes())
+    return hashlib.md5(path.read_bytes()).hexdigest()  # noqa: S324 - Apple's checksum
 
 
 def live_screenshot_sets(asc: asc_cli.Asc, version_loc_id: str) -> dict[str, list[dict[str, Any]]]:
@@ -980,13 +974,13 @@ def load_catalog(path: Path = CATALOG) -> dict[str, Any]:
 
 
 def intended_product_ids(catalog: dict[str, Any] | None = None) -> set[str]:
-    """Product ids the release may submit: store/catalog/products.json's iOS products."""
+    """Product ids the release may submit, from store/catalog/products.json."""
     catalog = load_catalog() if catalog is None else catalog
     ids: set[str] = set()
-    for group in CATALOG_PRODUCT_GROUPS:
+    for group in CATALOG_GROUPS:
         for item in catalog.get(group) or []:
             pid = item.get("id")
-            if isinstance(pid, str) and pid and "ios" in (item.get("platforms") or []):
+            if isinstance(pid, str) and pid:
                 ids.add(pid)
     return ids
 
@@ -1087,15 +1081,12 @@ def submit_review_submission(asc: asc_cli.Asc, submission_id: str) -> None:
     call(asc, "review", "submissions-submit", "--id", submission_id, "--confirm")
 
 
-def current_version_id(versions: list[dict[str, Any]]) -> str | None:
-    """A product's in-flight version (one per product; the highest number wins).
-
-    asc_products.py reads a product's current version with it too.
-    """
-    numbered = [v for v in versions if attrs(v).get("version") is not None]
+def newest_version_id(versions: list[dict[str, Any]]) -> str | None:
+    """A product's in-flight version (one per product; the highest number wins)."""
+    numbered = [v for v in versions if attrs(v).get("version")]
     if not numbered:
         return versions[0]["id"] if versions else None
-    return max(numbered, key=lambda v: int(attrs(v)["version"]))["id"]
+    return max(numbered, key=lambda v: v["attributes"]["version"])["id"]
 
 
 def catalog_review_items(
@@ -1131,7 +1122,7 @@ def catalog_review_items(
         if a.get("state") not in submittable:
             continue
         label = f"{kind} {a.get('name') or product['id']} ({pid})"
-        version_id = current_version_id(versions)
+        version_id = newest_version_id(versions)
         if version_id:
             items.append((label, item_type, version_id))
         else:

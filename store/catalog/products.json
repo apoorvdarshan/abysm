@@ -1,13 +1,10 @@
 {
   "app": "com.apoorvdarshan.Abysm",
-  "non_consumables": [
+  "nonConsumables": [
     {
       "id": "com.apoorvdarshan.Abysm.unlockdeep",
-      "platforms": ["ios"],
-      "entitlement": "deep",
-      "ios": {
-        "reference_name": "Unlock the Deep"
-      }
+      "referenceName": "Unlock the Deep",
+      "entitlement": "deep"
     }
   ],
   "consumables": [],
