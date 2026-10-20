@@ -19,12 +19,11 @@ checks properties the release depends on, not just that nothing crashes:
 
 Atheris ships wheels only for Linux x86-64 (CPython 3.12 to 3.14). The targets
 look for the store-release checkout in `.store-release/` at the repository root
-(ignored by git), or in `STORE_RELEASE_DIR`:
+(ignored by git), or in `STORE_RELEASE_DIR`. `fuzz/store_release_pin.py` prints
+the commit the release workflows pin, fetches it, or checks a checkout against it:
 
 ```sh
-git clone https://github.com/apoorvdarshan/store-release .store-release
-git -C .store-release checkout "$(python3 -I fuzz/store_release_pin.py)"
-python3 -I fuzz/store_release_pin.py --check .store-release
+python3 -I fuzz/store_release_pin.py --fetch .store-release   # the pinned commit, checked
 python3 -m pip install --require-hashes -r fuzz/requirements.txt
 python3 -I fuzz/release_gates_fuzz.py -max_total_time=60
 python3 -I fuzz/release_notes_fuzz.py -max_total_time=60

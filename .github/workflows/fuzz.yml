@@ -76,21 +76,11 @@ jobs:
           python-version: "3.13"
 
       # The commit every apoorvdarshan/store-release `uses:` line in the release
-      # workflows names; it fails when they disagree or one is not a full SHA.
-      - name: Find the store-release commit the release workflows pin
-        id: pin
-        run: echo "sha=$(python3 -I fuzz/store_release_pin.py)" >> "$GITHUB_OUTPUT"
-
-      - name: Check out store-release at that commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: apoorvdarshan/store-release
-          ref: ${{ steps.pin.outputs.sha }}
-          path: .store-release
-          persist-credentials: false
-
-      - name: Check the store-release checkout is the pinned commit
-        run: python3 -I fuzz/store_release_pin.py --check .store-release
+      # workflows names (it fails when they disagree or one is not a full SHA), so a
+      # store-release bump is fuzzed in its own pull request. Fetched anonymously and
+      # checked against the pin before anything runs.
+      - name: Fetch store-release at the commit the release workflows pin
+        run: python3 -I fuzz/store_release_pin.py --fetch .store-release
 
       - name: Install the hash-pinned fuzzer
         run: python3 -m pip install --disable-pip-version-check --require-hashes -r fuzz/requirements.txt
