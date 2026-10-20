@@ -14,10 +14,6 @@ listing and screenshots only when their switch is on (the gated
 `asc_release.py --dry-run`) and only its own release notes, so unused files
 never block a build-only release. Pull requests and main (store-checks.yml) run
 every test.
-
-The screenshot conversion tests need Pillow (requirements-store.txt) and skip
-without it, except where STORE_TESTS_NEED_PILLOW is set (store-checks.yml, which
-installs it), so they cannot skip there.
 """
 from __future__ import annotations
 
@@ -61,25 +57,10 @@ RELEASE_SCOPE = os.environ.get("STORE_TESTS_SCOPE") == "release"
 repo_content = unittest.skipIf(RELEASE_SCOPE, "release run: checked only when this release uses it")
 REPO_CONTENT_TESTS = (
     "ScreenshotPlanTests.test_repo_marketing_images_are_app_store_ready",
-    "ScreenshotRgbTests.test_repo_screenshots_upload_as_rgb_with_the_same_pixels",
     "ListingTests.test_repo_metadata_is_valid_for_every_switch_but_whats_new",
     "AscCliTests.test_full_dry_run_with_repo_inputs",
     "ReleaseNotesTests.test_repository_release_notes_have_one_section_per_heading",
 )
-
-# Pillow converts screenshots that store alpha; store-checks.yml installs it and
-# sets STORE_TESTS_NEED_PILLOW, so the tests that need it cannot skip there.
-PILLOW = asc_release.try_import_pillow()
-needs_pillow = unittest.skipIf(PILLOW is None and not os.environ.get("STORE_TESTS_NEED_PILLOW"),
-                               "Pillow not installed")
-
-
-def pillow(test: unittest.TestCase):
-    """Pillow's Image module; fails the test where Pillow is required but missing."""
-    if PILLOW is None:
-        test.fail("Pillow is required here (STORE_TESTS_NEED_PILLOW is set)")
-    return PILLOW
-
 
 TAG = "v1.0.1"
 VERSION = "1.0.1"
@@ -998,8 +979,6 @@ class FakeAsc:
         self.complete_after = complete_after
         self.lists_since_upload = 0
         self.uploads: list[tuple[str, list[str]]] = []
-        # Display type -> file name -> the bytes asc was last given for it.
-        self.uploaded: dict[str, dict[str, bytes]] = {}
         self.iaps = iaps if iaps is not None else [
             {"id": "IAP1", "attributes": {"name": "Unlock the Deep", "productId": UNLOCK, "state": unlock_state}}]
         self.iap_versions = iap_versions if iap_versions is not None else {
@@ -1144,11 +1123,7 @@ class FakeAsc:
                 raise AssertionError("a screenshot upload must replace the whole set")
             kind = DISPLAY_TYPES[flag(args, "--device-type")]
             files = sorted(p for p in Path(flag(args, "--path")).iterdir() if p.is_file())
-            if any(asc_cli.image_has_alpha(p) for p in files):
-                # asc 5.15.0 refuses a PNG that stores alpha before uploading anything.
-                raise asc_cli.AscError(args, 1, "screenshot has an alpha channel")
             self.uploads.append((kind, [p.name for p in files]))
-            self.uploaded[kind] = {p.name: p.read_bytes() for p in files}
             states = self.upload_states
             self.sets[kind] = [
                 self.shot(f"{kind}-new{len(self.uploads)}-{i}", p.name, hashlib.md5(p.read_bytes()).hexdigest(),
@@ -1491,8 +1466,7 @@ class ScreenshotUploadTests(unittest.TestCase):
             self.assertIsNone(asc_release.screenshot_alpha_problem([(IPHONE, [rgb])]))
             problem = asc_release.screenshot_alpha_problem([(IPHONE, [rgb, rgba]), (IPAD, [trns])])
             self.assertIn(f"{IPHONE}: 02-rgba.png; {IPAD}: 03-trns.png", problem)
-            self.assertIn("not uploading them", problem)
-            self.assertNotIn("xport", problem)
+            self.assertIn("Re-export them as RGB PNGs", problem)
 
     def test_screenshot_sizes_are_exactly_what_asc_accepts(self) -> None:
         # `asc screenshots sizes --display-type <TYPE>` (asc 5.15.0).
@@ -2022,9 +1996,7 @@ class AscCliTests(unittest.TestCase):
         self.assertIn("whats_new.txt", output)
 
     @repo_content
-    @needs_pillow
     def test_full_dry_run_with_repo_inputs(self) -> None:
-        # The committed screenshots store alpha, so the dry run converts them.
         code, output = self.run_cli(
             {"UPLOAD_LISTING": "true", "UPLOAD_SCREENSHOTS": "true", "SUBMIT_IOS_REVIEW": "true"},
             "--build-id", "DRY-RUN", "--build-number", "3")
@@ -2369,20 +2341,22 @@ class RerunTests(MainFlow):
         self.assertEqual(fake.writes(), [("review", "items-add", "--submission", "SUB1", "--item-type", "appStoreVersions",
                                           "--item-id", "V1", "--if-exists", "skip"), SUBMIT_CALL])
 
-    def test_screenshots_with_alpha_need_pillow_before_any_asc_call(self) -> None:
-        source = png(self.shots[IPAD][1], 2752, 2064, color_type=6)
-        committed = source.read_bytes()
-        with mock.patch.object(asc_release, "try_import_pillow", return_value=None):
-            for mode in (("--preflight",), (), ("--dry-run",)):
-                fake = FakeAsc()
-                with self.subTest(mode=mode):
-                    code, output = self.run_main(fake, {"UPLOAD_SCREENSHOTS": "true"}, *mode, build=False)
-                    self.assertEqual(code, 1, output)
-                    self.assertIn(f"{IPAD}: 01.png stores an alpha channel, which App Store Connect refuses, and "
-                                  "converting it to RGB needs Pillow: python3 -m pip install --require-hashes -r "
-                                  "requirements-store.txt", output)
-                    self.assertEqual(fake.calls, [])
-        self.assertEqual(source.read_bytes(), committed)
+    def test_screenshots_with_alpha_stop_before_any_asc_call(self) -> None:
+        png(self.shots[IPAD][1], 2752, 2064, color_type=6)
+        for mode in (("--preflight",), ()):
+            fake = FakeAsc()
+            with self.subTest(mode=mode):
+                code, output = self.run_main(fake, {"UPLOAD_SCREENSHOTS": "true"}, *mode, build=False)
+                self.assertEqual(code, 1, output)
+                self.assertIn(f"these screenshots store an alpha channel, which App Store Connect refuses (asc uploads "
+                              f"no PNG with alpha, even a fully opaque one): {IPAD}: 01.png", output)
+                self.assertEqual(fake.calls, [])
+        # The offline dry run reports it without failing.
+        fake = FakeAsc()
+        code, output = self.run_main(fake, {"UPLOAD_SCREENSHOTS": "true"}, "--dry-run", build=False)
+        self.assertEqual(code, 0, output)
+        self.assertIn("warning: these screenshots store an alpha channel", output)
+        self.assertIn("until then a run with UPLOAD_SCREENSHOTS on stops at its preflight", output)
         # Other switches never read the screenshots.
         code, output = self.run_main(FakeAsc(), {"UPLOAD_LISTING": "true"}, "--preflight", build=False)
         self.assertEqual(code, 0, output)
@@ -2658,117 +2632,6 @@ class CreateVersionTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("--create-version needs --version", output)
         self.assertEqual(fake.calls, [])
-
-
-class ScreenshotRgbTests(MainFlow):
-    """Screenshots that store alpha go up as RGB copies; the committed files never change.
-
-    Every test needs Pillow. needs_pillow goes on each test, not the class, so a
-    release run reports the repository check as skipped for the release.
-    """
-
-    SCREENSHOTS = {"UPLOAD_SCREENSHOTS": "true"}
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.Image = pillow(self)
-
-    def rgba_screenshot(self, path: Path, size: tuple[int, int]):
-        """An opaque RGBA screenshot with varied pixels, saved over path; returns the image."""
-        Image = self.Image
-        ramp = Image.linear_gradient("L").resize(size)
-        img = Image.merge("RGBA", (ramp, ramp.transpose(Image.Transpose.FLIP_LEFT_RIGHT),
-                                   ramp.transpose(Image.Transpose.FLIP_TOP_BOTTOM), Image.new("L", size, 255)))
-        img.save(path)
-        return img
-
-    def open_bytes(self, data: bytes):
-        img = self.Image.open(io.BytesIO(data))
-        img.load()
-        return img
-
-    @needs_pillow
-    def test_an_rgba_screenshot_is_uploaded_as_rgb_with_the_same_pixels(self) -> None:
-        source = self.shots[IPAD][1]
-        image = self.rgba_screenshot(source, (2752, 2064))
-        committed = source.read_bytes()
-        others = {path: path.read_bytes() for path in (*self.shots[IPHONE], self.shots[IPAD][0])}
-        fake = FakeAsc()
-        code, output = self.run_main(fake, self.SCREENSHOTS, build=False)
-        self.assertEqual(code, 0, output)
-        uploaded = fake.uploaded[IPAD]["01.png"]
-        self.assertNotEqual(uploaded, committed)
-        staged = self.open_bytes(uploaded)
-        self.assertEqual((staged.mode, staged.size), ("RGB", (2752, 2064)))
-        self.assertEqual(staged.tobytes(), image.convert("RGB").tobytes())
-        # The committed file is untouched and still RGBA; files without alpha go up byte for byte.
-        self.assertEqual(source.read_bytes(), committed)
-        self.assertTrue(asc_cli.image_has_alpha(source))
-        self.assertEqual(fake.uploaded[IPAD]["00.png"], others[self.shots[IPAD][0]])
-        self.assertEqual([fake.uploaded[IPHONE][p.name] for p in self.shots[IPHONE]],
-                         [others[p] for p in self.shots[IPHONE]])
-        # App Store Connect keeps the upload's checksum, and a rerun stages the same
-        # bytes, so it finds the sets done and uploads nothing.
-        self.assertEqual(fake.sets[IPAD][1]["attributes"]["sourceFileChecksum"], hashlib.md5(uploaded).hexdigest())
-        writes = len(fake.writes())
-        code, output = self.run_main(fake, self.SCREENSHOTS, build=False)
-        self.assertEqual(code, 0, output)
-        self.assertEqual(fake.writes()[writes:], [])
-        self.assertIn(f"{IPAD} (en-US): 2 screenshot(s) already match the repo", output)
-
-    @needs_pillow
-    def test_transparent_pixels_are_laid_over_black_and_the_colour_profile_is_kept(self) -> None:
-        Image = self.Image
-        source = self.shots[IPHONE][0]
-        img = Image.new("RGBA", (2796, 1290), (200, 100, 50, 255))
-        img.paste((200, 100, 50, 0), (0, 0, 10, 10))
-        img.paste((200, 100, 50, 128), (20, 0, 30, 10))
-        img.save(source, icc_profile=b"a colour profile")
-        with tempfile.TemporaryDirectory() as tmp:
-            [(_, [copy])] = asc_release.stage_screenshots([(IPHONE, [source])], Path(tmp))
-            self.assertFalse(asc_cli.image_has_alpha(copy))
-            with Image.open(copy) as staged:
-                self.assertEqual(staged.getpixel((5, 5)), (0, 0, 0))
-                self.assertEqual(staged.getpixel((100, 100)), (200, 100, 50))
-                for got, want in zip(staged.getpixel((25, 5)), (100, 50, 25)):
-                    self.assertLessEqual(abs(got - want), 1)
-                self.assertEqual(staged.info.get("icc_profile"), b"a colour profile")
-
-    @needs_pillow
-    def test_a_copy_that_still_stores_alpha_is_never_uploaded(self) -> None:
-        # The alpha check runs on the staged copies, the last guard before asc.
-        self.rgba_screenshot(self.shots[IPAD][1], (2752, 2064))
-        with mock.patch.object(asc_release, "opaque_rgb", side_effect=lambda Image, img: img.convert("RGBA")):
-            for mode in (("--preflight",), (), ("--dry-run",)):
-                fake = FakeAsc()
-                with self.subTest(mode=mode):
-                    code, output = self.run_main(fake, self.SCREENSHOTS, *mode, build=False)
-                    self.assertEqual(code, 1, output)
-                    self.assertIn(f"these screenshots store an alpha channel, which App Store Connect refuses (asc "
-                                  f"uploads no PNG with alpha, even a fully opaque one): {IPAD}: 01.png; not uploading "
-                                  "them", output)
-                    self.assertEqual(fake.calls, [])
-
-    @repo_content
-    @needs_pillow
-    def test_repo_screenshots_upload_as_rgb_with_the_same_pixels(self) -> None:
-        plan = asc_release.screenshot_plan()
-        committed = {path: path.read_bytes() for _, files in plan for path in files}
-        with tempfile.TemporaryDirectory() as tmp:
-            staged = asc_release.stage_screenshots(plan, Path(tmp))
-            self.assertIsNone(asc_release.screenshot_alpha_problem(staged))
-            for (display, files), (_, copies) in zip(plan, staged):
-                self.assertEqual([c.name for c in copies], [f.name for f in files])
-                for path, copy in zip(files, copies):
-                    with self.subTest(display=display, file=path.name), \
-                            self.Image.open(path) as original, self.Image.open(copy) as upload:
-                        self.assertEqual(upload.mode, "RGB")
-                        self.assertEqual(upload.size, original.size)
-                        if "A" in original.getbands():
-                            # A screenshot should be fully opaque: transparent pixels would show as black.
-                            self.assertEqual(original.getchannel("A").getextrema(), (255, 255))
-                        self.assertEqual(upload.tobytes(), original.convert("RGB").tobytes())
-        self.assertEqual({path: path.read_bytes() for path in committed}, committed)
 
 
 class CreativeAssetTests(MainFlow):
@@ -3491,48 +3354,14 @@ class WorkflowWiringTests(unittest.TestCase):
                 self.assertLess(install.index(self.ASC_INSTALL), install.index(self.ASC_CHECK))
                 for command in uses:
                     self.assertLess(body.index(self.ASC_INSTALL), body.index(command), command)
-                # asc replaced the hand-written API client and its PyJWT dependency;
-                # the only package left is the hash-locked Pillow for screenshots.
-                self.assertEqual(re.findall(r"pip install .*", body),
-                                 [] if job == "wait-for-build" else [self.PILLOW_INSTALL.split("python3 -m ", 1)[1]])
+                # asc replaced the hand-written API client and its PyJWT dependency.
+                self.assertNotIn("pip install", body)
         self.assertEqual(self.WORKFLOW.count(self.ASC_INSTALL), 3)
         # The build job never runs asc: xcodebuild exports and uploads the binary.
         self.assertNotIn("asc_cli.py", self.job("build"))
-        self.assertNotIn("requirements-store", self.job("build"))
-        # (requirements-store.txt is in every job that runs these tests; the .in file is not.)
-        self.assertNotIn("jwt", (ROOT / "requirements-store.txt").read_text().lower())
-
-    PILLOW_INSTALL = "python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt"
-
-    def test_pillow_is_hash_locked_and_installed_before_the_screenshots_are_staged(self) -> None:
-        # The dry run, the preflight and the store step stage the screenshots, so
-        # each job installs the hash-locked Pillow first when screenshots are on.
-        lock = (ROOT / "requirements-store.txt").read_text()
-        self.assertRegex(lock, r"(?m)^pillow==12\.3\.0 \\$")
-        packages = re.findall(r"(?m)^([A-Za-z0-9_.-]+)==", lock)
-        self.assertEqual(packages, ["pillow"])
-        self.assertGreater(lock.count("--hash=sha256:"), 1)
-        for job, gate, users in (
-            ("prepare", "steps.gates.outputs.screenshots == 'true'",
-             ("asc_release.py --dry-run", "asc_release.py --preflight")),
-            ("app-store-connect", "needs.prepare.outputs.screenshots == 'true'", ('asc_release.py "${args[@]}"',)),
-        ):
-            body = self.job(job)
-            install = self.step(job, "Install store tooling (screenshots)")
-            with self.subTest(job=job):
-                self.assertIn("            /requirements-store.txt\n", body)
-                self.assertIn(f"if: {gate}", install)
-                self.assertIn(self.PILLOW_INSTALL, install)
-                self.assertLess(body.index("actions/setup-python@"), body.index(self.PILLOW_INSTALL))
-                for command in users:
-                    self.assertLess(body.index(self.PILLOW_INSTALL), body.index(command), command)
-        # The pull request and main checks always install it and must not skip its tests.
-        checks = (ROOT / ".github" / "workflows" / "store-checks.yml").read_text()
-        self.assertIn("            /requirements-store.txt\n", checks)
-        self.assertEqual(checks.count("      - 'requirements-store.txt'\n"), 2)
-        self.assertLess(checks.index(self.PILLOW_INSTALL), checks.index("STORE_TESTS_NEED_PILLOW: \"1\""))
-        self.assertLess(checks.index("STORE_TESTS_NEED_PILLOW"), checks.index("python3 -m unittest discover"))
-        self.assertLess(checks.index(self.PILLOW_INSTALL), checks.index("asc_release.py --dry-run"))
+        self.assertNotIn("requirements-store", self.WORKFLOW)
+        self.assertFalse((ROOT / "requirements-store.in").exists())
+        self.assertFalse((ROOT / "requirements-store.txt").exists())
 
     def test_validation_runs_use_asc_read_only(self) -> None:
         # Validation runs only reach the prepare job, and there asc refuses every write.
@@ -3558,8 +3387,8 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn(self.ASC_INSTALL, checks)
         self.assertIn(self.ASC_CHECK, checks)
         self.assertEqual(checks.count("      - 'scripts/store/**'\n"), 2)
-        # Its only pip install is the hash-locked Pillow.
-        self.assertEqual(re.findall(r"pip install .*", checks), [self.PILLOW_INSTALL.split("python3 -m ", 1)[1]])
+        self.assertNotIn("requirements-store", checks)
+        self.assertNotIn("pip install", checks)
 
     def test_store_steps_run_unbuffered(self) -> None:
         for command in ("ios_release.py build-number", "ios_release.py wait-build", "asc_release.py --preflight",

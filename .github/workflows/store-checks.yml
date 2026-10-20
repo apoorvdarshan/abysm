@@ -6,12 +6,10 @@ name: Store release checks
 # and UI tests (against a fake xcrun, no simulator). The App Store Connect parts
 # run against a fake asc. It also installs the pinned App Store Connect CLI (asc)
 # and checks its version, so a pin whose download or SHA-256 no longer matches
-# fails here, and installs the hash-locked Pillow that converts screenshots to
-# RGB copies, so its tests cannot skip here. No credentials and no network calls
-# to App Store Connect; nothing is uploaded. Unlike a release run, this always
-# checks the repository's listing and screenshots, whatever the switches say. A
-# newer push to a pull request cancels its older run; pushes to main and manual
-# runs are never cancelled.
+# fails here. No credentials and no network calls to App Store Connect; nothing
+# is uploaded. Unlike a release run, this always checks the repository's listing
+# and screenshots, whatever the switches say. A newer push to a pull request
+# cancels its older run; pushes to main and manual runs are never cancelled.
 on:
   pull_request:
     paths:
@@ -19,7 +17,6 @@ on:
       - 'scripts/release_notes.py'
       - 'scripts/test-ios.sh'
       - 'store/**'
-      - 'requirements-store.txt'
       - 'RELEASE_NOTES.md'
       - 'Abysm.storekit'
       - 'Abysm/StoreManager.swift'
@@ -34,7 +31,6 @@ on:
       - 'scripts/release_notes.py'
       - 'scripts/test-ios.sh'
       - 'store/**'
-      - 'requirements-store.txt'
       - 'RELEASE_NOTES.md'
       - 'Abysm.storekit'
       - 'Abysm/StoreManager.swift'
@@ -68,7 +64,6 @@ jobs:
             /Abysm/StoreManager.swift
             /Abysm/Info.plist
             /RELEASE_NOTES.md
-            /requirements-store.txt
             /.github/workflows/
 
       # The release jobs use the same pinned Python, never the runner's system one.
@@ -91,16 +86,7 @@ jobs:
           IOS_BUILD_WAIT_MINUTES: ${{ vars.IOS_BUILD_WAIT_MINUTES }}
         run: python3 scripts/store/print_gates.py
 
-      # A broken pin (for example a Dependabot bump) fails here, not in a release.
-      - name: Install and import the store tooling
-        run: |
-          python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt
-          python3 -c "import PIL.Image; print('store tooling imports OK')"
-
       - name: Test switches, tag rule, build wait and selection, listing and screenshots
-        env:
-          # The screenshot conversion tests need Pillow and must not skip here.
-          STORE_TESTS_NEED_PILLOW: "1"
         run: python3 -m unittest discover -s scripts/store -p 'test_*.py' -v
 
       - name: Validate the product catalog
