@@ -299,8 +299,7 @@ jobs:
           persist-credentials: false
           sparse-checkout-cone-mode: false
           # The app, its project and test folders, the export compliance check
-          # (with asc_cli.py, which it imports; asc never runs here) and the log
-          # redactor; never web/ or store/.
+          # and the log redactor; never web/ or store/.
           sparse-checkout: |
             /Abysm/
             /Abysm.xcodeproj/
@@ -308,7 +307,6 @@ jobs:
             /AbysmTests/
             /AbysmUITests/
             /scripts/store/ios_release.py
-            /scripts/store/asc_cli.py
             /scripts/store/redact_logs.py
 
       # Dependency sources only. Signed store archives are always built from

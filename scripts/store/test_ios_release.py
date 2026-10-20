@@ -1222,6 +1222,32 @@ class CmdWaitBuildTests(unittest.TestCase):
         self.assertIs(captured["is_transient"], ios_release.is_transient_error)
         self.assertIn("build_id=B9", written)
 
+    def test_runs_alone_as_the_build_job_checks_it_out(self) -> None:
+        # The build job's sparse checkout holds ios_release.py (and the log
+        # redactor) without asc_cli.py, and runs its export compliance check.
+        build = WorkflowWiringTests.WORKFLOW.split("\n  build:\n", 1)[1].split("\n  wait-for-build:\n", 1)[0]
+        self.assertIn("            /scripts/store/ios_release.py\n", build)
+        self.assertNotIn("asc_cli.py", build)
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / "ios_release.py"
+            shutil.copy(HERE / "ios_release.py", copy)
+            info = Path(tmp) / "Info.plist"
+            info.write_bytes(plistlib.dumps({"CFBundleIdentifier": ios_release.BUNDLE_ID,
+                                             "ITSAppUsesNonExemptEncryption": False}))
+            for args in (["export-compliance", "--help"], ["export-compliance", "--info-plist", str(info)]):
+                done = subprocess.run([sys.executable, "-I", str(copy), *args], capture_output=True, text=True,
+                                      timeout=60, check=False, cwd=tmp)
+                with self.subTest(args=args):
+                    self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertIn("ITSAppUsesNonExemptEncryption = NO", done.stdout)
+
+    def test_errors_that_are_not_asc_errors_are_not_swallowed(self) -> None:
+        with mock.patch.object(ios_release, "asc_client", side_effect=KeyError("unexpected")), \
+                mock.patch.dict(os.environ, {}, clear=True), redirect_stdout(io.StringIO()), \
+                self.assertRaises(KeyError):
+            ios_release.main(["wait-build", "--version", VERSION, "--build", "3", "--started-at", str(STARTED),
+                              "--wait-minutes", "120", "--poll-seconds", "30"])
+
     def test_asc_errors_end_with_an_error_line_not_a_traceback(self) -> None:
         err = io.StringIO()
         with mock.patch.object(ios_release, "asc_client", side_effect=asc_cli.AscError(("apps", "view"), 3, "unauthorized")), \
@@ -3247,22 +3273,11 @@ class WorkflowWiringTests(unittest.TestCase):
                 # asc replaced the hand-written API client and its PyJWT dependency.
                 self.assertNotIn("pip install", body)
         self.assertEqual(self.WORKFLOW.count(self.ASC_INSTALL), 3)
-        # The build job never installs or runs asc: xcodebuild exports and uploads the binary.
-        self.assertNotIn("asc_cli.py install", self.job("build"))
-        self.assertNotIn("asc_cli.py check", self.job("build"))
+        # The build job never runs asc: xcodebuild exports and uploads the binary.
+        self.assertNotIn("asc_cli.py", self.job("build"))
         self.assertNotIn("requirements-store", self.WORKFLOW)
         self.assertFalse((ROOT / "requirements-store.in").exists())
         self.assertFalse((ROOT / "requirements-store.txt").exists())
-
-    def test_the_build_job_checks_out_every_module_ios_release_imports(self) -> None:
-        # The build job runs `ios_release.py export-compliance` from a sparse checkout.
-        build = self.job("build")
-        source = (HERE / "ios_release.py").read_text()
-        local = [name for name in re.findall(r"^import (\w+)", source, re.M) if (HERE / f"{name}.py").exists()]
-        self.assertIn("asc_cli", local)
-        for name in local:
-            self.assertIn(f"            /scripts/store/{name}.py\n", build, name)
-        self.assertIn("            /scripts/store/ios_release.py\n", build)
 
     def test_validation_runs_use_asc_read_only(self) -> None:
         # Validation runs only reach the prepare job, and there asc refuses every write.
