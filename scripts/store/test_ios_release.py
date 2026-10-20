@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline tests for ABYSM's iOS release switches, build waiting, listing and review.
+"""Offline tests for ABYSM's iOS release switches, build waiting, listing, review and product creation.
 
 No network: every App Store Connect call goes to an in-memory App Store Connect
 behind a fake `asc` (FakeAsc), and the asc runner itself (asc_cli.py) runs with
@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import functools
 import hashlib
 import io
 import json
@@ -45,6 +46,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import asc_cli  # noqa: E402
+import asc_products  # noqa: E402
 import asc_release  # noqa: E402
 import export_listing  # noqa: E402
 import ios_release  # noqa: E402
@@ -88,6 +90,7 @@ BUNDLE = asc_release.DEFAULT_BUNDLE_ID
 ALL_ON = {
     "IOS_RELEASE_AUTOMATION": "true",
     "IOS_CREATE_VERSION": "true",
+    "IOS_CREATE_PRODUCTS": "true",
     "IOS_UPLOAD_BUILD": "true",
     "IOS_UPLOAD_LISTING": "true",
     "IOS_UPLOAD_WHATS_NEW": "true",
@@ -96,7 +99,8 @@ ALL_ON = {
     "IOS_SUBMIT_REVIEW": "true",
     "IOS_PUBLIC_RELEASE": "true",
 }
-OPS = ("create_version", "upload_build", "listing", "whats_new", "screenshots", "creative", "submit", "public_release")
+OPS = ("create_version", "create_products", "upload_build", "listing", "whats_new", "screenshots", "creative", "submit",
+       "public_release")
 ASC_FLAGS = {"UPLOAD_LISTING", "UPLOAD_WHATS_NEW", "UPLOAD_SCREENSHOTS", "UPLOAD_CREATIVE_ASSETS", "SUBMIT_IOS_REVIEW",
              "PUBLIC_RELEASE", "CREATE_IOS_VERSION"}
 
@@ -884,6 +888,11 @@ MUTATIONS = {
     ("screenshots", "upload"), ("asset-library", "images", "upload"), ("localizations", "placements", "create"),
     ("localizations", "placements", "swap"), ("review", "submissions-create"), ("review", "items-add"),
     ("review", "submissions-submit"),
+    # Product creation.
+    ("subscriptions", "setup"), ("subscriptions", "update"), ("iap", "create"), ("iap", "versions", "create"),
+    ("iap", "versions", "localizations", "create"), ("iap", "pricing", "schedules", "create"),
+    ("iap", "pricing", "availability", "set"), ("iap", "review-screenshots", "create"),
+    ("iap", "review-screenshots", "update"),
 }
 # Review item type -> the relationship the item fills.
 ITEM_TYPES = {"appStoreVersions": "appStoreVersion", "subscriptionVersions": "subscriptionVersion",
@@ -899,7 +908,7 @@ LIVE_INFO = {"subtitle": "Sub"}
 
 
 def is_write(call: tuple[str, ...]) -> bool:
-    return call[:2] in MUTATIONS or call[:3] in MUTATIONS
+    return any(call[:n] in MUTATIONS for n in (2, 3, 4, 5))
 
 
 def review_item(item_id: str, relation: str, related: str) -> dict:
@@ -1967,19 +1976,61 @@ class CatalogTests(unittest.TestCase):
     def test_repo_catalog_matches_the_app(self) -> None:
         self.assertEqual(validate_catalog.validate(*self.inputs()), [UNLOCK])
 
+    def test_repo_catalog_uses_the_shared_layout(self) -> None:
+        catalog, _, _ = self.inputs()
+        self.assertEqual(catalog["non_consumables"],
+                         [{"id": UNLOCK, "platforms": ["ios"], "entitlement": "deep",
+                           "ios": {"reference_name": "Unlock the Deep"}}])
+        self.assertNotIn("nonConsumables", catalog)
+
     def test_mismatches_are_rejected(self) -> None:
         catalog, storekit, swift = self.inputs()
+        unlock = catalog["non_consumables"][0]
+
+        def but(**changes: object) -> dict:
+            item = {**unlock, **changes}
+            return {k: v for k, v in item.items() if v is not None}
+
         broken = {
-            "storekit": (catalog, {**storekit, "products": []}, swift),
-            "entitlement": ({**catalog, "nonConsumables": [{"id": UNLOCK, "entitlement": "other"}]}, storekit, swift),
-            "duplicate": ({**catalog, "consumables": [{"id": UNLOCK}]}, storekit, swift),
-            "foreign id": ({**catalog, "nonConsumables": [{"id": "com.other.unlock"}]}, storekit, swift),
-            "type": ({**catalog, "nonConsumables": [], "consumables": [{"id": UNLOCK}]}, storekit, swift),
-            "product": (catalog, storekit, swift.replace(UNLOCK, "com.apoorvdarshan.Abysm.other")),
+            "differ from Abysm.storekit": (catalog, {**storekit, "products": []}, swift),
+            "grants entitlement 'deep' in StoreManager": ({**catalog, "non_consumables": [but(entitlement="other")]},
+                                                          storekit, swift),
+            "listed twice": ({**catalog, "consumables": [but()]}, storekit, swift),
+            "must start with com.apoorvdarshan.Abysm.": ({**catalog, "non_consumables": [but(id="com.other.unlock")]},
+                                                         storekit, swift),
+            "is NonConsumable in Abysm.storekit but listed as Consumable": (
+                {**catalog, "non_consumables": [], "consumables": [but()]}, storekit, swift),
+            "StoreManager sells com.apoorvdarshan.Abysm.other": (
+                catalog, storekit, swift.replace(UNLOCK, "com.apoorvdarshan.Abysm.other")),
+            # The layout Fud AI's asc_products.py reads; the old one is refused.
+            "unknown catalog groups: nonConsumables": (
+                {**{k: v for k, v in catalog.items() if k != "non_consumables"}, "nonConsumables": [unlock]},
+                storekit, swift),
+            "catalog group 'non_consumables' must be a list": (
+                {k: v for k, v in catalog.items() if k != "non_consumables"}, storekit, swift),
+            # Only products that list ios are created and submitted, so none may leave it out.
+            "platforms must be ['ios'], got None": ({**catalog, "non_consumables": [but(platforms=None)]}, storekit, swift),
+            "platforms must be ['ios'], got ['ios', 'android']": (
+                {**catalog, "non_consumables": [but(platforms=["ios", "android"])]}, storekit, swift),
+            # The App Store creation fields are checked too (asc_products.catalog_problems).
+            "ios.display_name must be 2-30 characters": (
+                {**catalog, "non_consumables": [but(ios={"reference_name": "Unlock the Deep", "display_name": "x"})]},
+                storekit, swift),
+            "review screenshot store/catalog/review/missing.png does not exist": (
+                {**catalog, "non_consumables": [but(ios={"reference_name": "Unlock the Deep",
+                                                         "review_screenshot": "store/catalog/review/missing.png"})]},
+                storekit, swift),
         }
-        for label, args in broken.items():
-            with self.subTest(label), self.assertRaises(validate_catalog.CatalogError):
+        for message, args in broken.items():
+            with self.subTest(message), self.assertRaisesRegex(validate_catalog.CatalogError, re.escape(message)):
                 validate_catalog.validate(*args)
+
+    def test_tips_are_consumables_and_optional(self) -> None:
+        catalog, storekit, swift = self.inputs()
+        tip = {"id": f"{BUNDLE}.tip", "platforms": ["ios"]}
+        with_tip = {**storekit, "products": storekit["products"] + [{"productID": tip["id"], "type": "Consumable"}]}
+        self.assertEqual(validate_catalog.validate({**catalog, "tips": [tip]}, with_tip, swift), sorted([UNLOCK, tip["id"]]))
+        self.assertNotIn("tips", catalog)
 
 
 class AscCliTests(unittest.TestCase):
@@ -2993,6 +3044,918 @@ class CreativeAssetTests(MainFlow):
         self.assertEqual(fake.submitted, [])
 
 
+@functools.lru_cache(maxsize=None)
+def rgb_png(width: int, height: int) -> bytes:
+    """A complete, decodable RGB PNG (unlike png_header, whose image data is a stub)."""
+    import zlib
+
+    def chunk(kind: bytes, body: bytes) -> bytes:
+        return len(body).to_bytes(4, "big") + kind + body + zlib.crc32(kind + body).to_bytes(4, "big")
+
+    ihdr = width.to_bytes(4, "big") + height.to_bytes(4, "big") + bytes([8, 2, 0, 0, 0])
+    pixels = zlib.compress((b"\x00" + b"\x80" * (width * 3)) * height, 6)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", pixels) + chunk(b"IEND", b"")
+
+
+def full_jpeg(width: int, height: int) -> bytes:
+    """A well-formed JPEG layout: APP0, a one-component baseline frame, a scan and the end marker."""
+    app0 = b"\xff\xe0" + (16).to_bytes(2, "big") + b"JFIF\x00" + bytes(9)
+    sof0 = b"\xff\xc0" + (11).to_bytes(2, "big") + b"\x08" + height.to_bytes(2, "big") + width.to_bytes(2, "big") + b"\x01\x01\x11\x00"
+    sos = b"\xff\xda" + (8).to_bytes(2, "big") + b"\x01\x01\x00\x00\x3f\x00"
+    return b"\xff\xd8" + app0 + sof0 + sos + b"\x12\x34" * 64 + b"\xff\xd9"
+
+
+TERRITORIES = ["USA", "CAN", "GBR"]
+PRICE_GRID = {"0.99", "1.99", "2.99", "4.99", "8.99", "9.99", "69.99"}
+PID = BUNDLE
+SHOT = "store/catalog/review/shot.png"
+GROUP = "Deep Pass"
+NOTE = "Optional deep sea pass."
+DESCRIPTION = "More of the deep sea"
+
+
+class ProductAsc(FakeAsc):
+    """FakeAsc plus App Store products: groups, subscriptions, in-app purchases and their parts.
+
+    Products created here land in FakeAsc's subscription and IAP lists, so the
+    review submission in asc_release sees them in the same run. Unlike FakeAsc,
+    the app has no products (not even Unlock the Deep) unless a test gives some.
+    While opened read-only every write is refused with exit 6, as asc does.
+    """
+
+    def __init__(self, *, groups: dict[str, dict[str, str]] | None = None, prices: dict[str, str] | None = None,
+                 fail_on: set[tuple[str, ...]] | None = None, stuck: bool = False, iaps: list[dict] | None = None,
+                 **kwargs: object) -> None:
+        super().__init__(iaps=list(iaps or []), **kwargs)  # type: ignore[arg-type]
+        # reference name -> {locale: display name}
+        self.groups = {name: dict(locales) for name, locales in (groups or {GROUP: {"en-US": GROUP}}).items()}
+        self.prices = dict(prices or {})  # live id -> current USA price
+        self.parts: dict[str, dict[str, object]] = {}
+        self.fail_on = set(fail_on or set())
+        self.stuck = stuck  # App Store Connect never reports Ready to Submit
+
+    # -- helpers ------------------------------------------------------------
+    def product(self, live_id: str) -> dict:
+        return next(p for p in [*self.subscriptions, *self.iaps] if p["id"] == live_id)
+
+    def by_product_id(self, product_id: str) -> list[dict]:
+        return [p for p in [*self.subscriptions, *self.iaps] if p["attributes"]["productId"] == product_id]
+
+    def part(self, live_id: str) -> dict[str, object]:
+        return self.parts.setdefault(live_id, {})
+
+    def restate(self, live_id: str) -> None:
+        a = self.product(live_id)["attributes"]
+        if a.get("state") not in (None, "MISSING_METADATA", "READY_TO_SUBMIT"):
+            return
+        parts = self.part(live_id)
+        complete = all(parts.get(k) for k in ("localization", "availability", "screenshot")) and (
+            live_id in self.prices)
+        a["state"] = "READY_TO_SUBMIT" if complete and not self.stuck else "MISSING_METADATA"
+
+    @staticmethod
+    def conflict(args: tuple[str, ...], what: str) -> asc_cli.AscError:
+        return asc_cli.AscError(args, 5, f"existing {what} differs")
+
+    # -- asc ----------------------------------------------------------------
+    def run(self, *args: str, **kwargs: object):
+        if self.read_only and is_write(args):
+            return super().run(*args, **kwargs)  # refused with exit 6, nothing changes
+        for prefix in self.fail_on:
+            if args[:len(prefix)] == prefix:
+                self.calls.append(args)
+                raise asc_cli.AscError(args, 63, "service unavailable")
+        try:
+            handled = self.products_run(args)
+        except asc_cli.AscError:
+            self.calls.append(args)  # an attempted call that App Store Connect refused
+            raise
+        if handled is not None:
+            self.calls.append(args)
+            return handled
+        return super().run(*args, **kwargs)
+
+    def products_run(self, args: tuple[str, ...]):  # noqa: C901 - one fake endpoint per branch
+        if args[:3] == ("pricing", "territories", "list"):
+            return {"data": [{"type": "territories", "id": t} for t in TERRITORIES]}
+        if args[:2] == ("pricing", "price-points"):
+            return {"data": [{"id": f"APP-{p}", "attributes": {"customerPrice": p}} for p in sorted(PRICE_GRID | {"0.0"})]}
+        if args[:4] in {("subscriptions", "pricing", "price-points", "list"), ("iap", "pricing", "price-points", "list")}:
+            price = flag(args, "--price")
+            return {"data": [{"id": f"PP-{price}", "attributes": {"customerPrice": price}}] if price in PRICE_GRID else []}
+        if args[:3] == ("subscriptions", "groups", "list"):
+            data, included = [], []
+            for n, (name, locales) in enumerate(self.groups.items()):
+                refs = [{"type": "subscriptionGroupLocalizations", "id": f"GL{n}-{loc}"} for loc in locales]
+                data.append({"id": f"G{n}", "attributes": {"referenceName": name},
+                             "relationships": {"subscriptionGroupLocalizations": {"data": refs}}})
+                included += [{"type": "subscriptionGroupLocalizations", "id": f"GL{n}-{loc}",
+                              "attributes": {"locale": loc, "name": label}} for loc, label in locales.items()]
+            return {"data": data, "included": included}
+        if args[:3] == ("subscriptions", "pricing", "summary"):
+            live = flag(args, "--subscription-id")
+            row = {"id": live}
+            if live in self.prices:
+                row["currentPrice"] = {"amount": self.prices[live], "currency": "USD"}
+            return {"subscriptions": [row]}
+        if args[:3] == ("iap", "pricing", "summary"):
+            live = flag(args, "--iap-id")
+            if live not in self.prices:
+                raise asc_cli.AscError(args, 4, "no price schedule")
+            return {"iaps": [{"id": live, "baseTerritory": "USA", "currentPrice": {"amount": self.prices[live]}}]}
+        if args[:2] == ("subscriptions", "setup"):
+            return self.setup(args)
+        if args[:3] == ("subscriptions", "versions", "list") and flag(args, "--subscription-id") not in self.sub_versions:
+            # Every subscription has two versions; the newer one is in flight.
+            live = flag(args, "--subscription-id")
+            return {"data": [{"id": f"{live}v2", "attributes": {"version": 2}},
+                             {"id": f"{live}v1", "attributes": {"version": 1}}]}
+        if args[:4] == ("subscriptions", "versions", "localizations", "list"):
+            loc = self.part(flag(args, "--version-id")[:-2]).get("localization")
+            return {"data": [{"id": "L", "attributes": loc}] if loc else []}
+        if args[:4] == ("subscriptions", "pricing", "availability", "view"):
+            live = flag(args, "--subscription-id")
+            availability = self.part(live).get("availability")
+            if not availability:
+                raise asc_cli.AscError(args, 4, "no availability")
+            return {"data": {"id": f"AV-{live}", "attributes": {"availableInNewTerritories": availability[1]}}}
+        if args[:4] == ("subscriptions", "pricing", "availability", "available-territories"):
+            return {"data": [{"id": t} for t in self.part(flag(args, "--availability-id")[3:])["availability"][0]]}  # type: ignore[index]
+        if args[:4] == ("subscriptions", "review", "app-store-screenshot", "view"):
+            shot = self.part(flag(args, "--subscription-id")).get("screenshot")
+            if not shot:
+                raise asc_cli.AscError(args, 4, "no screenshot")
+            return {"data": shot}
+        if args[:2] in {("subscriptions", "view"), ("iap", "view")}:
+            # App Store Connect works the state out from the parts a product has.
+            self.restate(flag(args, "--id"))
+            return {"data": self.product(flag(args, "--id"))}
+        if args[:2] == ("subscriptions", "update"):
+            self.product(flag(args, "--id"))["attributes"]["reviewNote"] = flag(args, "--review-note")
+            return {"data": {}}
+        if args[:2] == ("iap", "create"):
+            product_id = flag(args, "--product-id")
+            if self.by_product_id(product_id):
+                raise asc_cli.AscError(args, 5, "product id already exists")
+            attributes = {"name": flag(args, "--ref-name"), "productId": product_id,
+                          "inAppPurchaseType": flag(args, "--type"), "state": "MISSING_METADATA"}
+            if "--family-sharable" in args:
+                attributes["familySharable"] = True
+            new = {"id": f"IAP-{product_id.rsplit('.', 1)[-1]}", "attributes": attributes}
+            self.iaps.append(new)
+            self.parts[new["id"]] = {}
+            return {"data": new}
+        if args[:3] == ("iap", "versions", "list") and flag(args, "--iap-id") in self.parts:
+            live = flag(args, "--iap-id")
+            loc = self.part(live).get("localization")
+            version = {"id": f"{live}v1", "attributes": {"version": 1},
+                       "relationships": {"localizations": {"data": [{"id": f"{live}-loc"}] if loc else []}}}
+            included = [{"type": "inAppPurchaseLocalizations", "id": f"{live}-loc", "attributes": loc}] if loc else []
+            return {"data": [version], "included": included}
+        if args[:4] == ("iap", "versions", "localizations", "create"):
+            live = flag(args, "--version-id")[:-2]
+            self.part(live)["localization"] = {"locale": flag(args, "--locale"), "name": flag(args, "--name"),
+                                               "description": flag(args, "--description")}
+            return {"data": {"id": f"{live}-loc"}}
+        if args[:4] == ("iap", "pricing", "schedules", "create"):
+            live = flag(args, "--iap-id")
+            assert flag(args, "--base-territory") == "USA"
+            self.prices[live] = flag(args, "--price")
+            return {"data": {"id": live}}
+        if args[:4] == ("iap", "pricing", "availability", "view"):
+            availability = self.part(flag(args, "--iap-id")).get("availability")
+            if not availability:
+                raise asc_cli.AscError(args, 4, "no availability")
+            return {"data": {"id": f"AV-{flag(args, '--iap-id')}",
+                             "attributes": {"availableInNewTerritories": availability[1]}}}
+        if args[:4] == ("iap", "pricing", "availabilities", "available-territories"):
+            live = flag(args, "--id")[3:]
+            return {"data": [{"id": t} for t in self.part(live)["availability"][0]]}  # type: ignore[index]
+        if args[:4] == ("iap", "pricing", "availability", "set"):
+            live = flag(args, "--iap-id")
+            self.part(live)["availability"] = (flag(args, "--territories").split(","), "--available-in-new-territories" in args)
+            return {"data": {}}
+        if args[:3] == ("iap", "review-screenshots", "view"):
+            shot = self.part(flag(args, "--iap-id")).get("screenshot")
+            if not shot:
+                raise asc_cli.AscError(args, 4, "no screenshot")
+            return {"data": shot}
+        if args[:3] == ("iap", "review-screenshots", "create"):
+            live = flag(args, "--iap-id")
+            raw = Path(flag(args, "--file")).read_bytes()
+            self.part(live)["screenshot"] = {"id": f"SHOT-{live}", "attributes": {
+                "fileSize": len(raw), "sourceFileChecksum": hashlib.md5(raw).hexdigest(),
+                "assetDeliveryState": {"state": "COMPLETE"}}}
+            self.restate(live)
+            return {"data": self.part(live)["screenshot"]}
+        if args[:3] == ("iap", "review-screenshots", "update"):
+            # Resumes the upload reservation an interrupted run left.
+            shot_id = flag(args, "--screenshot-id")
+            live = next(k for k, v in self.parts.items() if (v.get("screenshot") or {}).get("id") == shot_id)
+            raw = Path(flag(args, "--file")).read_bytes()
+            self.part(live)["screenshot"] = {"id": shot_id, "attributes": {
+                "fileSize": len(raw), "sourceFileChecksum": hashlib.md5(raw).hexdigest(),
+                "assetDeliveryState": {"state": "COMPLETE"}}}
+            self.restate(live)
+            return {"data": self.part(live)["screenshot"]}
+        # Anything else (including `iap versions create`, which the fake never
+        # needs) goes to FakeAsc, which fails the test on a call it does not know.
+        return None
+
+    def setup(self, args: tuple[str, ...]):
+        """asc subscriptions setup: find or create the group and subscription, fill missing parts, stop on conflicts."""
+        group = flag(args, "--group-reference-name")
+        locales = self.groups.setdefault(group, {})
+        if "--group-display-name" in args:
+            wanted = flag(args, "--group-display-name")
+            if locales.get("en-US", wanted) != wanted:
+                raise self.conflict(args, "group localization")
+            locales["en-US"] = wanted
+        product_id = flag(args, "--product-id")
+        found = [s for s in self.subscriptions if s["attributes"]["productId"] == product_id]
+        if found:
+            sub = found[0]
+            a = sub["attributes"]
+            if (a["name"] != flag(args, "--reference-name") or a.get("subscriptionPeriod") != flag(args, "--subscription-period")
+                    or bool(a.get("familySharable")) != ("--family-sharable" in args)):
+                raise self.conflict(args, "subscription")
+        elif self.by_product_id(product_id):
+            raise asc_cli.AscError(args, 5, "product id already exists")
+        else:
+            attributes = {"name": flag(args, "--reference-name"), "productId": product_id, "state": "MISSING_METADATA",
+                          "subscriptionPeriod": flag(args, "--subscription-period")}
+            if "--family-sharable" in args:
+                attributes["familySharable"] = True
+            sub = {"id": f"SUB-{product_id.rsplit('.', 1)[-1]}", "attributes": attributes}
+            self.subscriptions.append(sub)
+        live = sub["id"]
+        parts = self.part(live)
+        wanted_parts = {
+            "localization": {"locale": flag(args, "--locale"), "name": flag(args, "--display-name"),
+                             "description": flag(args, "--description")},
+            "availability": (flag(args, "--territories").split(","), "--available-in-new-territories" in args),
+        }
+        for name, value in wanted_parts.items():
+            if parts.get(name) not in (None, value):
+                raise self.conflict(args, name)
+            parts[name] = value
+        if self.prices.get(live, flag(args, "--price")) != flag(args, "--price"):
+            raise self.conflict(args, "price")
+        self.prices[live] = flag(args, "--price")
+        if "--review-screenshot" in args:
+            raw = Path(flag(args, "--review-screenshot")).read_bytes()
+            existing = parts.get("screenshot")
+            if existing and existing["attributes"]["sourceFileChecksum"] != hashlib.md5(raw).hexdigest():  # type: ignore[index]
+                raise self.conflict(args, "review screenshot")
+            parts["screenshot"] = {"id": f"SHOT-{live}", "attributes": {
+                "sourceFileChecksum": hashlib.md5(raw).hexdigest(), "assetDeliveryState": {"state": "COMPLETE"}}}
+        self.restate(live)
+        if "--no-verify" not in args and sub["attributes"]["state"] != "READY_TO_SUBMIT":
+            raise asc_cli.AscError(args, 1, "subscriptions setup: verify_state: MISSING_METADATA")
+        return {"status": "ok", "subscriptionId": live}
+
+    def live_iap(self, product_id: str, *, state: str = "MISSING_METADATA", type_: str = "CONSUMABLE",
+                 name: str = "Probe", parts: dict | None = None, price: str | None = None) -> str:
+        """Put an existing in-app purchase (e.g. one an interrupted run left) into the fake."""
+        live = f"IAP-{product_id.rsplit('.', 1)[-1]}"
+        self.iaps.append({"id": live, "attributes": {"name": name, "productId": product_id,
+                                                      "inAppPurchaseType": type_, "state": state}})
+        self.parts[live] = dict(parts or {})
+        if price:
+            self.prices[live] = price
+        return live
+
+
+def ios_item(name: str, **ios: object) -> dict:
+    base = {"reference_name": name.title(), "display_name": f"ABYSM {name.title()}",
+            "description": DESCRIPTION, "review_screenshot": SHOT}
+    base.update(ios)
+    return base
+
+
+def product_catalog(*, subscriptions=(), consumables=(), non_consumables=(), tips=(), groups=None) -> dict:
+    catalog = {
+        "app": BUNDLE,
+        "ios_subscription_groups": groups if groups is not None else [{"reference_name": GROUP}],
+        "subscriptions": list(subscriptions),
+        "consumables": list(consumables),
+        "non_consumables": list(non_consumables),
+    }
+    if tips:
+        catalog["tips"] = list(tips)
+    return catalog
+
+
+def new_subscription(suffix: str = "pass.weekly", *, period: str = "P1W", price: str = "2.99", **ios: object) -> dict:
+    fields = {"review_note": NOTE, "subscription_group": GROUP, **ios}
+    return {"id": f"{PID}.{suffix}", "period": period, "suggested_price_usd": price, "platforms": ["ios"],
+            "ios": ios_item(suffix.split(".")[0], **fields)}
+
+
+def new_iap(suffix: str, *, price: str = "1.99", **ios: object) -> dict:
+    return {"id": f"{PID}.{suffix}", "suggested_price_usd": price, "platforms": ["ios"],
+            "ios": ios_item(suffix.split(".")[0], **ios)}
+
+
+def unlock_live(state: str = "APPROVED", type_: str = "NON_CONSUMABLE") -> dict:
+    """Unlock the Deep as App Store Connect holds it (read-only plan, 2026-10-20)."""
+    return {"id": "IAP1", "attributes": {"name": "Unlock the Deep", "productId": UNLOCK, "inAppPurchaseType": type_,
+                                         "state": state}}
+
+
+class ProductTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        (self.root / "store" / "catalog" / "review").mkdir(parents=True)
+        self.shot(SHOT)
+        self.sleeps: list[float] = []
+
+    def shot(self, relative: str, content: bytes | None = None) -> Path:
+        path = self.root / relative
+        path.write_bytes(content if content is not None else rgb_png(1290, 2796))
+        return path
+
+    def run_products(self, fake: ProductAsc, catalog: dict, command: str = "create",
+                     env: dict[str, str] | None = None) -> tuple[int, str, str]:
+        catalog_path = self.root / "products.json"
+        catalog_path.write_text(json.dumps(catalog))
+        environ = {k: v for k, v in os.environ.items() if k != "CREATE_IOS_PRODUCTS"}
+        environ.update({"CREATE_IOS_PRODUCTS": "true"} if env is None else env)
+        out, err = io.StringIO(), io.StringIO()
+        code = 0
+        with mock.patch.dict(os.environ, environ, clear=True), \
+                mock.patch.object(asc_release, "asc_from_environment", side_effect=fake.open), \
+                mock.patch.object(asc_products, "ROOT", self.root), redirect_stdout(out), redirect_stderr(err):
+            try:
+                asc_products.main([command, "--catalog", str(catalog_path)], sleep=self.sleeps.append)
+            except SystemExit as exc:
+                code = exc.code if isinstance(exc.code, int) else 1
+        return code, out.getvalue(), err.getvalue()
+
+
+class ProductGateTests(unittest.TestCase):
+    def test_create_products_needs_the_master_switch_and_a_tag_run(self) -> None:
+        result = gates({"IOS_RELEASE_AUTOMATION": "true", "IOS_CREATE_PRODUCTS": "true"})
+        self.assertTrue(result["create_products"])
+        self.assertTrue(result["product_plan"])
+        self.assertFalse(result["build"])
+        self.assertFalse(result["asc"])
+        off = gates({"IOS_CREATE_PRODUCTS": "true"})
+        self.assertFalse(off["create_products"])
+        self.assertFalse(off["product_plan"])
+        self.assertTrue(any("IOS_CREATE_PRODUCTS" in note for note in off["notes"]))
+        self.assertFalse(gates({})["product_plan"])
+
+    def test_invalid_values_are_rejected_even_when_the_master_is_off(self) -> None:
+        for env in ({"IOS_CREATE_PRODUCTS": "maybe"}, {"IOS_RELEASE_AUTOMATION": "true", "IOS_CREATE_PRODUCTS": "2"}):
+            with self.subTest(env=env), self.assertRaisesRegex(ReleaseError, "IOS_CREATE_PRODUCTS"):
+                gates(env)
+        with self.assertRaisesRegex(ReleaseError, "IOS_CREATE_PRODUCTS"):
+            gates({"IOS_CREATE_PRODUCTS": "sometimes"}, event="workflow_dispatch", ref="main")
+
+    def test_validation_runs_only_plan(self) -> None:
+        env = {"IOS_RELEASE_AUTOMATION": "true", "IOS_CREATE_PRODUCTS": "true"}
+        result = gates(env, event="workflow_dispatch", ref="main")
+        self.assertFalse(result["create_products"])
+        self.assertTrue(result["product_plan"])
+        self.assertTrue(any("read-only" in note for note in result["notes"]))
+        self.assertFalse(gates({"IOS_CREATE_PRODUCTS": "true"}, event="workflow_dispatch", ref="main")["product_plan"])
+        self.assertFalse(gates({"IOS_RELEASE_AUTOMATION": "true"}, event="workflow_dispatch", ref="main")["product_plan"])
+
+    def test_print_gates_lists_the_switch(self) -> None:
+        clean = {k: v for k, v in os.environ.items() if not k.startswith("IOS_")}
+        for value, shown in (("true", "IOS_CREATE_PRODUCTS=true\n"), ("maybe", "IOS_CREATE_PRODUCTS=INVALID"),
+                             (None, "IOS_CREATE_PRODUCTS=false (unset)")):
+            env = dict(clean) if value is None else {**clean, "IOS_CREATE_PRODUCTS": value}
+            out = io.StringIO()
+            with mock.patch.dict(os.environ, env, clear=True), redirect_stdout(out):
+                print_gates.main()
+            with self.subTest(value=value):
+                self.assertIn(shown, out.getvalue())
+
+
+class CatalogFieldTests(ProductTestCase):
+    def problems(self, catalog: dict) -> list[str]:
+        return asc_products.catalog_problems(catalog, self.root)
+
+    def test_the_repository_catalog_is_valid(self) -> None:
+        with redirect_stdout(io.StringIO()) as out:
+            validate_catalog.main()
+        self.assertIn("catalog OK:", out.getvalue())
+        self.assertEqual(asc_products.catalog_problems(json.loads(validate_catalog.CATALOG.read_text())), [])
+        self.assertEqual(asc_release.CATALOG_PRODUCT_GROUPS, tuple(asc_products.PRODUCT_GROUPS))
+        self.assertEqual(tuple(validate_catalog.GROUPS), tuple(asc_products.PRODUCT_GROUPS))
+        # Unlock the Deep is the catalog's one iOS product, a non-consumable.
+        products = asc_products.ios_products(json.loads(validate_catalog.CATALOG.read_text()))
+        self.assertEqual([(p.product_id, p.iap_type) for p in products], [(UNLOCK, "NON_CONSUMABLE")])
+
+    def test_complete_fields_pass_and_existing_products_need_none(self) -> None:
+        catalog = product_catalog(subscriptions=[new_subscription()], consumables=[new_iap("pearls.75")],
+                                  non_consumables=[new_iap("lifetime", family_sharing=True)],
+                                  tips=[{"id": f"{PID}.tip.snack", "suggested_price_usd": "0.99", "platforms": ["ios"]}])
+        self.assertEqual(self.problems(catalog), [])
+
+    def test_malformed_fields_are_reported(self) -> None:
+        cases = {
+            "unknown ios keys": new_iap("pearls.75", colour="red"),
+            "only applies to subscriptions": new_iap("pearls.75", review_note="Pearls unlock nothing."),
+            "family sharing is only": new_iap("pearls.75", family_sharing=True),
+            "ios.territories": new_iap("pearls.75", territories=["US"]),
+            "ios.display_name must be 2-30": new_iap("pearls.75", display_name="x" * 31),
+            "ios.description must be 1-45": new_iap("pearls.75", description="x" * 46),
+            "leading or trailing whitespace": new_iap("pearls.75", reference_name=" Pearls"),
+            "under store/": new_iap("pearls.75", review_screenshot="../shot.png"),
+            "does not exist": new_iap("pearls.75", review_screenshot="store/catalog/review/missing.png"),
+            "suggested_price_usd": new_iap("pearls.75", price="1.9"),
+        }
+        for expected, item in cases.items():
+            with self.subTest(expected):
+                self.assertTrue(any(expected in p for p in self.problems(product_catalog(consumables=[item]))),
+                                self.problems(product_catalog(consumables=[item])))
+        sub = new_subscription(subscription_group="Elsewhere")
+        self.assertTrue(any("not in ios_subscription_groups" in p for p in self.problems(product_catalog(subscriptions=[sub]))))
+        bad_period = {**new_subscription(), "period": "P5D"}
+        self.assertTrue(any("period must be" in p for p in self.problems(product_catalog(subscriptions=[bad_period]))))
+        android_only = {**new_iap("pearls.75"), "platforms": ["android"]}
+        self.assertTrue(any("does not list ios" in p for p in self.problems(product_catalog(consumables=[android_only]))))
+
+    def test_review_screenshots_must_be_rgb_and_a_size_apple_accepts(self) -> None:
+        cases = {
+            "alpha channel": png_header(6, width=1290, height=2796),
+            "transparency": png_header(2, trns=True, width=1290, height=2796),
+            "not an iPhone or iPad screenshot size": png_header(width=1000, height=2000),
+        }
+        good = rgb_png(1290, 2796)
+        damaged = bytearray(good)
+        damaged[60] ^= 0xFF
+        cases.update({
+            "is damaged: it ends inside its IDAT chunk": good[: len(good) // 2],
+            "is damaged: it has a damaged IDAT chunk": bytes(damaged),
+        })
+        for expected, content in cases.items():
+            self.shot("store/catalog/review/bad.png", content)
+            item = new_iap("pearls.75", review_screenshot="store/catalog/review/bad.png")
+            with self.subTest(expected):
+                problems = self.problems(product_catalog(consumables=[item]))
+                self.assertTrue(any("alpha channel" in p or expected in p for p in problems), problems)
+        self.shot("store/catalog/review/cut.jpg", full_jpeg(1179, 2556)[:-40])
+        problems = self.problems(product_catalog(consumables=[new_iap("pearls.75", review_screenshot="store/catalog/review/cut.jpg")]))
+        self.assertTrue(any("ends before its end marker" in p for p in problems), problems)
+        self.shot("store/catalog/review/jpeg.png", jpeg_header(1179, 2556))
+        problems = self.problems(product_catalog(consumables=[new_iap("pearls.75", review_screenshot="store/catalog/review/jpeg.png")]))
+        self.assertTrue(any("is a JPEG image named .png" in p for p in problems), problems)
+        for good in (rgb_png(2796, 1290), rgb_png(2064, 2752), full_jpeg(1179, 2556)):
+            name = "store/catalog/review/good.jpg" if good.startswith(b"\xff\xd8") else "store/catalog/review/good.png"
+            self.shot(name, good)
+            self.assertEqual(self.problems(product_catalog(consumables=[new_iap("pearls.75", review_screenshot=name)])), [])
+
+
+class ProductCreationTests(ProductTestCase):
+    def assert_ready(self, fake: ProductAsc, product_id: str) -> dict:
+        found = fake.by_product_id(product_id)
+        self.assertEqual(len(found), 1, f"{product_id} must exist exactly once")
+        self.assertEqual(found[0]["attributes"]["state"], "READY_TO_SUBMIT")
+        return found[0]
+
+    def test_switch_off_makes_no_calls(self) -> None:
+        fake = ProductAsc()
+        code, out, _ = self.run_products(fake, product_catalog(subscriptions=[new_subscription()]), env={})
+        self.assertEqual(code, 0)
+        self.assertIn("CREATE_IOS_PRODUCTS is off", out)
+        self.assertEqual((fake.calls, fake.opened), ([], []))
+
+    def test_the_repository_catalog_leaves_unlock_the_deep_alone(self) -> None:
+        # App Store Connect as the read-only plan found it on 2026-10-20.
+        fake = ProductAsc(iaps=[unlock_live()], prices={"IAP1": "2.99"})
+        catalog = json.loads(validate_catalog.CATALOG.read_text())
+        code, out, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        self.assertIn(f"exists: non-consumable {UNLOCK} (left as it is)", out)
+        self.assertNotIn("warning", out)
+        self.assertIn("nothing to create", out)
+        self.assertEqual(fake.writes(), [])
+        # The plan ran read-only, and nothing ever opened asc for writing.
+        self.assertEqual(fake.opened, [True])
+        # The catalog says non-consumable, so a different type in App Store Connect is reported.
+        fake = ProductAsc(iaps=[unlock_live(type_="CONSUMABLE")])
+        code, out, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        self.assertIn(f"{UNLOCK}: type is CONSUMABLE in App Store Connect, NON_CONSUMABLE in the catalog", out)
+        self.assertEqual(fake.writes(), [])
+
+    def test_a_validation_run_lists_new_products_and_writes_nothing(self) -> None:
+        fake = ProductAsc()
+        catalog = product_catalog(subscriptions=[new_subscription()], consumables=[new_iap("pearls.75")])
+        for env in ({}, {"CREATE_IOS_PRODUCTS": "true"}):
+            code, out, err = self.run_products(fake, catalog, command="plan", env=env)
+            with self.subTest(env=env):
+                self.assertEqual(code, 0, err)
+                self.assertIn(f"would create subscription {PID}.pass.weekly", out)
+                self.assertIn(f"would create consumable {PID}.pearls.75", out)
+                self.assertIn("nothing was created", out)
+                self.assertEqual(fake.writes(), [])
+        self.assertEqual(fake.opened, [True, True])
+
+    def test_creates_a_subscription_in_an_existing_group(self) -> None:
+        fake = ProductAsc()
+        code, out, err = self.run_products(fake, product_catalog(subscriptions=[new_subscription()]))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(fake.opened, [True, False])  # the plan read-only, then the writes
+        sub = self.assert_ready(fake, f"{PID}.pass.weekly")
+        self.assertEqual(sub["attributes"]["reviewNote"], NOTE)
+        self.assertNotIn("familySharable", sub["attributes"])
+        writes = fake.writes()
+        self.assertEqual([w[:2] for w in writes], [("subscriptions", "setup"), ("subscriptions", "update"),
+                                                   ("subscriptions", "setup")])
+        first, last = writes[0], writes[-1]
+        # The note is set while the subscription still lacks its screenshot, so it
+        # cannot reach Ready to Submit without it.
+        self.assertIn("--no-verify", first)
+        self.assertNotIn("--review-screenshot", first)
+        self.assertNotIn("--no-verify", last)
+        self.assertEqual(Path(flag(last, "--review-screenshot")), self.root / SHOT)
+        for call in (first, last):
+            self.assertEqual((flag(call, "--app"), flag(call, "--group-reference-name"), flag(call, "--subscription-period"),
+                              flag(call, "--price"), flag(call, "--price-territory"), flag(call, "--territories"),
+                              flag(call, "--locale"), flag(call, "--reference-name")),
+                             (APP, GROUP, "ONE_WEEK", "2.99", "USA", "USA,CAN,GBR", "en-US", "Pass"))
+            self.assertIn("--available-in-new-territories", call)
+            self.assertNotIn("--family-sharable", call)
+            # The group already has an en-US name, which is never changed.
+            self.assertNotIn("--group-display-name", call)
+        self.assertIn("Ready to Submit", out)
+        self.assertIn("RevenueCat", out)
+
+    def test_creates_a_subscription_group_that_does_not_exist_yet(self) -> None:
+        groups = [{"reference_name": GROUP}, {"reference_name": "Expeditions", "display_name": "ABYSM Expeditions"}]
+        sub = new_subscription("expedition.monthly", period="P1M", price="8.99", subscription_group="Expeditions",
+                               family_sharing=True, territories=["USA", "CAN"])
+        fake = ProductAsc()
+        code, _, err = self.run_products(fake, product_catalog(subscriptions=[sub], groups=groups))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(fake.groups["Expeditions"], {"en-US": "ABYSM Expeditions"})
+        created = self.assert_ready(fake, f"{PID}.expedition.monthly")
+        self.assertTrue(created["attributes"]["familySharable"])
+        setup = fake.writes()[0]
+        self.assertEqual((flag(setup, "--group-display-name"), flag(setup, "--group-locale")), ("ABYSM Expeditions", "en-US"))
+        self.assertEqual(flag(setup, "--territories"), "USA,CAN")
+        self.assertNotIn("--available-in-new-territories", setup)
+        self.assertIn("--family-sharable", setup)
+
+    def test_creates_each_in_app_purchase_type(self) -> None:
+        catalog = product_catalog(consumables=[new_iap("pearls.75", price="2.99")], tips=[new_iap("tip.coffee", price="0.99")],
+                                  non_consumables=[new_iap("lifetime", price="69.99", family_sharing=True)])
+        fake = ProductAsc()
+        code, out, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        expected = {"pearls.75": ("CONSUMABLE", "2.99", False), "tip.coffee": ("CONSUMABLE", "0.99", False),
+                    "lifetime": ("NON_CONSUMABLE", "69.99", True)}
+        for suffix, (iap_type, price, shared) in expected.items():
+            with self.subTest(suffix):
+                live = self.assert_ready(fake, f"{PID}.{suffix}")
+                self.assertEqual(live["attributes"]["inAppPurchaseType"], iap_type)
+                self.assertEqual(fake.prices[live["id"]], price)
+                self.assertEqual(bool(live["attributes"].get("familySharable")), shared)
+                calls = [c for c in fake.writes() if live["id"] in c or f"{live['id']}v1" in c or f"{PID}.{suffix}" in c]
+                kinds = [c[:4] if c[1] in {"pricing", "versions"} else c[:3] for c in calls]
+                # The screenshot, which completes the product, always goes last.
+                self.assertEqual(kinds, [("iap", "create", "--app"), ("iap", "versions", "localizations", "create"),
+                                         ("iap", "pricing", "schedules", "create"), ("iap", "pricing", "availability", "set"),
+                                         ("iap", "review-screenshots", "create")])
+                create = calls[0]
+                self.assertEqual(flag(create, "--type"), iap_type)
+                self.assertEqual("--family-sharable" in create, shared)
+                availability = calls[3]
+                self.assertEqual(flag(availability, "--territories"), "USA,CAN,GBR")
+                self.assertIn("--available-in-new-territories", availability)
+                loc = fake.parts[live["id"]]["localization"]
+                self.assertEqual(loc, {"locale": "en-US", "name": f"ABYSM {suffix.split('.')[0].title()}",
+                                       "description": DESCRIPTION})
+        self.assertIn("would create non-consumable", out)
+
+    def test_existing_products_are_compared_and_never_written(self) -> None:
+        subs = [{"id": "S1", "attributes": {"name": "Pass Monthly", "productId": f"{PID}.pass.monthly",
+                                            "state": "APPROVED", "subscriptionPeriod": "ONE_YEAR"}}]
+        iaps = [{"id": "I1", "attributes": {"name": "Pearls 50", "productId": f"{PID}.pearls.50",
+                                            "inAppPurchaseType": "NON_CONSUMABLE", "state": "APPROVED"}},
+                {"id": "I2", "attributes": {"name": "Tip", "productId": f"{PID}.tip.snack",
+                                            "inAppPurchaseType": "CONSUMABLE", "state": "MISSING_METADATA"}},
+                {"id": "I3", "attributes": {"name": "Pro", "productId": f"{PID}.pro.monthly",
+                                            "inAppPurchaseType": "NON_CONSUMABLE", "state": "APPROVED"}}]
+        fake = ProductAsc(subscriptions=subs, iaps=iaps, prices={"S1": "9.99", "I1": "1.99", "I3": "19.99"})
+        catalog = product_catalog(
+            subscriptions=[{"id": f"{PID}.pass.monthly", "period": "P1M", "suggested_price_usd": "8.99", "platforms": ["ios"]},
+                           {"id": f"{PID}.pro.monthly", "period": "P1M", "suggested_price_usd": "19.99", "platforms": ["ios"]}],
+            consumables=[{"id": f"{PID}.pearls.50", "suggested_price_usd": "1.99", "platforms": ["ios"],
+                          "ios": {"family_sharing": False}}],
+            tips=[{"id": f"{PID}.tip.snack", "suggested_price_usd": "0.99", "platforms": ["ios"]}])
+        code, out, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(fake.writes(), [])
+        for text in ("period is ONE_YEAR in App Store Connect, ONE_MONTH in the catalog",
+                     "price is 9.99 in USA in App Store Connect, 8.99 in the catalog",
+                     "type is NON_CONSUMABLE in App Store Connect, CONSUMABLE in the catalog",
+                     f"{PID}.pro.monthly is an in-app purchase in App Store Connect",
+                     f"{PID}.tip.snack is Missing Metadata; give it complete ios fields",
+                     f"{PID}.tip.snack: no current price in USA"):
+            self.assertIn(text, out)
+        self.assertIn("nothing to create", out)
+
+    def test_an_interrupted_in_app_purchase_is_finished_without_a_duplicate(self) -> None:
+        catalog = product_catalog(consumables=[new_iap("pearls.75")])
+        fake = ProductAsc(fail_on={("iap", "pricing", "availability", "set")})
+        code, _, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 1)
+        self.assertIn("next run finishes it", err)
+        live = fake.by_product_id(f"{PID}.pearls.75")[0]
+        self.assertEqual(live["attributes"]["state"], "MISSING_METADATA")
+        fake.fail_on.clear()
+        before = len(fake.calls)
+        code, out, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        self.assertIn(f"would finish consumable {PID}.pearls.75", out)
+        self.assertIn("adds: availability, screenshot", out)
+        rerun = [c for c in fake.calls[before:] if is_write(c)]
+        self.assertEqual([c[:4] if c[1] == "pricing" else c[:3] for c in rerun],
+                         [("iap", "pricing", "availability", "set"), ("iap", "review-screenshots", "create")])
+        self.assert_ready(fake, f"{PID}.pearls.75")
+
+    def test_an_interrupted_subscription_is_finished_without_a_duplicate(self) -> None:
+        catalog = product_catalog(subscriptions=[new_subscription()])
+        fake = ProductAsc(fail_on={("subscriptions", "update")})
+        code, _, _ = self.run_products(fake, catalog)
+        self.assertEqual(code, 1)
+        self.assertEqual(fake.by_product_id(f"{PID}.pass.weekly")[0]["attributes"]["state"], "MISSING_METADATA")
+        fake.fail_on.clear()
+        code, out, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        self.assertIn(f"would finish subscription {PID}.pass.weekly", out)
+        sub = self.assert_ready(fake, f"{PID}.pass.weekly")
+        self.assertEqual(sub["attributes"]["reviewNote"], NOTE)
+        # A third run finds a Ready to Submit product and leaves it alone.
+        before = len(fake.writes())
+        code, out, _ = self.run_products(fake, catalog)
+        self.assertEqual((code, len(fake.writes())), (0, before))
+        self.assertIn(f"exists: subscription {PID}.pass.weekly", out)
+
+    def test_a_missing_metadata_product_unlike_the_catalog_is_left_alone(self) -> None:
+        fake = ProductAsc()
+        fake.live_iap(f"{PID}.pearls.75", name="Made by hand")
+        code, out, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+        self.assertEqual(code, 0, err)
+        self.assertIn("reference name 'Made by hand'", out)
+        self.assertIn("left as it is", out)
+        self.assertEqual(fake.writes(), [])
+
+    def test_an_unfinished_part_that_differs_from_the_catalog_stops_before_writing(self) -> None:
+        loc = {"locale": "en-US", "name": "Something else", "description": DESCRIPTION}
+        for parts, price, expected in (({"localization": loc}, None, "display name or description differs"),
+                                       ({}, "4.99", "its price is 4.99"),
+                                       ({"availability": (["USA"], False)}, None, "availability differs")):
+            fake = ProductAsc()
+            fake.live_iap(f"{PID}.pearls.75", name="Pearls", parts=parts, price=price)
+            code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+            with self.subTest(expected):
+                self.assertEqual(code, 1)
+                self.assertIn(expected, err)
+                self.assertEqual(fake.writes(), [])
+
+    def test_a_subscription_part_that_differs_is_refused_and_left_unchanged(self) -> None:
+        sub = {"id": "SUB-weekly", "attributes": {"name": "Pass", "productId": f"{PID}.pass.weekly",
+                                                  "state": "MISSING_METADATA", "subscriptionPeriod": "ONE_WEEK"}}
+        # Its localization is missing (setup would add it) and its price differs:
+        # the plan stops the run, so the missing part is not written either.
+        fake = ProductAsc(subscriptions=[sub], prices={"SUB-weekly": "4.99"})
+        code, out, err = self.run_products(fake, product_catalog(subscriptions=[new_subscription()]))
+        self.assertEqual(code, 1)
+        self.assertIn(f"would finish subscription {PID}.pass.weekly", out)
+        self.assertIn("its price is 4.99", err)
+        self.assertEqual(fake.writes(), [])
+        self.assertEqual(fake.prices["SUB-weekly"], "4.99")
+        self.assertNotIn("localization", fake.part("SUB-weekly"))
+        loc = {"locale": "en-US", "name": "Something else", "description": DESCRIPTION}
+        for parts, expected in (({"localization": loc}, "display name or description differs"),
+                                ({"availability": (["USA"], True)}, "availability differs"),
+                                ({"screenshot": {"id": "S", "attributes": {"assetDeliveryState": {"state": "FAILED"}}}},
+                                 "screenshot is FAILED"),
+                                ({"screenshot": {"id": "S", "attributes": {"sourceFileChecksum": "0" * 32,
+                                                                           "assetDeliveryState": {"state": "COMPLETE"}}}},
+                                 "screenshot (COMPLETE) differs")):
+            fake = ProductAsc(subscriptions=[json.loads(json.dumps(sub))])
+            fake.parts["SUB-weekly"] = dict(parts)
+            code, _, err = self.run_products(fake, product_catalog(subscriptions=[new_subscription()]))
+            with self.subTest(expected):
+                self.assertEqual(code, 1)
+                self.assertIn(expected, err)
+                self.assertEqual(fake.writes(), [])
+        # A review note that differs is caught by the plan, before any write.
+        sub["attributes"]["reviewNote"] = "Written by hand."
+        fake = ProductAsc(subscriptions=[sub])
+        code, _, err = self.run_products(fake, product_catalog(subscriptions=[new_subscription()]))
+        self.assertEqual(code, 1)
+        self.assertIn("its review note differs from the catalog", err)
+        self.assertEqual(fake.writes(), [])
+
+    def test_an_interrupted_screenshot_upload_is_resumed(self) -> None:
+        raw = (self.root / SHOT).read_bytes()
+        loc = {"locale": "en-US", "name": "ABYSM Pearls", "description": DESCRIPTION}
+        reservation = {"id": "SHOT-1", "attributes": {"fileSize": len(raw), "uploadOperations": [{"method": "PUT"}],
+                                                      "assetDeliveryState": {"state": "AWAITING_UPLOAD"}}}
+        fake = ProductAsc()
+        live = fake.live_iap(f"{PID}.pearls.75", name="Pearls", price="1.99", parts={
+            "localization": loc, "availability": (TERRITORIES, True), "screenshot": reservation})
+        code, out, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+        self.assertEqual(code, 0, err)
+        self.assertIn("adds: screenshot", out)
+        self.assertEqual([c[:3] for c in fake.writes()], [("iap", "review-screenshots", "update")])
+        self.assertEqual(flag(fake.writes()[0], "--screenshot-id"), "SHOT-1")
+        self.assert_ready(fake, f"{PID}.pearls.75")
+        self.assertEqual(fake.product(live)["attributes"]["state"], "READY_TO_SUBMIT")
+
+    def test_a_failed_or_different_screenshot_stops_before_writing(self) -> None:
+        raw = (self.root / SHOT).read_bytes()
+        for attributes, expected in (({"assetDeliveryState": {"state": "FAILED"}}, "screenshot is FAILED"),
+                                     ({"assetDeliveryState": {"state": "COMPLETE"}, "fileSize": len(raw),
+                                       "sourceFileChecksum": "0" * 32}, "screenshot (COMPLETE) differs")):
+            fake = ProductAsc()
+            fake.live_iap(f"{PID}.pearls.75", name="Pearls", parts={"screenshot": {"id": "S", "attributes": attributes}})
+            code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+            with self.subTest(expected):
+                self.assertEqual(code, 1)
+                self.assertIn(expected, err)
+                self.assertEqual(fake.writes(), [])
+        # A finish whose screenshot file is gone is an error line, not a traceback.
+        (self.root / SHOT).unlink()
+        fake = ProductAsc()
+        fake.live_iap(f"{PID}.pearls.75", name="Pearls", parts={"screenshot": {"id": "S", "attributes": {}}})
+        code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+        self.assertEqual(code, 1)
+        self.assertIn("does not exist", err)
+        self.assertEqual(fake.writes(), [])
+
+    def test_a_screenshot_still_being_processed_is_kept(self) -> None:
+        # An earlier run uploaded the screenshot and stopped while Apple was still processing it.
+        raw = (self.root / SHOT).read_bytes()
+        pending = {"id": "SHOT-1", "attributes": {"fileSize": len(raw), "sourceFileChecksum": hashlib.md5(raw).hexdigest(),
+                                                  "assetDeliveryState": {"state": "UPLOAD_COMPLETE"}}}
+        fake = ProductAsc()
+        fake.live_iap(f"{PID}.pearls.75", name="Pearls", parts={"screenshot": pending})
+        code, out, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+        self.assertEqual(code, 0, err)
+        self.assertIn("adds: localization, price, availability", out)
+        self.assertNotIn(("iap", "review-screenshots", "create"), [c[:3] for c in fake.writes()])
+        self.assert_ready(fake, f"{PID}.pearls.75")
+
+    def test_a_failed_price_lookup_on_an_existing_product_is_only_a_warning(self) -> None:
+        iaps = [{"id": "I1", "attributes": {"name": "Pearls 50", "productId": f"{PID}.pearls.50",
+                                            "inAppPurchaseType": "CONSUMABLE", "state": "APPROVED"}}]
+        fake = ProductAsc(iaps=iaps, prices={"I1": "1.99"}, fail_on={("iap", "pricing", "summary")})
+        catalog = product_catalog(consumables=[{"id": f"{PID}.pearls.50", "suggested_price_usd": "1.99", "platforms": ["ios"]}])
+        code, out, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        self.assertIn("could not read its price, so it was not compared", out)
+        # The same error while planning a product to finish stops the run.
+        fake = ProductAsc(fail_on={("iap", "pricing", "summary")})
+        fake.live_iap(f"{PID}.pearls.75", name="Pearls")
+        code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+        self.assertEqual(code, 1)
+        self.assertIn("exit 63", err)
+        self.assertEqual(fake.writes(), [])
+
+    def test_a_first_subscription_above_the_app_price_grid_is_created(self) -> None:
+        fake = ProductAsc()
+        code, out, err = self.run_products(fake, product_catalog(subscriptions=[new_subscription(price="404.99")]))
+        self.assertEqual(code, 0, err)
+        self.assertIn("404.99 is above the app's price grid", out)
+        self.assert_ready(fake, f"{PID}.pass.weekly")
+        # Below the grid's top the app grid is authoritative for subscriptions too.
+        fake = ProductAsc()
+        code, _, err = self.run_products(fake, product_catalog(subscriptions=[new_subscription(price="3.33")]))
+        self.assertEqual(code, 1)
+        self.assertIn("3.33 is not a price point in USA (checked against the app's own price grid", err)
+        self.assertEqual(fake.writes(), [])
+
+    def test_missing_fields_stop_the_run_before_any_write(self) -> None:
+        incomplete = new_iap("pearls.75")
+        del incomplete["ios"]["description"]
+        sub = new_subscription()
+        del sub["ios"]["review_note"]
+        fake = ProductAsc()
+        catalog = product_catalog(subscriptions=[sub], consumables=[incomplete, new_iap("pearls.500", price="9.99")])
+        code, _, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 1)
+        self.assertIn(f"{PID}.pearls.75 would be created but the catalog lacks ios.description", err)
+        self.assertIn(f"{PID}.pass.weekly would be created but the catalog lacks ios.review_note", err)
+        self.assertIn("nothing was created", err)
+        # Not even the complete product is created, and asc was never opened for writing.
+        self.assertEqual(fake.writes(), [])
+        self.assertEqual(fake.iaps, [])
+        self.assertEqual(fake.opened, [True])
+
+    def test_a_bad_review_screenshot_stops_the_run_before_any_write(self) -> None:
+        for content in (png_header(6, width=1290, height=2796), png_header(width=1200, height=2000)):
+            self.shot(SHOT, content)
+            fake = ProductAsc()
+            code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+            with self.subTest(content=content[:30]):
+                self.assertEqual(code, 1)
+                self.assertIn("review screenshot", err)
+                self.assertEqual(fake.writes(), [])
+        (self.root / SHOT).unlink()
+        fake = ProductAsc()
+        code, _, err = self.run_products(fake, product_catalog(subscriptions=[new_subscription()]))
+        self.assertEqual(code, 1)
+        self.assertIn("does not exist", err)
+        self.assertEqual(fake.writes(), [])
+
+    def test_a_price_without_a_price_point_stops_the_run(self) -> None:
+        live_sub = [{"id": "S1", "attributes": {"name": "Pass", "productId": f"{PID}.pass.monthly", "state": "APPROVED",
+                                                "subscriptionPeriod": "ONE_MONTH"}}]
+        fake = ProductAsc(subscriptions=live_sub, prices={"S1": "8.99"})
+        catalog = product_catalog(subscriptions=[new_subscription(price="2.98")], consumables=[new_iap("pearls.75", price="1.23")])
+        code, _, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 1)
+        self.assertIn("2.98 is not a price point in USA", err)
+        self.assertIn("1.23 is not a price point in USA (checked against the app's own price grid", err)
+        self.assertEqual(fake.writes(), [])
+        # The live subscription is asked for its price points; the app has no IAP yet, so its grid is used.
+        asked = [c for c in fake.calls if "price-points" in c]
+        self.assertTrue(any(c[:1] == ("subscriptions",) and flag(c, "--subscription-id") == "S1" for c in asked))
+        self.assertTrue(any(c[:2] == ("pricing", "price-points") for c in asked))
+        # With Unlock the Deep live, a new in-app purchase's price is checked against its price points.
+        fake = ProductAsc(iaps=[unlock_live()], prices={"IAP1": "2.99"})
+        code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75", price="1.23")]))
+        self.assertEqual(code, 1)
+        self.assertIn("1.23 is not a price point in USA", err)
+        self.assertNotIn("app's own price grid", err)
+        self.assertTrue(any(c[:4] == ("iap", "pricing", "price-points", "list") and flag(c, "--iap-id") == "IAP1"
+                            for c in fake.calls))
+
+    def test_a_new_group_needs_a_display_name_and_listed_territories_must_exist(self) -> None:
+        groups = [{"reference_name": GROUP}, {"reference_name": "Expeditions"}]
+        sub = new_subscription(subscription_group="Expeditions")
+        fake = ProductAsc()
+        code, _, err = self.run_products(fake, product_catalog(subscriptions=[sub], groups=groups))
+        self.assertEqual(code, 1)
+        self.assertIn("subscription group 'Expeditions' needs a display_name", err)
+        code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75", territories=["USA", "XYZ"])]))
+        self.assertEqual(code, 1)
+        self.assertIn("App Store Connect has no territories XYZ", err)
+        self.assertEqual(fake.writes(), [])
+
+    def test_a_product_that_never_becomes_ready_fails_after_a_bounded_wait(self) -> None:
+        fake = ProductAsc(stuck=True)
+        code, _, err = self.run_products(fake, product_catalog(consumables=[new_iap("pearls.75")]))
+        self.assertEqual(code, 1)
+        self.assertIn("state is MISSING_METADATA, expected READY_TO_SUBMIT", err)
+        self.assertEqual(self.sleeps, [asc_products.STATE_POLL_SECONDS] * (asc_products.STATE_POLLS - 1))
+
+
+class ProductReviewTests(MainFlow, ProductTestCase):
+    """Products in the catalog going to App Review with the version (asc_release.main)."""
+
+    def setUp(self) -> None:
+        MainFlow.setUp(self)
+        ProductTestCase.setUp(self)
+
+    def submit(self, fake: FakeAsc, catalog: dict) -> tuple[int, str]:
+        with mock.patch.object(asc_release, "load_catalog", return_value=catalog):
+            return self.run_main(fake, SUBMIT_ONLY)
+
+    def test_only_ios_products_are_sent_to_review(self) -> None:
+        catalog = product_catalog(consumables=[new_iap("pearls.75")],
+                                  non_consumables=[{"id": f"{PID}.lifetime", "platforms": ["android"]}])
+        self.assertEqual(asc_release.intended_product_ids(catalog), {f"{PID}.pearls.75"})
+        # Not even a Ready to Submit App Store product with that id rides along.
+        iaps = [{"id": "LIFE", "attributes": {"name": "Lifetime", "productId": f"{PID}.lifetime", "state": "READY_TO_SUBMIT"}}]
+        fake = FakeAsc(iaps=iaps)
+        code, output = self.submit(fake, catalog)
+        self.assertEqual(code, 0, output)
+        self.assertEqual(items_added(fake), [("appStoreVersions", "V1")])
+        self.assertEqual(fake.submitted, ["SUB1"])
+
+    def test_new_products_reach_review_in_the_same_run(self) -> None:
+        catalog = product_catalog(subscriptions=[new_subscription()], non_consumables=[new_iap("lifetime", price="69.99")])
+        fake = ProductAsc()
+        code, _, err = self.run_products(fake, catalog)
+        self.assertEqual(code, 0, err)
+        sub = self.assert_ready(fake, f"{PID}.pass.weekly")
+        iap = self.assert_ready(fake, f"{PID}.lifetime")
+        self.assertEqual(asc_release.intended_product_ids(catalog), {f"{PID}.pass.weekly", f"{PID}.lifetime"})
+        before = len(fake.writes())
+        code, output = self.submit(fake, catalog)
+        self.assertEqual(code, 0, output)
+        review = fake.writes()[before:]
+        added = {flag(c, "--item-id") for c in review if c[:2] == ("review", "items-add")}
+        self.assertEqual(added, {f"{sub['id']}v2", f"{iap['id']}v1", "V1"})
+        self.assertEqual(review[-1][:2], ("review", "submissions-submit"))
+        self.assertEqual(fake.submitted, ["SUB1"])
+
+    assert_ready = ProductCreationTests.assert_ready
+
+
 class ReleaseNotesTests(unittest.TestCase):
     TEXT = "# Notes\n\n## Unreleased\n\n- next\n\n## v1.0.1\n\n- Fixes\n\n## v1.0.2\n\n"
 
@@ -3393,7 +4356,7 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertNotIn("--build-id", preflight)
         install = prepare.index(f"      - name: {self.INSTALL}\n")
         self.assertIn("if: >- steps.gates.outputs.build == 'true' || steps.gates.outputs.asc == 'true' || "
-                      "steps.gates.outputs.create_version == 'true'",
+                      "steps.gates.outputs.create_version == 'true' || steps.gates.outputs.product_plan == 'true' run: |",
                       " ".join(self.step("prepare", self.INSTALL).split()))
         self.assertLess(install, prepare.index("Check the App Store version (read-only preflight)"))
         self.assertLess(prepare.index("--preflight"), prepare.index("ios_release.py build-number"))
@@ -3420,6 +4383,53 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn("steps.gates.outputs.create_version == 'true'", self.step("prepare", self.INSTALL))
         # Validation runs resolve it off whatever the switches say.
         self.assertFalse(gates(ALL_ON, event="workflow_dispatch", ref="main")["create_version"])
+
+    def test_products_are_planned_and_created_in_prepare_before_the_build(self) -> None:
+        prepare = self.job("prepare")
+        step = self.step("prepare", "Create missing App Store products (IOS_CREATE_PRODUCTS)")
+        # A tag run creates (after the read-only plan); a validation run only plans.
+        self.assertIn("if: steps.gates.outputs.product_plan == 'true'", step)
+        self.assertIn("CREATE_IOS_PRODUCTS: ${{ steps.gates.outputs.create_products }}", step)
+        self.assertIn('[ "$CREATE_IOS_PRODUCTS" = true ] && command=create', step)
+        self.assertIn("command=plan\n", step)
+        for name in ("APP_STORE_CONNECT_API_KEY_ID", "APP_STORE_CONNECT_ISSUER_ID", "APP_STORE_CONNECT_API_KEY_P8"):
+            self.assertIn(f"{name}: ${{{{ secrets.{name} }}}}", step)
+        script = textwrap.dedent(step.split("run: |\n", 1)[1])
+        for value, command in (("true", "create"), ("false", "plan"), ("", "plan")):
+            with self.subTest(create_products=value):
+                result = subprocess.run(["bash", "-c", script.replace("python3 -u scripts/store/asc_products.py",
+                                                                      "echo")],
+                                        capture_output=True, text=True, env=dict(os.environ, CREATE_IOS_PRODUCTS=value),
+                                        check=True)
+                self.assertEqual(result.stdout, f"{command}\n")
+        # After the version is created, before the preflight, the build number and any build.
+        position = prepare.index("Create missing App Store products")
+        self.assertLess(prepare.index("--create-version"), position)
+        self.assertLess(prepare.index(f"      - name: {self.INSTALL}\n"), position)
+        self.assertLess(position, prepare.index("asc_release.py --preflight"))
+        self.assertLess(position, prepare.index("ios_release.py build-number"))
+        self.assertIn("create_products: ${{ steps.gates.outputs.create_products }}", prepare)
+        self.assertIn("IOS_CREATE_PRODUCTS: ${{ vars.IOS_CREATE_PRODUCTS }}", self.step("prepare", "Resolve iOS release switches"))
+        # Apple processes each App Review screenshot while prepare waits.
+        self.assertIn("timeout-minutes: 30\n", prepare)
+        # Validation runs reach the plan with asc read-only.
+        self.assertIn("ASC_READ_ONLY: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}", prepare)
+        self.assertTrue(gates({"IOS_RELEASE_AUTOMATION": "true", "IOS_CREATE_PRODUCTS": "true"},
+                              event="workflow_dispatch", ref="main")["product_plan"])
+        # Every place that prints the switches shows this one (and the creative switch).
+        for path in ("ios-release.yml", "store-checks.yml"):
+            text = (ROOT / ".github" / "workflows" / path).read_text()
+            blocks = text.split("run: python3 scripts/store/print_gates.py")[:-1]
+            self.assertTrue(blocks, path)
+            for block in blocks:
+                env = block[block.rindex("env:"):]
+                with self.subTest(path=path):
+                    self.assertIn("IOS_CREATE_PRODUCTS: ${{ vars.IOS_CREATE_PRODUCTS }}", env)
+                    self.assertIn("IOS_UPLOAD_CREATIVE_ASSETS: ${{ vars.IOS_UPLOAD_CREATIVE_ASSETS }}", env)
+        # The pull request checks run the command with the switch unset: skipped, no calls.
+        checks = (ROOT / ".github" / "workflows" / "store-checks.yml").read_text()
+        self.assertIn("python3 scripts/store/asc_products.py create  # CREATE_IOS_PRODUCTS unset", checks)
+        self.assertNotIn("CREATE_IOS_PRODUCTS:", checks)
 
     def test_export_compliance_is_checked_before_the_build_and_in_the_archive(self) -> None:
         build = self.job("build")
@@ -3478,7 +4488,8 @@ class WorkflowWiringTests(unittest.TestCase):
 
     def test_every_job_that_runs_asc_installs_and_checks_the_pinned_release_first(self) -> None:
         commands = {
-            "prepare": ("asc_release.py --create-version", "asc_release.py --preflight", "ios_release.py build-number"),
+            "prepare": ("asc_release.py --create-version", 'asc_products.py "$command"', "asc_release.py --preflight",
+                        "ios_release.py build-number"),
             "wait-for-build": ("ios_release.py wait-build",),
             "app-store-connect": ('asc_release.py "${args[@]}"',),
         }
@@ -3563,7 +4574,7 @@ class WorkflowWiringTests(unittest.TestCase):
 
     def test_store_steps_run_unbuffered(self) -> None:
         for command in ("ios_release.py build-number", "ios_release.py wait-build", "asc_release.py --preflight",
-                        "asc_release.py --create-version", 'asc_release.py "${args[@]}"'):
+                        "asc_release.py --create-version", 'asc_release.py "${args[@]}"', 'asc_products.py "$command"'):
             with self.subTest(command=command):
                 self.assertIn(f"python3 -u scripts/store/{command}", self.WORKFLOW)
                 self.assertNotIn(f"python3 scripts/store/{command}", self.WORKFLOW)
@@ -3624,7 +4635,7 @@ class WorkflowWiringTests(unittest.TestCase):
 
     def test_scripts_run_from_the_command_line(self) -> None:
         for script in ("ios_release.py", "asc_release.py", "asc_cli.py", "export_listing.py", "print_gates.py",
-                       "validate_catalog.py", "redact_logs.py"):
+                       "validate_catalog.py", "redact_logs.py", "asc_products.py"):
             with self.subTest(script=script):
                 result = subprocess.run([sys.executable, str(HERE / script), "--help"],
                                         capture_output=True, text=True, check=False)
