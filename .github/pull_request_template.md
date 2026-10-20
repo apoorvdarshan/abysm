@@ -5,7 +5,7 @@
 ## Tests
 
 <!-- Which tests did you add or update? Which checks did you run
-     (scripts/test-ios.sh, the store tooling tests, the website build)?
+     (scripts/test-ios.sh, the scripts/ci tests, the fuzz targets, the website build)?
      If a test was impractical, explain why and how you checked the change. -->
 
 ## Screenshots
