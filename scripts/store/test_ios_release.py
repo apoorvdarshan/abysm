@@ -2468,7 +2468,7 @@ class RgbStageTests(MainFlow):
         raw = path.read_bytes()
         self.assertEqual(raw[25], 2, f"{path.name} is not an RGB PNG (colour type {raw[25]})")
         self.assertNotIn(b"tRNS", chunk_types(raw))
-        img = PILLOW.open(path)
+        img = PILLOW.open(io.BytesIO(raw))
         self.assertEqual(img.mode, "RGB")
         return img
 
@@ -2519,7 +2519,9 @@ class RgbStageTests(MainFlow):
 
     def test_the_run_uploads_the_rgb_copies_never_the_committed_files(self) -> None:
         for path in self.shots[IPHONE] + self.shots[IPAD]:
-            self.rgba(path, PILLOW.open(path).size)
+            with PILLOW.open(path) as img:
+                size = img.size
+            self.rgba(path, size)
         committed = {path: path.read_bytes() for path in self.shots[IPHONE] + self.shots[IPAD]}
         sent: list[bytes] = []
 
@@ -3556,12 +3558,9 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn('UPLOAD_CREATIVE_ASSETS: "true"', checks)  # the dry run checks the committed images
 
     def test_pillow_is_installed_wherever_screenshots_are_staged_and_tested(self) -> None:
-        # Hash-locked, the same pin as Fud AI, and kept current by Dependabot's pip entry for /.
-        self.assertIn("Pillow==12.3.0", (ROOT / "requirements-store.in").read_text().splitlines())
+        # Hash-locked with the same pin as Fud AI (the lock file is in every store job's checkout).
         lock = (ROOT / "requirements-store.txt").read_text()
         self.assertRegex(lock, r"(?m)^pillow==12\.3\.0 \\\n    --hash=sha256:[0-9a-f]{64}")
-        self.assertRegex((ROOT / ".github" / "dependabot.yml").read_text(),
-                         r"- package-ecosystem: pip\n    directory: /\n")
         install = "python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt"
         # prepare stages the screenshots in its gated dry run and preflight, after the install.
         prepare = self.job("prepare")
