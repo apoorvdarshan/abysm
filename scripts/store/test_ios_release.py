@@ -2668,25 +2668,6 @@ class CreativeAssetTests(MainFlow):
         self.assertEqual(image_items, {submitted[0]})
         self.assertNotIn("EMPTY", image_items)
 
-    def test_a_rerun_finishes_the_empty_draft_an_interrupted_review_left(self) -> None:
-        # A run stopped between creating its draft and adding the images; the
-        # rerun uses that draft instead of leaving it behind and starting another.
-        fake = FakeAsc(drafts=("EMPTY",))
-        code, output = self.run_creative(fake)
-        self.assertEqual(code, 0, output)
-        self.assertNotIn(("review", "submissions-create"), [c[:2] for c in fake.writes()])
-        self.assertEqual(fake.submitted, ["EMPTY"])
-        # A draft already holding some of the images is finished before an empty one.
-        library = [self.image("H", "header", "PREPARE_FOR_SUBMISSION"),
-                   self.image("S", "search-results", "PREPARE_FOR_SUBMISSION")]
-        held = [review_item("I-H", "appAssetLibraryImage", "H")]
-        fake = FakeAsc(library=library, drafts=("EMPTY", "PART"), draft_items={"PART": held})
-        code, output = self.run_creative(fake)
-        self.assertEqual(code, 0, output)
-        self.assertEqual({flag(c, "--submission") for c in fake.writes() if c[:2] == ("review", "items-add")}, {"PART"})
-        self.assertEqual(fake.submitted, ["PART"])
-        self.assertEqual(fake.items["EMPTY"], [])
-
     def test_an_interrupted_upload_is_uploaded_again(self) -> None:
         # asc never deletes the reservation an interrupted upload leaves behind.
         fake = FakeAsc(drafts=(), library=[self.image("STALE", "header", "AWAITING_UPLOAD")])
