@@ -37,6 +37,9 @@ node_modules/
 Pods/
 Carthage/Build/
 
-# Python bytecode (CI tests under scripts/ci/)
+# Python bytecode (CI tests under scripts/ci/, fuzz targets under fuzz/)
 __pycache__/
 *.pyc
+
+# The store-release checkout the fuzz targets test (fuzz/README.md)
+/.store-release/

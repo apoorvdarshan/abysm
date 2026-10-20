@@ -2,14 +2,15 @@
 # settings; this file keeps the pinned versions current:
 #   github-actions  the commit-SHA-pinned actions in every workflow, and the
 #                   apoorvdarshan/store-release pin in the release callers
+#   pip (/fuzz)     the hash-locked Atheris fuzzer in fuzz/requirements.txt (fuzz.yml)
 #   swift           the RevenueCat package pinned in the Xcode project's Package.resolved
 #   npm             the website's deploy tooling in web/ (wrangler and what it pulls in)
 #
 # Each ecosystem comes as one grouped PR, except the store-release pin, which gets
 # a PR of its own (see below). Updates to the app or to ios-tests.yml run the iOS
 # tests on a paid macOS runner, so the Swift package and the actions are checked
-# monthly; the website, which runs no macOS checks, weekly. The release tooling
-# itself (PyJWT, Pillow) is locked and updated in store-release.
+# monthly; the fuzzer monthly; the website, which runs no macOS checks, weekly. The
+# release tooling itself (PyJWT, Pillow) is locked and updated in store-release.
 
 version: 2
 updates:
@@ -34,6 +35,16 @@ updates:
       include: ["apoorvdarshan/store-release*"]
     commit-message:
       prefix: "CI"
+
+  - package-ecosystem: pip
+    directory: /fuzz
+    schedule:
+      interval: monthly
+    groups:
+      fuzzing:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Fuzzing"
 
   - package-ecosystem: swift
     directory: /

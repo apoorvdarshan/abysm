@@ -47,10 +47,11 @@ configure RevenueCat, so tests stay offline and can never start a purchase.
 | `scripts/test-ios.sh` (fake `xcrun`) | `python3 -m unittest -v scripts/ci/test_test_ios.py` |
 | Store data and release config | the **Store checks** workflow (see [`store/README.md`](store/README.md)) |
 | Website | `cd web && npm ci && npm audit && npm run build` (Node.js 22+) |
+| Fuzzing (Linux x86-64) | see [`fuzz/README.md`](fuzz/README.md) |
 
 `scripts/test-ios.sh` creates its own simulator, builds once, runs the unit
 tests and then the UI tests, and deletes the simulator afterwards. It fails if
-either suite runs no tests. CI runs the same script, plus CodeQL.
+either suite runs no tests. CI runs the same script, plus CodeQL and the fuzzers.
 
 ## Tests
 
@@ -67,6 +68,9 @@ and then the pull request must explain why and how the change was checked.
   `scripts/ci/test_test_ios.py` for `scripts/test-ios.sh`).
 - **Release tooling:** it lives in
   [apoorvdarshan/store-release](https://github.com/apoorvdarshan/store-release), with its tests; change it there.
+  The fuzz targets in `fuzz/` test the pinned version against ABYSM's config; when
+  a store-release update changes what they check, update them in the same pull
+  request.
 
 ## Code guidelines
 
