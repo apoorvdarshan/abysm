@@ -80,6 +80,7 @@ jobs:
         env:
           IOS_RELEASE_AUTOMATION: ${{ vars.IOS_RELEASE_AUTOMATION }}
           IOS_CREATE_VERSION: ${{ vars.IOS_CREATE_VERSION }}
+          IOS_CREATE_PRODUCTS: ${{ vars.IOS_CREATE_PRODUCTS }}
           IOS_UPLOAD_BUILD: ${{ vars.IOS_UPLOAD_BUILD }}
           IOS_UPLOAD_LISTING: ${{ vars.IOS_UPLOAD_LISTING }}
           IOS_UPLOAD_WHATS_NEW: ${{ vars.IOS_UPLOAD_WHATS_NEW }}
@@ -114,7 +115,9 @@ jobs:
           UPLOAD_SCREENSHOTS: "true"
           SUBMIT_IOS_REVIEW: "true"
           PUBLIC_RELEASE: "false"
-        run: python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
+        run: |
+          python3 scripts/store/asc_release.py --dry-run --build-id DRY-RUN --build-number 1
+          python3 scripts/store/asc_products.py create  # CREATE_IOS_PRODUCTS unset: skipped, no calls
 
       # Proves the pinned release still downloads and matches its checksum.
       - name: Install and check the pinned App Store Connect CLI (no store calls)

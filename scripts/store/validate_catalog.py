@@ -2,8 +2,11 @@
 """Check store/catalog/products.json against the app's StoreKit file and StoreManager.
 
 The catalog lists the App Store products a release may submit for review
-(scripts/store/asc_release.py). It must match the product the app sells
+(scripts/store/asc_release.py) and, with IOS_CREATE_PRODUCTS, the ones it may
+create (scripts/store/asc_products.py). It must match the product the app sells
 (Abysm/StoreManager.swift) and the local StoreKit configuration (Abysm.storekit).
+Also checks the App Store creation fields (`ios` blocks, `ios_subscription_groups`)
+offline, including each review screenshot file; see asc_products.py.
 """
 from __future__ import annotations
 
@@ -12,12 +15,21 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import asc_products  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "store" / "catalog" / "products.json"
 STOREKIT = ROOT / "Abysm.storekit"
 STORE_MANAGER = ROOT / "Abysm" / "StoreManager.swift"
 BUNDLE_ID = "com.apoorvdarshan.Abysm"
-GROUPS = {"nonConsumables": "NonConsumable", "consumables": "Consumable", "subscriptions": "AutoRenewable"}
+# Each catalog group (asc_products.PRODUCT_GROUPS) and the product type Abysm.storekit gives it.
+STOREKIT_TYPES = {"subscription": "AutoRenewable", "CONSUMABLE": "Consumable", "NON_CONSUMABLE": "NonConsumable"}
+GROUPS = {group: STOREKIT_TYPES[iap_type or kind] for group, (kind, iap_type) in asc_products.PRODUCT_GROUPS.items()}
+REQUIRED_GROUPS = ("non_consumables", "consumables", "subscriptions")
+OTHER_KEYS = {"app", "ios_subscription_groups"}
+# ABYSM ships on iOS only. The release only creates and submits products that list ios.
+PLATFORMS = ["ios"]
 
 
 class CatalogError(Exception):
@@ -39,14 +51,16 @@ def storekit_products(storekit: dict) -> dict[str, str]:
     return products
 
 
-def validate(catalog: dict, storekit: dict, store_manager_source: str) -> list[str]:
+def validate(catalog: dict, storekit: dict, store_manager_source: str, *, root: Path = ROOT) -> list[str]:
     if catalog.get("app") != BUNDLE_ID:
         raise CatalogError(f"catalog app must be {BUNDLE_ID}, got {catalog.get('app')!r}")
-    unknown = set(catalog) - set(GROUPS) - {"app"}
+    unknown = set(catalog) - set(GROUPS) - OTHER_KEYS
     if unknown:
         raise CatalogError(f"unknown catalog groups: {', '.join(sorted(unknown))}")
     seen: dict[str, str] = {}
     for group, storekit_type in GROUPS.items():
+        if group not in catalog and group not in REQUIRED_GROUPS:
+            continue
         items = catalog.get(group)
         if not isinstance(items, list):
             raise CatalogError(f"catalog group {group!r} must be a list")
@@ -56,6 +70,11 @@ def validate(catalog: dict, storekit: dict, store_manager_source: str) -> list[s
                 raise CatalogError(f"{group}: product id {pid!r} must start with {BUNDLE_ID}.")
             if pid in seen:
                 raise CatalogError(f"product id {pid} is listed twice")
+            if item.get("platforms") != PLATFORMS:
+                raise CatalogError(
+                    f"{pid}: platforms must be {PLATFORMS}, got {item.get('platforms')!r} "
+                    "(only products that list ios are created and submitted for review)"
+                )
             seen[pid] = storekit_type
     sk = storekit_products(storekit)
     if set(sk) != set(seen):
@@ -69,12 +88,15 @@ def validate(catalog: dict, storekit: dict, store_manager_source: str) -> list[s
     entitlement = swift_constant(store_manager_source, "entitlementID")
     if product_id not in seen:
         raise CatalogError(f"StoreManager sells {product_id}, which the catalog does not list")
-    unlock = next(i for i in catalog["nonConsumables"] if i["id"] == product_id)
+    unlock = next(i for i in catalog["non_consumables"] if i["id"] == product_id)
     if unlock.get("entitlement") != entitlement:
         raise CatalogError(
             f"{product_id} grants entitlement {entitlement!r} in StoreManager, "
             f"catalog says {unlock.get('entitlement')!r}"
         )
+    problems = asc_products.catalog_problems(catalog, root)
+    if problems:
+        raise CatalogError("; ".join(problems))
     return sorted(seen)
 
 

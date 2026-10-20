@@ -35,7 +35,10 @@
 # so unused store assets never block a build-only release (PRs and main check
 # the listing and screenshots in store-checks.yml). On tag runs with IOS_CREATE_VERSION on, prepare then creates
 # the tag's App Store version when App Store Connect does not have it yet (never
-# on validation runs). Tag runs with a listing, What's New, screenshot, creative
+# on validation runs). With IOS_CREATE_PRODUCTS on, it then creates the catalog's
+# products App Store Connect does not have yet, Ready to Submit, after a read-only
+# check of every one (validation runs only print that check). Tag runs with a
+# listing, What's New, screenshot, creative
 # asset or review switch on also run a read-only App Store Connect preflight
 # before anything is built: the App Store version for the tag must exist
 # (IOS_CREATE_VERSION creates a missing one; otherwise create it in App Store
@@ -58,16 +61,20 @@
 #   pinned to an exact release in scripts/store/asc_cli.py. Each job that runs
 #   it installs it only after its SHA-256 matches and checks it, and every call
 #   re-checks that checksum before handing asc the credentials. Its telemetry is
-#   off. Checks that must not write (the version preflight, build number, build
-#   wait, and everything on validation runs) run asc in read-only mode, which
-#   refuses any write before it is sent. The binary itself is still exported
-#   and uploaded by xcodebuild.
+#   off. Checks that must not write (the version preflight, the product plan,
+#   build number, build wait, and everything on validation runs) run asc in
+#   read-only mode, which refuses any write before it is sent. The binary itself
+#   is still exported and uploaded by xcodebuild.
 #
 # Switches (repository Variables; missing = off, invalid values fail the run).
 # See store/README.md for the full table.
 #   IOS_RELEASE_AUTOMATION   master switch for every iOS store operation below
 #   IOS_CREATE_VERSION       create the tag's App Store version when it is missing
 #                            (tag runs only; an existing version is left alone)
+#   IOS_CREATE_PRODUCTS      create the catalog's iOS products App Store Connect does
+#                            not have yet, Ready to Submit (store/catalog/products.json;
+#                            tag runs only; validation runs list them read-only).
+#                            Existing products are never changed
 #   IOS_UPLOAD_BUILD         build + upload the binary to App Store Connect
 #   IOS_UPLOAD_LISTING       description, keywords, promo text, URLs, name, subtitle
 #   IOS_UPLOAD_WHATS_NEW     What's New text
@@ -129,13 +136,15 @@ jobs:
 
   prepare:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Product creation waits for Apple to process each App Review screenshot.
+    timeout-minutes: 30
     env:
       # Validation runs never write to App Store Connect; asc enforces it.
       ASC_READ_ONLY: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
     outputs:
       mode: ${{ steps.gates.outputs.mode }}
       create_version: ${{ steps.gates.outputs.create_version }}
+      create_products: ${{ steps.gates.outputs.create_products }}
       build: ${{ steps.gates.outputs.build }}
       upload_build: ${{ steps.gates.outputs.upload_build }}
       listing: ${{ steps.gates.outputs.listing }}
@@ -174,6 +183,7 @@ jobs:
         env:
           IOS_RELEASE_AUTOMATION: ${{ vars.IOS_RELEASE_AUTOMATION }}
           IOS_CREATE_VERSION: ${{ vars.IOS_CREATE_VERSION }}
+          IOS_CREATE_PRODUCTS: ${{ vars.IOS_CREATE_PRODUCTS }}
           IOS_UPLOAD_BUILD: ${{ vars.IOS_UPLOAD_BUILD }}
           IOS_UPLOAD_LISTING: ${{ vars.IOS_UPLOAD_LISTING }}
           IOS_UPLOAD_WHATS_NEW: ${{ vars.IOS_UPLOAD_WHATS_NEW }}
@@ -229,7 +239,7 @@ jobs:
       - name: Install the pinned App Store Connect CLI
         if: >-
           steps.gates.outputs.build == 'true' || steps.gates.outputs.asc == 'true' ||
-          steps.gates.outputs.create_version == 'true'
+          steps.gates.outputs.create_version == 'true' || steps.gates.outputs.product_plan == 'true'
         run: |
           python3 scripts/store/asc_cli.py install --dest "$RUNNER_TEMP/asc-bin"
           PATH="$RUNNER_TEMP/asc-bin:$PATH" python3 scripts/store/asc_cli.py check
@@ -250,6 +260,27 @@ jobs:
           CREATE_IOS_VERSION: ${{ steps.gates.outputs.create_version }}
           MARKETING_VERSION: ${{ steps.gates.outputs.marketing_version }}
         run: python3 -u scripts/store/asc_release.py --create-version --version "$MARKETING_VERSION"
+
+      # Every iOS product in store/catalog/products.json that App Store Connect
+      # does not have yet is created and brought to Ready to Submit, so
+      # IOS_SUBMIT_REVIEW attaches it in this same run. The read-only plan runs
+      # first and must pass for every product (fields, review screenshot, price
+      # point, territories) before anything is written, so a problem stops the run
+      # before the build. A product an interrupted run left in Missing Metadata is
+      # finished, never created twice; other existing products are only compared
+      # (warnings). Validation runs only print the plan (asc is read-only there).
+      - name: Create missing App Store products (IOS_CREATE_PRODUCTS)
+        if: steps.gates.outputs.product_plan == 'true'
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          CREATE_IOS_PRODUCTS: ${{ steps.gates.outputs.create_products }}
+        run: |
+          set -euo pipefail
+          command=plan
+          [ "$CREATE_IOS_PRODUCTS" = true ] && command=create
+          python3 -u scripts/store/asc_products.py "$command"
 
       # Tag runs only (asc is never on for a validation run): read-only checks, with
       # asc in read-only mode, that the App Store version exists (turn on
@@ -655,6 +686,7 @@ jobs:
         env:
           IOS_RELEASE_AUTOMATION: ${{ vars.IOS_RELEASE_AUTOMATION }}
           IOS_CREATE_VERSION: ${{ vars.IOS_CREATE_VERSION }}
+          IOS_CREATE_PRODUCTS: ${{ vars.IOS_CREATE_PRODUCTS }}
           IOS_UPLOAD_BUILD: ${{ vars.IOS_UPLOAD_BUILD }}
           IOS_UPLOAD_LISTING: ${{ vars.IOS_UPLOAD_LISTING }}
           IOS_UPLOAD_WHATS_NEW: ${{ vars.IOS_UPLOAD_WHATS_NEW }}
