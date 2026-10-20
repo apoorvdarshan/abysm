@@ -91,9 +91,10 @@ What to expect:
   scanning and push protection are enabled.
 - CodeQL scans Swift, Python, JavaScript, and the workflows. OpenSSF Scorecard
   runs weekly and on every push to `main`.
-- The release tooling's tests live in store-release with the tooling, which
-  also fuzzes the log redaction and release notes ABYSM's releases use, with
-  Atheris.
+- The release tooling's tests live in store-release with the tooling. ABYSM
+  also fuzzes, with Atheris, the store-release code its releases run at the
+  pinned commit, bound to its own config: the release switches and stage gates,
+  the release notes, the log redaction and the config loader (`fuzz/`).
 
 ## Solo-maintainer workflow
 
