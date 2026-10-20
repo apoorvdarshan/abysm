@@ -2,8 +2,9 @@
 # settings; this file keeps the pinned versions current:
 #   github-actions  the commit-SHA-pinned actions in every workflow
 #   pip             the hash-locked App Store Connect tooling (requirements-store.in
-#                   compiled to requirements-store.txt), which runs next to the App
-#                   Store Connect key in the release jobs
+#                   compiled to requirements-store.txt: PyJWT, and Pillow for the RGB
+#                   screenshot copies), which runs next to the App Store Connect key
+#                   in the release jobs
 #   pip (/fuzz)     the hash-locked Atheris fuzzer in fuzz/requirements.txt (fuzz.yml)
 #   swift           the RevenueCat package pinned in the Xcode project's Package.resolved
 #   npm             the website's deploy tooling in web/ (wrangler and what it pulls in)
