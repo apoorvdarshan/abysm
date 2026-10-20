@@ -1,4 +1,4 @@
 # Store tooling for .github/workflows/ios-release.yml, compiled with hashes to
 # requirements-store.txt. Pillow converts screenshots that store alpha to RGB
 # before asc uploads them.
-Pillow==12.3.0
+Pillow==13.0.0
