@@ -3558,9 +3558,10 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn('UPLOAD_CREATIVE_ASSETS: "true"', checks)  # the dry run checks the committed images
 
     def test_pillow_is_installed_wherever_screenshots_are_staged_and_tested(self) -> None:
-        # Hash-locked with the same pin as Fud AI (the lock file is in every store job's checkout).
+        # Pinned to one version and hash-locked (the lock file is in every store job's
+        # checkout). Any version: Dependabot's weekly store-tooling bump must pass here.
         lock = (ROOT / "requirements-store.txt").read_text()
-        self.assertRegex(lock, r"(?m)^pillow==12\.3\.0 \\\n    --hash=sha256:[0-9a-f]{64}")
+        self.assertRegex(lock, r"(?m)^pillow==[0-9]+(\.[0-9]+)+ \\\n    --hash=sha256:[0-9a-f]{64}")
         install = "python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt"
         # prepare stages the screenshots in its gated dry run and preflight, after the install.
         prepare = self.job("prepare")
