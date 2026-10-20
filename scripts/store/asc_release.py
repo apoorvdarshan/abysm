@@ -864,14 +864,16 @@ def sync_creative_assets(
 def submit_creative_review(asc: asc_cli.Asc, app_id: str, images: list[tuple[str, dict[str, Any]]]) -> str:
     """Send not-yet-reviewed creative images to App Review in a submission of their own.
 
-    A draft an earlier attempt left behind holding only some of these images
-    (or nothing yet) is finished instead of starting another one.
+    A draft an earlier attempt left behind holding only some of these images is
+    finished instead of starting another one. An empty draft is never taken:
+    the version and its products may already have chosen it.
     """
     wanted = {image["id"] for _, image in images}
     submission_id = None
     for draft in draft_submission_ids(asc, app_id):
-        held = {related_id(item, "appAssetLibraryImage") for item in submission_items(asc, draft)}
-        if held <= wanted:
+        items = submission_items(asc, draft)
+        held = {related_id(item, "appAssetLibraryImage") for item in items}
+        if items and held <= wanted:
             submission_id = draft
             print(f"  finishing creative review submission {draft} from an earlier attempt")
             break
@@ -1520,13 +1522,12 @@ def main() -> None:
             state=state,
         )
 
-    creative_outcomes: dict[str, str] = {}
     if do_creative:
         print(
             "checking product page header and search results images…" if args.preflight
             else "syncing product page header and search results images…"
         )
-        creative_outcomes = sync_creative_assets(
+        sync_creative_assets(
             asc,
             app_id=app_id,
             version_id=version_id,
@@ -1568,14 +1569,7 @@ def main() -> None:
         select_build(asc, version_id, args.build_id, args.version, args.build_number)
         set_release_type(asc, version_id, public_release=do_public, current=attrs(version).get("releaseType"))
         print("attaching catalog products to the review submission…")
-        # The draft chosen before any write is reused, unless the creative images'
-        # own review took it (an empty draft) and submitted it in the meantime.
-        if (
-            submission_id
-            and "submitted for review" in creative_outcomes.values()
-            and submission_id not in draft_submission_ids(asc, app_id)
-        ):
-            submission_id = find_draft_submission(asc, app_id, version_id)
+        # The draft chosen before any write; images never take an empty draft.
         submission_id = submission_id or create_draft_submission(asc, app_id)
         try:
             result = attach_catalog_products(asc, app_id, submission_id=submission_id)
