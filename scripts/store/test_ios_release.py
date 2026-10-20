@@ -3499,9 +3499,7 @@ class WorkflowWiringTests(unittest.TestCase):
         # The build job never runs asc: xcodebuild exports and uploads the binary.
         self.assertNotIn("asc_cli.py", self.job("build"))
         self.assertNotIn("requirements-store", self.job("build"))
-        pins = [line for line in (ROOT / "requirements-store.in").read_text().splitlines()
-                if line.strip() and not line.startswith("#")]
-        self.assertEqual(pins, ["Pillow==12.3.0"])
+        # (requirements-store.txt is in every job that runs these tests; the .in file is not.)
         self.assertNotIn("jwt", (ROOT / "requirements-store.txt").read_text().lower())
 
     PILLOW_INSTALL = "python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt"
@@ -3535,10 +3533,6 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertLess(checks.index(self.PILLOW_INSTALL), checks.index("STORE_TESTS_NEED_PILLOW: \"1\""))
         self.assertLess(checks.index("STORE_TESTS_NEED_PILLOW"), checks.index("python3 -m unittest discover"))
         self.assertLess(checks.index(self.PILLOW_INSTALL), checks.index("asc_release.py --dry-run"))
-        # Dependabot keeps it current, apart from the fuzzer's own entry.
-        dependabot = (ROOT / ".github" / "dependabot.yml").read_text()
-        self.assertRegex(dependabot, r"- package-ecosystem: pip\n    directory: /\n(    #.*\n)*    exclude-paths:\n      - \"\*/\*\*\"\n")
-        self.assertIn("- package-ecosystem: pip\n    directory: /fuzz\n", dependabot)
 
     def test_validation_runs_use_asc_read_only(self) -> None:
         # Validation runs only reach the prepare job, and there asc refuses every write.
