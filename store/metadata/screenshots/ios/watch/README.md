@@ -5,7 +5,7 @@ App Store Connect are left alone.
 
 With `IOS_UPLOAD_SCREENSHOTS` on, PNGs here go to App Store Connect with the
 iPhone and iPad sets, in file-name order, as RGB copies
-([store-release's ABYSM flow](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/store_release/flows/abysm/asc_release.py)). Each frame's size picks its set: 416×496
+([store-release's ABYSM flow](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/store_release/flows/abysm/asc_release.py)). Each frame's size picks its set: 416×496
 `APP_WATCH_SERIES_10`, 422×514 or 410×502 `APP_WATCH_ULTRA`, 396×484
 `APP_WATCH_SERIES_7`, 368×448 `APP_WATCH_SERIES_4`, 312×390 `APP_WATCH_SERIES_3`.
 Any other size fails the run before anything is uploaded.
