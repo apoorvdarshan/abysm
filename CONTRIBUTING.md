@@ -44,14 +44,13 @@ configure RevenueCat, so tests stay offline and can never start a purchase.
 | Area | Command |
 | --- | --- |
 | App (unit + UI tests) | `bash scripts/test-ios.sh` |
-| Release tooling | `python3 -m unittest discover -s scripts/store -p 'test_*.py' -v` |
-| Product catalog | `python3 scripts/store/validate_catalog.py` |
+| `scripts/test-ios.sh` (fake `xcrun`) | `python3 -m unittest -v scripts/ci/test_test_ios.py` |
+| Store data and release config | the **Store checks** workflow (see [`store/README.md`](store/README.md)) |
 | Website | `cd web && npm ci && npm audit && npm run build` (Node.js 22+) |
-| Fuzzing (Linux x86_64) | see [`fuzz/README.md`](fuzz/README.md) |
 
 `scripts/test-ios.sh` creates its own simulator, builds once, runs the unit
 tests and then the UI tests, and deletes the simulator afterwards. It fails if
-either suite runs no tests. CI runs the same script, plus CodeQL and the fuzzers.
+either suite runs no tests. CI runs the same script, plus CodeQL.
 
 ## Tests
 
@@ -64,9 +63,10 @@ and then the pull request must explain why and how the change was checked.
 - **Screens and flows:** UI tests in `AbysmUITests/`. They drive the real
   SpriteKit screens by VoiceOver label, so make new buttons
   `AccessibleButtonNode`s with a label.
-- **Release tooling:** `unittest` tests next to the code in `scripts/store/`.
-- **Parsers or anything that reads untrusted input:** add or extend a fuzz
-  target in `fuzz/`.
+- **CI scripts:** `unittest` tests in `scripts/ci/` (for example
+  `scripts/ci/test_test_ios.py` for `scripts/test-ios.sh`).
+- **Release tooling:** it lives in
+  [apoorvdarshan/store-release](https://github.com/apoorvdarshan/store-release), with its tests; change it there.
 
 ## Code guidelines
 

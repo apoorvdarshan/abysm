@@ -37,6 +37,6 @@ node_modules/
 Pods/
 Carthage/Build/
 
-# Python bytecode (release tooling under scripts/)
+# Python bytecode (CI tests under scripts/ci/)
 __pycache__/
 *.pyc
