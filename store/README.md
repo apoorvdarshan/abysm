@@ -241,7 +241,8 @@ editable, the listing step fails instead of skipping them silently.
 ## Screenshots
 
 `IOS_UPLOAD_SCREENSHOTS` uploads the App Store-ready images already in the
-repo; nothing is resized or generated:
+repo; nothing is resized or generated, and the committed files are never
+changed (see the alpha note below):
 
 | App Store Connect slot | Source | Accepted sizes |
 |------------------------|--------|----------------|
@@ -266,12 +267,20 @@ before anything is uploaded. asc uploads a set with `asc screenshots upload
 images, and waits for Apple to process each one; the run then reads the set
 back.
 
-The images are uploaded exactly as committed, so export them as RGB PNGs: App
-Store Connect, and asc before it uploads, refuses a PNG that stores an alpha
-channel (colour types 4 and 6, or a `tRNS` chunk) even when every pixel is
-opaque. With `IOS_UPLOAD_SCREENSHOTS` on, the preflight and the store step stop
-on such a file before any App Store Connect call; the offline dry run (and so
-the **Store release checks** workflow) names them as a warning.
+App Store Connect, and asc before it uploads, refuses a PNG that stores an
+alpha channel (colour types 4 and 6, or a `tRNS` chunk) even when every pixel is
+opaque, and the committed screenshots are RGBA. So every run stages copies in a
+temporary folder outside the repo and uploads those: a PNG that stores alpha
+becomes an RGB copy with the same pixels (transparent ones laid over black, any
+colour profile kept), and any other file is copied byte for byte. The
+conversion uses Pillow, hash-locked in
+[`requirements-store.txt`](../requirements-store.txt) and installed only when
+`IOS_UPLOAD_SCREENSHOTS` is on. The dry run and the preflight stage the same
+copies, and the set checks compare App Store Connect's checksums with them.
+Before any App Store Connect call, the run stops if a staged copy still stores
+alpha, or if Pillow is missing for a file that needs converting. A Pillow
+update can change the copies' bytes; the next run then uploads the sets again,
+which works only while the version's screenshots are editable.
 
 ## Creative assets
 
@@ -360,19 +369,22 @@ version is not submitted.
 |--------|------|
 | [`scripts/store/ios_release.py`](../scripts/store/ios_release.py) | Switches and tag rule, export compliance check (project and archived app), build number, wait for this run's build (asc read-only) |
 | [`scripts/store/asc_cli.py`](../scripts/store/asc_cli.py) | Installs the pinned, checksum-verified `asc` and runs it (credentials, read-only mode, telemetry off, redacted errors); tells whether a PNG stores alpha, which asc refuses |
-| [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Version creation (`--create-version`), read-only preflight (`--preflight`), listing, What's New, screenshots, header and search results images, build selection, products, App Review; every call through `asc` |
+| [`requirements-store.in`](../requirements-store.in) → [`requirements-store.txt`](../requirements-store.txt) | Pillow, which converts screenshots that store alpha to RGB copies; hash-locked, installed with `--require-hashes` |
+| [`scripts/store/asc_release.py`](../scripts/store/asc_release.py) | Version creation (`--create-version`), read-only preflight (`--preflight`), listing, What's New, screenshots (uploaded from staged RGB copies), header and search results images, build selection, products, App Review; every call through `asc` |
 | [`scripts/store/export_listing.py`](../scripts/store/export_listing.py) | Read-only export of the App Store listing into `store/metadata/` (asc read-only) |
 | [`scripts/store/validate_catalog.py`](../scripts/store/validate_catalog.py) | Catalog vs. StoreKit file vs. app code |
 | [`scripts/store/print_gates.py`](../scripts/store/print_gates.py) | Print the switches, showing invalid values as `INVALID` (never touches a store) |
 | [`scripts/store/redact_logs.py`](../scripts/store/redact_logs.py) | Redact the App Store Connect key/issuer IDs from failed-build logs before they become an artifact |
-| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests against a fake App Store Connect behind `asc`: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time/network drops, selection read-back, export compliance (project and archived app), version creation (only when missing, never next to a version still on its way to the store or older than an existing one), the read-only preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, which draft is used and drafts holding items this release did not choose, screenshots and creative images with an alpha channel, creative assets (upload, review, placement, swap, locked versions, retries), the asc runner (credentials, read-only mode, redaction, pinned checksum), listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned asc and Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
+| [`scripts/store/test_ios_release.py`](../scripts/store/test_ios_release.py) | Offline tests against a fake App Store Connect behind `asc`: disabled/invalid switches, tag mismatch, validation mode, build wait timeout/failure/ambiguity/mismatch/old build/missing upload time/network drops, selection read-back, export compliance (project and archived app), version creation (only when missing, never next to a version still on its way to the store or older than an existing one), the read-only preflight, safe re-runs in every version state (including screenshots that failed or are still processing), products going out with the version and never on their own, which draft is used and drafts holding items this release did not choose, screenshots staged as RGB copies (same pixels, committed files unchanged) and creative images with an alpha channel, creative assets (upload, review, placement, swap, locked versions, retries), the asc runner (credentials, read-only mode, redaction, pinned checksum), listing and screenshot checks, release notes, log redaction, workflow wiring (release queue, wait-for-build job, preflight, pinned asc and Python), and `test-ios.sh`'s simulator shutdown between the unit and UI tests |
 | [`scripts/release_notes.py`](../scripts/release_notes.py) | GitHub Release notes from the matching `RELEASE_NOTES.md` section (else GitHub generates them); a duplicated section fails |
 
-The store scripts need no Python packages: every App Store Connect call goes
-through the pinned `asc` (see above), which only the jobs that call App Store
-Connect install. They run on Python 3.13 from `actions/setup-python` (never the
-runner's system Python), and their steps run unbuffered (`python3 -u`) so
-progress shows in the live log. The offline checks run in the **Store release
+Every App Store Connect call goes through the pinned `asc` (see above), which
+only the jobs that call App Store Connect install. The scripts' only Python
+package is Pillow, for the screenshots: the jobs that stage them install it from
+`requirements-store.txt` with `--require-hashes` when `IOS_UPLOAD_SCREENSHOTS`
+is on, and the **Store release checks** always do. The scripts run on Python
+3.13 from `actions/setup-python` (never the runner's system Python), and their
+steps run unbuffered (`python3 -u`) so progress shows in the live log. The offline checks run in the **Store release
 checks** workflow for changes to these files, and again before every release
 run.
 
@@ -396,6 +408,7 @@ run.
 ## Dry run
 
 ```bash
+python3 -m pip install --require-hashes -r requirements-store.txt  # Pillow, for the screenshots
 python3 -m unittest discover -s scripts/store -p 'test_*.py'
 python3 scripts/store/validate_catalog.py
 python3 scripts/store/print_gates.py
