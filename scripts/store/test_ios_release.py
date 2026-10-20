@@ -2522,7 +2522,12 @@ class RgbStageTests(MainFlow):
             with PILLOW.open(path) as img:
                 size = img.size
             self.rgba(path, size)
-        committed = {path: path.read_bytes() for path in self.shots[IPHONE] + self.shots[IPAD]}
+        # Digests, not bytes: on a failure unittest would diff megabytes of PNG data
+        # for longer than the Store release checks job may run.
+        def digests() -> dict[Path, str]:
+            return {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in self.shots[IPHONE] + self.shots[IPAD]}
+
+        committed = digests()
         sent: list[bytes] = []
 
         def upload(client: object, set_id: str, path: Path) -> str:
@@ -2536,8 +2541,8 @@ class RgbStageTests(MainFlow):
         self.assertEqual(len(sent), 4)
         for raw in sent:
             self.assertEqual(raw[25], 2, "every upload is an RGB PNG")
-            self.assertNotIn(raw, committed.values())
-        self.assertEqual({path: path.read_bytes() for path in committed}, committed, "the committed files are untouched")
+            self.assertNotIn(hashlib.sha256(raw).hexdigest(), committed.values())
+        self.assertEqual(digests(), committed, "the committed files are untouched")
         # The sets are compared with the copies' checksums: a re-run against them sends nothing.
         md5 = [hashlib.md5(raw).hexdigest() for raw in sent]  # noqa: S324 - Apple's checksum
         fake = FakeAsc(screenshots={IPHONE: md5[:2], IPAD: md5[2:]})
