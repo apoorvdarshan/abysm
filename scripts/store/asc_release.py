@@ -181,7 +181,9 @@ CREATIVE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 # Library image states: still being reviewed, or finished without approval.
 CREATIVE_PENDING_STATES = {"WAITING_FOR_REVIEW", "IN_REVIEW", "ACCEPTED"}
 CREATIVE_UNSUBMITTED_STATES = {"PREPARE_FOR_SUBMISSION", "READY_FOR_REVIEW", "COMPLETE", "UPLOAD_COMPLETE"}
-CREATIVE_DEAD_STATES = {"REJECTED", "FAILED", "ARCHIVED"}
+# AWAITING_UPLOAD is a reservation an interrupted upload left behind (asc never
+# deletes it); it is ignored like a failed one, so the next run uploads the image again.
+CREATIVE_DEAD_STATES = {"REJECTED", "FAILED", "ARCHIVED", "AWAITING_UPLOAD"}
 
 CATALOG_GROUPS = ("nonConsumables", "consumables", "subscriptions")
 
@@ -862,14 +864,16 @@ def sync_creative_assets(
 def submit_creative_review(asc: asc_cli.Asc, app_id: str, images: list[tuple[str, dict[str, Any]]]) -> str:
     """Send not-yet-reviewed creative images to App Review in a submission of their own.
 
-    A draft an earlier attempt left behind holding only some of these images
-    (or nothing yet) is finished instead of starting another one.
+    A draft an earlier attempt left behind holding only some of these images is
+    finished instead of starting another one. An empty draft is never taken:
+    the version and its products may already have chosen it.
     """
     wanted = {image["id"] for _, image in images}
     submission_id = None
     for draft in draft_submission_ids(asc, app_id):
-        held = {related_id(item, "appAssetLibraryImage") for item in submission_items(asc, draft)}
-        if held <= wanted:
+        items = submission_items(asc, draft)
+        held = {related_id(item, "appAssetLibraryImage") for item in items}
+        if items and held <= wanted:
             submission_id = draft
             print(f"  finishing creative review submission {draft} from an earlier attempt")
             break
@@ -1467,6 +1471,20 @@ def main() -> None:
         args.version, state, edits_metadata=edits_metadata, do_submit=do_submit, new_build=args.preflight
     )
     submitted = state in SUBMITTED_VERSION_STATES
+    # Pick and check the version's draft before any write (text, screenshots,
+    # images or the build), so a run that has to stop here changes nothing; the
+    # preflight stops on it too.
+    submission_id: str | None = None
+    if do_submit and not submitted:
+        submission_id = find_draft_submission(asc, app_id, version_id)
+        if state == "READY_FOR_REVIEW" and (
+            submission_id is None
+            or not any(related_id(item, "appStoreVersion") == version_id for item in submission_items(asc, submission_id))
+        ):
+            fail(
+                f"version {args.version} is READY_FOR_REVIEW, but no draft review submission holds it; "
+                "remove the version from its submission in App Store Connect and rerun"
+            )
 
     if do_submit and submitted:
         # A re-run after this run's submit went through (for example the job failed
@@ -1551,16 +1569,7 @@ def main() -> None:
         select_build(asc, version_id, args.build_id, args.version, args.build_number)
         set_release_type(asc, version_id, public_release=do_public, current=attrs(version).get("releaseType"))
         print("attaching catalog products to the review submission…")
-        submission_id = find_draft_submission(asc, app_id, version_id)
-        if state == "READY_FOR_REVIEW" and (
-            submission_id is None
-            or not any(related_id(item, "appStoreVersion") == version_id for item in submission_items(asc, submission_id))
-        ):
-            # Fail before anything is added, so a rerun is not stuck on the wrong draft.
-            fail(
-                f"version {args.version} is READY_FOR_REVIEW, but no draft review submission holds it; "
-                "remove the version from its submission in App Store Connect and rerun"
-            )
+        # The draft chosen before any write; images never take an empty draft.
         submission_id = submission_id or create_draft_submission(asc, app_id)
         try:
             result = attach_catalog_products(asc, app_id, submission_id=submission_id)
