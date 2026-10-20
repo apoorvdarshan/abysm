@@ -85,8 +85,8 @@ What to expect:
   (`scripts/store/redact_logs.py`). If redaction fails, nothing is uploaded.
 - Every GitHub Action is pinned to a full commit SHA. The App Store Connect
   CLI (`asc`) that the release jobs run is pinned to one release and installed
-  only when its SHA-256 matches, and the fuzzer is installed only from
-  hash-locked requirements.
+  only when its SHA-256 matches. The store tooling (Pillow) and the fuzzer are
+  installed only from hash-locked requirements.
 - Dependabot keeps dependencies current and opens security updates. Secret
   scanning and push protection are enabled.
 - CodeQL scans Swift, Python, JavaScript, and the workflows. OpenSSF Scorecard

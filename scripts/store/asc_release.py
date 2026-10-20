@@ -10,7 +10,8 @@ the IOS_* switches (see store/README.md):
                           marketing/support URLs) and App Info (name, subtitle,
                           privacy policy URL) for every locale in store/metadata/ios/
   UPLOAD_WHATS_NEW        whats_new.txt for every locale
-  UPLOAD_SCREENSHOTS      iPhone 6.9" and iPad 13" screenshots from store/metadata/screenshots/
+  UPLOAD_SCREENSHOTS      iPhone 6.9" and iPad 13" screenshots from store/metadata/screenshots/,
+                          uploaded from staged copies (RGB where the file stores alpha)
   UPLOAD_CREATIVE_ASSETS  product page header and search results images from
                           store/creative/ios/: a new image is uploaded to the Asset
                           Library and reviewed on its own; an approved one is placed
@@ -144,7 +145,8 @@ FIELD_FLAGS = {
     "privacyChoicesUrl": "--privacy-choices-url",
 }
 
-# Screenshots come straight from the repo's App Store-ready images.
+# Screenshots come from the repo's App Store-ready images, uploaded from staged
+# copies (stage_screenshots) so the committed files are never changed.
 # Display type → (source folder, accepted pixel sizes). ABYSM is landscape-only.
 # The accepted sizes are exactly what asc accepts for the display type
 # (`asc screenshots sizes --display-type <TYPE>`).
@@ -504,7 +506,8 @@ def screenshot_alpha_problem(plan: list[tuple[str, list[Path]]]) -> str | None:
     """Why asc would refuse these screenshots, or None when it would not.
 
     asc uploads no PNG that stores an alpha channel or transparency (colour types
-    4 and 6, or a tRNS chunk), even when every pixel is opaque.
+    4 and 6, or a tRNS chunk), even when every pixel is opaque. Run on the staged
+    copies, it is the last check on exactly what asc is given.
     """
     found = []
     for display_type, pngs in plan:
@@ -515,8 +518,67 @@ def screenshot_alpha_problem(plan: list[tuple[str, list[Path]]]) -> str | None:
         return None
     return (
         "these screenshots store an alpha channel, which App Store Connect refuses (asc uploads no PNG with "
-        f"alpha, even a fully opaque one): {'; '.join(found)}. Re-export them as RGB PNGs"
+        f"alpha, even a fully opaque one): {'; '.join(found)}; not uploading them"
     )
+
+
+def try_import_pillow():
+    """Pillow's Image module, or None when Pillow is not installed."""
+    try:
+        from PIL import Image  # type: ignore[import-untyped]
+    except ImportError:
+        return None
+    return Image
+
+
+def opaque_rgb(Image, img):
+    """The image without an alpha channel, transparent pixels laid over black.
+
+    App Store Connect (and asc) refuse screenshots that store alpha, even when
+    every pixel is opaque.
+    """
+    img = img.convert("RGBA")
+    canvas = Image.new("RGB", img.size, (0, 0, 0))
+    canvas.paste(img, mask=img.getchannel("A"))
+    return canvas
+
+
+def stage_screenshots(plan: list[tuple[str, list[Path]]], dest: Path) -> list[tuple[str, list[Path]]]:
+    """Copies of the screenshots in dest, exactly as asc will upload them; the repo's files never change.
+
+    A PNG that stores alpha, which asc refuses, is converted to RGB with Pillow
+    (transparent pixels laid over black, any colour profile kept); any other
+    file is copied byte for byte. App Store Connect stores the checksum of what
+    was uploaded, so the set checks compare against these copies. Pillow writes
+    the same bytes for the same image on every run, but a Pillow update can
+    change them, and the next run then uploads the sets again.
+    """
+    Image = None
+    staged: list[tuple[str, list[Path]]] = []
+    for display_type, pngs in plan:
+        folder = dest / display_type
+        folder.mkdir(parents=True)
+        copies = []
+        for path in pngs:
+            copy = folder / path.name
+            if not asc_cli.image_has_alpha(path):
+                shutil.copyfile(path, copy)
+            else:
+                Image = Image or try_import_pillow()
+                if Image is None:
+                    fail(
+                        f"{display_type}: {path.name} stores an alpha channel, which App Store Connect refuses, and "
+                        "converting it to RGB needs Pillow: python3 -m pip install --require-hashes -r "
+                        "requirements-store.txt"
+                    )
+                try:
+                    with Image.open(path) as img:
+                        opaque_rgb(Image, img).save(copy, format="PNG", icc_profile=img.info.get("icc_profile"))
+                except (OSError, SyntaxError, ValueError) as exc:
+                    fail(f"{display_type}: could not convert {path.name} to RGB: {exc}")
+            copies.append(copy)
+        staged.append((display_type, copies))
+    return staged
 
 
 def md5_hex(path: Path) -> str:
@@ -1449,9 +1511,17 @@ def main() -> None:
     if do_submit:
         intended_product_ids()  # the catalog must parse before anything is submitted
 
-    # The committed screenshots are uploaded as they are, so ones that store alpha
-    # stop the preflight and the store step before any asc call.
+    # asc refuses a PNG that stores alpha, so the screenshots go up from copies
+    # staged outside the repository, converted to RGB where needed. Every mode
+    # stages them, so the dry run and the preflight check what a live run uploads.
+    # The folder is removed when the run ends.
+    if plan:
+        staging = tempfile.TemporaryDirectory(prefix="abysm-screenshots-")
+        plan = stage_screenshots(plan, Path(staging.name))
+    # The last check on what asc is given, before any asc call.
     alpha = screenshot_alpha_problem(plan)
+    if alpha:
+        fail(alpha)
     if args.dry_run:
         print("App Store Connect dry run — local inputs OK; no asc calls")
         print(
@@ -1459,11 +1529,7 @@ def main() -> None:
             f"whats_new={do_whats_new} screenshots={sum(len(p) for _, p in plan)} creative={do_creative} "
             f"submit={do_submit} public_release={do_public}"
         )
-        if alpha:
-            print(f"warning: {alpha}; until then a run with UPLOAD_SCREENSHOTS on stops at its preflight")
         return
-    if alpha:
-        fail(alpha)
     if not args.version:
         fail("--version is required for live App Store Connect calls")
 

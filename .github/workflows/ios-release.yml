@@ -49,7 +49,9 @@
 #
 # Store scripts run on a pinned Python from actions/setup-python, never the
 # runner's system Python, and store steps run unbuffered (python3 -u) so their
-# progress shows in the live log.
+# progress shows in the live log. Their only package, Pillow (hash-locked in
+# requirements-store.txt), converts screenshots that store alpha to RGB copies
+# and is installed only when IOS_UPLOAD_SCREENSHOTS is on.
 #
 # App Store Connect
 #   Every App Store Connect call goes through the App Store Connect CLI (asc),
@@ -160,6 +162,7 @@ jobs:
             /Abysm/StoreManager.swift
             /Abysm/Info.plist
             /RELEASE_NOTES.md
+            /requirements-store.txt
             /.github/workflows/
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -182,6 +185,12 @@ jobs:
           IOS_BUILD_WAIT_MINUTES: ${{ vars.IOS_BUILD_WAIT_MINUTES }}
           VALIDATION_MARKETING_VERSION: ${{ inputs.marketing_version }}
         run: python3 scripts/store/ios_release.py gates
+
+      # Pillow (hash-locked), which converts screenshots that store alpha to RGB
+      # copies; the dry run and the preflight below stage them as the store step will.
+      - name: Install store tooling (screenshots)
+        if: steps.gates.outputs.screenshots == 'true'
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt
 
       # These checks must pass before anything reaches App Store Connect. The
       # repository's listing, screenshots and creative images are checked only
@@ -584,10 +593,16 @@ jobs:
           sparse-checkout: |
             /scripts/store/
             /store/
+            /requirements-store.txt
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
+
+      # Pillow (hash-locked), which converts screenshots that store alpha to RGB copies.
+      - name: Install store tooling (screenshots)
+        if: needs.prepare.outputs.screenshots == 'true'
+        run: python3 -m pip install --disable-pip-version-check --require-hashes -r requirements-store.txt
 
       - name: Install the pinned App Store Connect CLI
         run: |
