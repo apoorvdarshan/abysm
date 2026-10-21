@@ -4,9 +4,9 @@ ABYSM's App Store releases run on
 [apoorvdarshan/store-release](https://github.com/apoorvdarshan/store-release), a shared set
 of reusable workflows and Python tooling. ABYSM's own release scripts (`scripts/store/`
 at `a12a6d2`) moved there unchanged as the `abysm` flow
-([flows](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/flows.md#abysm-iosflow--abysm)), so every
+([flows](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/flows.md#abysm-iosflow--abysm)), so every
 rule below is what this repository's pipeline did before. Two thin caller workflows
-pin store-release by commit SHA, with the version in a `# vX.Y.Z` comment (v0.2.0 today):
+pin store-release by commit SHA, with the version in a `# vX.Y.Z` comment (v0.3.0 today):
 
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
@@ -20,15 +20,15 @@ releases: only a tag push does. The callers are rendered by store-release
 anything but a store-release release. Dependabot moves both pins to a new
 store-release release in one PR of its own, seven days after it is published.
 
-How the pipeline behaves is documented in store-release (v0.2.0):
-[switches](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/switches.md),
-[secrets](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/secrets.md),
-[jobs and checks](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/workflows.md),
-[store plan](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/plan.md),
-[re-runs](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/rerun.md),
-[verifying downloads](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/verification.md),
-[the config file](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/config.md)
-and [how a new release reaches this repository](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/release-process.md#how-apps-receive-a-release).
+How the pipeline behaves is documented in store-release (v0.3.0):
+[switches](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/switches.md),
+[secrets](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/secrets.md),
+[jobs and checks](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/workflows.md),
+[store plan](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/plan.md),
+[re-runs](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/rerun.md),
+[verifying downloads](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/verification.md),
+[the config file](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/config.md)
+and [how a new release reaches this repository](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/release-process.md#how-apps-receive-a-release).
 This file keeps ABYSM's own facts.
 
 **Xcode Cloud was removed for ABYSM on 2026-10-14**, after this pipeline passed
@@ -104,7 +104,7 @@ The caller passes each reusable workflow exactly the secrets it declares, by nam
 Apoorv's apps (Fud AI, Verceltics, ABYSM, iitjee, Quit All, Scowld, Sesslet) and
 its private key exists only in these secrets. Before it expires on 2027-10-14
 (or if it is revoked), follow
-[the shared CI signing identity](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/secrets.md#the-shared-ci-signing-identity):
+[the shared CI signing identity](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/provenance.md#facts-that-only-concern-the-six-apps):
 replace both `IOS_DEV_SIGNING_*` secrets in every repo that uses it, run a
 validation for each, and then revoke the old certificate.
 
@@ -308,7 +308,7 @@ attached, the version is not submitted.
    Prepare for Submission. A read-only preflight checks it before anything is built.
 5. Push the tag: `git tag -a v1.0.1 -m "ABYSM 1.0.1" && git push origin v1.0.1`.
 6. If a later step fails, fix the cause and use **Re-run failed jobs**
-   ([re-runs](https://github.com/apoorvdarshan/store-release/blob/v0.2.0/docs/rerun.md)): the store step only sends what differs, and
+   ([re-runs](https://github.com/apoorvdarshan/store-release/blob/v0.3.0/docs/rerun.md)): the store step only sends what differs, and
    `wait-for-build` keeps its result.
 
 ## Rolling back
