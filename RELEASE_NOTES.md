@@ -11,6 +11,12 @@ Move the `Unreleased` items under a new `## vX.Y.Z` heading when you tag.
 
 ## Unreleased
 
+## v1.1.1
+
+- Bug fixes and improvements.
+- The RevenueCat purchases SDK, which handles Unlock the Deep, is updated
+  from 5.95.0 to 5.96.0.
+
 ## v1.1
 
 - VoiceOver speaks every title-screen button, the in-game controls and the

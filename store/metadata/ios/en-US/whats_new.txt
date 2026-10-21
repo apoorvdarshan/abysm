@@ -1,9 +1,1 @@
-ABYSM is now open source under the MIT license. The title screen links to the code on GitHub, where you can also report a bug or request a feature.
-
-VoiceOver reads every title-screen button, the in-game controls and the depth read-out in your language.
-
-VoiceOver no longer lands on hidden buttons, such as the pause menu while it is closed.
-
-When you resume a dive, the headlamp button is ready from the first moment.
-
-Updated Instagram and Product Hunt links.
+Bug fixes and improvements.
