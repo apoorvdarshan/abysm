@@ -37,11 +37,17 @@ runtimes = [r for r in data['runtimes'] if r.get('isAvailable') and
             '.iOS-' in r['identifier'] and version(r) >= (17, 0)]
 if not runtimes:
     raise SystemExit('Install an iOS 17 or newer Simulator runtime in Xcode.')
-runtime = max(runtimes, key=version)
+preferred = ('iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone 17', 'iPhone 16')
+def offers(runtime, names):
+    return any(d['name'] in names for d in runtime.get('supportedDeviceTypes', []))
+# A device-specific runtime can be newer than the general one (iOS 27.1 ships only the
+# iPhone Duo, a 386x678 pt screen), so take the newest runtime that offers the preferred
+# device instead of the newest runtime overall.
+runtime = max((r for r in runtimes if offers(r, preferred)), key=version,
+              default=max(runtimes, key=version))
 iphones = [d for d in runtime.get('supportedDeviceTypes', []) if d.get('productFamily') == 'iPhone']
 if not iphones:
     raise SystemExit('Selected runtime has no supported iPhone device type.')
-preferred = ('iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone 17', 'iPhone 16')
 device = next((d for name in preferred for d in iphones if d['name'] == name), iphones[-1])
 print(subprocess.check_output(['xcrun', 'simctl', 'create', 'ABYSM CI',
       device['identifier'], runtime['identifier']], text=True).strip())
