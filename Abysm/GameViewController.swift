@@ -19,6 +19,11 @@ final class GameViewController: UIViewController {
         view.backgroundColor = Palette.deepBackground
         view.addSubview(skView)
         gameView = skView
+        if #available(iOS 27.1, *) {
+            view.addInteraction(UIHingeInteraction { [weak self] _, _ in
+                self?.view.setNeedsLayout()
+            })
+        }
 
         // Build the scene in code (we don't use GameScene.sks). .resizeFill
         // keeps 1 scene point == 1 screen point; the scene re-lays-out itself
