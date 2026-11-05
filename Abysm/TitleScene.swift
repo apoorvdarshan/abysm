@@ -282,10 +282,39 @@ final class TitleScene: SKScene {
         let stride = infoTileSize + infoTileGap
         let dockWidth = infoTileSize * 3 + infoTileGap * 2
         let dockCenterX = w / 2 - insets.right - dockWidth / 2 - 13
+        let compact = w < 720
+        let compactScale = min(1, h / 440)
+        for node in [continueBtn, newGameBtn, soundBtn] { node.setScale(compact ? compactScale : 1) }
+        if compact {
+            title.position.y = h / 2 - 54 * compactScale
+            titleShadow.position.y = title.position.y - 3
+            tagline.position.y = h / 2 - 105 * compactScale
+            taglineShadow.position.y = tagline.position.y - 2
+            var menuY = h / 2 - 170 * compactScale
+            for button in [continueBtn, newGameBtn, soundBtn] where !button.isHidden {
+                button.position = CGPoint(x: 0, y: menuY)
+                menuY -= gap * compactScale
+            }
+        }
+        title.setScale(compact ? compactScale : 1)
+        titleShadow.setScale(compact ? compactScale : 1)
         for (index, node) in dock.enumerated() {
-            let column = CGFloat(index % 3) - 1
-            let row = (rows - 1) / 2 - CGFloat(index / 3)
-            node.position = CGPoint(x: dockCenterX + column * stride, y: row * stride)
+            node.setScale(compact ? compactScale : 1)
+            if compact {
+                let column = CGFloat(index % 6) - 2.5
+                let row = CGFloat(index / 6)
+                node.position = CGPoint(x: column * stride * compactScale,
+                                        y: -h / 2 + insets.bottom + (82 - row * stride) * compactScale)
+            } else {
+                let column = CGFloat(index % 3) - 1
+                let row = (rows - 1) / 2 - CGFloat(index / 3)
+                node.position = CGPoint(x: dockCenterX + column * stride, y: row * stride)
+            }
+        }
+        // Fit long translated taglines in narrow folded playfields as well.
+        for label in [tagline, taglineShadow] {
+            label.setScale(1)
+            label.setScale(min(1, (w - 32) / max(1, label.frame.width)))
         }
     }
 
