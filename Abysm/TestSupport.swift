@@ -17,6 +17,19 @@ enum TestSupport {
     /// Passed by AbysmUITests to start from a fresh install's saved state.
     static let resetArgument = "--ui-testing-reset"
 
+    /// Manual screenshot captures can open the seeded saved dive directly.
+    /// This is compiled out of Release/device builds, just like offline mode.
+    static var screenshotDepth: CGFloat? {
+        #if DEBUG && targetEnvironment(simulator)
+        guard isActive, CommandLine.arguments.contains("--screenshot-dive") else { return nil }
+        let depth = UserDefaults.standard.double(forKey: "abysm.depthMeters")
+        guard depth.isFinite, depth >= 0, depth <= Double(GameConfig.maxDepthMeters) else { return nil }
+        return CGFloat(depth)
+        #else
+        return nil
+        #endif
+    }
+
     /// True while XCTest hosts (unit tests) or drives (UI tests) this Debug
     /// simulator build. RevenueCat is then never configured, so test runs stay
     /// offline and can never start a purchase.

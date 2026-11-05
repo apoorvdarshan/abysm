@@ -86,4 +86,11 @@ final class PaywallTests: XCTestCase {
         paywall.activateSelected()
         XCTAssertEqual(events, ["unlock"], "selection returns to UNLOCK")
     }
+
+    func testMissingStorePriceDoesNotShowAGuessedAmount() {
+        XCTAssertEqual(unlockText, L("paywall.unlock", "UNLOCK"))
+        paywall.setPrice("€3,49")
+        paywall.reset(price: nil)
+        XCTAssertEqual(unlockText, L("paywall.unlock", "UNLOCK"))
+    }
 }
