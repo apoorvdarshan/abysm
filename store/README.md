@@ -179,9 +179,9 @@ composed with authentic ABYSM gameplay captures. App Store Connect compares
 checksums, not pixels: a run with `IOS_UPLOAD_SCREENSHOTS` on replaces sets
 whose files differ from the deployed listing.
 
-The iPhone Duo and Apple Watch sets are optional: ABYSM has none, and without
-PNGs in their folder the live sets in App Store Connect are left alone. Apple
-Watch screenshots go with the other sets when `store/metadata/screenshots/ios/watch/`
+The optional iPhone Duo set contains five outer-display frames. ABYSM has no
+Apple Watch frames; optional sets without PNGs are left alone in App Store
+Connect. Apple Watch screenshots go with the other sets when `store/metadata/screenshots/ios/watch/`
 holds PNGs. Each frame's size picks its set: 416×496 `APP_WATCH_SERIES_10`,
 422×514 or 410×502 `APP_WATCH_ULTRA`, 396×484 `APP_WATCH_SERIES_7`, 368×448
 `APP_WATCH_SERIES_4`, 312×390 `APP_WATCH_SERIES_3`; any other size fails the
