@@ -11,6 +11,12 @@ Move the `Unreleased` items under a new `## vX.Y.Z` heading when you tag.
 
 ## Unreleased
 
+- The game resizes across iPhone Duo displays and keeps the current dive alive.
+  Active fold and camera regions stay outside the playable area; compact menus
+  keep the support controls clear of the main actions.
+- Unlock the Deep shows only the store's localized price. A missing product
+  fails safely instead of granting access in Debug builds.
+
 ## v1.1.1
 
 - Bug fixes and improvements.

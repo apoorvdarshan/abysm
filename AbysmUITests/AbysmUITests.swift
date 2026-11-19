@@ -108,12 +108,12 @@ final class AbysmUITests: XCTestCase {
         XCTAssertTrue(button("KEEP EXPLORING").isEnabled)
         XCTAssertTrue(button("RESTORE").isEnabled)
         XCTAssertTrue(text("UNLOCK THE DEEP").exists)
-        let price = app.otherElements.matching(NSPredicate(format: "label BEGINSWITH %@ AND label CONTAINS %@", "UNLOCK", "$2.99"))
-        XCTAssertTrue(price.firstMatch.waitForExistence(timeout: 10), "the unlock shows its price")
+        XCTAssertFalse(app.otherElements.matching(NSPredicate(format: "label CONTAINS %@", "$2.99")).firstMatch.exists,
+                       "an offline paywall must not show a guessed storefront price")
 
         // Offline there is nothing to restore: the gate stays closed and up.
         tap(button("RESTORE"))
-        XCTAssertTrue(price.firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(text("NOTHING TO RESTORE").waitForExistence(timeout: 15))
         XCTAssertTrue(unlock.isEnabled)
 
         tap(button("KEEP EXPLORING"))

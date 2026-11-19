@@ -43,7 +43,7 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 45
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.app/Contents/Developer
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       IOS_TEST_PACKAGES: ${{ github.workspace }}/.ios-test-packages
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,7 +64,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .ios-test-packages
-          key: ios-spm-${{ runner.os }}-${{ runner.arch }}-xcode27-${{ hashFiles('Abysm.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          key: ios-spm-${{ runner.os }}-${{ runner.arch }}-xcode27.1-${{ hashFiles('Abysm.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
 
       - name: Build and run unit and UI tests
         env:

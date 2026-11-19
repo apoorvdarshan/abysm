@@ -113,7 +113,7 @@ final class Paywall: SKNode {
         addChild(unlock)
         buttons.append(unlock)
         unlockRect = CGRect(x: -150, y: 2 - 17, width: 300, height: 34)
-        setPrice("$2.99")
+        setPrice(nil)
 
         // KEEP EXPLORING — secondary bronze button.
         let (keep, keepRect) = makeButton(L("paywall.keep_exploring", "KEEP EXPLORING"),
@@ -196,11 +196,11 @@ final class Paywall: SKNode {
 
     // MARK: State
 
-    func setPrice(_ price: String) {
+    func setPrice(_ price: String?) {
         // Wrap the LTR price in bidi isolates (U+2068 FSI … U+2069 PDI) so its
         // order/spacing stay correct when the label is RTL (e.g. Arabic).
-        let isolated = "\u{2068}\(price)\u{2069}"
-        unlockTitle = "\(L("paywall.unlock", "UNLOCK"))\u{00A0}\u{00A0}\(isolated)"
+        let title = L("paywall.unlock", "UNLOCK")
+        unlockTitle = price.map { "\(title)\u{00A0}\u{00A0}\u{2068}\($0)\u{2069}" } ?? title
         if !showingStatus {
             unlockLabel.fontSize = Self.unlockFontSize
             unlockLabel.text = unlockTitle
@@ -226,7 +226,7 @@ final class Paywall: SKNode {
     }
 
     /// Fresh state each time the modal is shown.
-    func reset(price: String) {
+    func reset(price: String?) {
         selected = 0
         setBusy(false)
         setStatus(nil)

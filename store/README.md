@@ -162,9 +162,9 @@ folder, an empty iPhone or iPad set, more than 10 files or any other size fails
 the run with a clear message before anything is uploaded.
 
 App Store screenshots are uploaded as RGB PNGs. App Store Connect refuses a PNG
-that stores an alpha channel, even when every pixel is opaque, and ABYSM's
-committed screenshots are RGBA, so the run stages a copy of each in a temporary
-folder: Pillow lays transparent pixels over black once and keeps the colour
+that stores an alpha channel, even when every pixel is opaque. The run stages a
+copy of each file in a temporary folder: for PNGs with an alpha channel, Pillow
+lays transparent pixels over black once and keeps the colour
 profile (ICC profile, sRGB, gamma and chromaticity chunks). The files in
 `store/metadata/screenshots/` are only read, never rewritten. The dry run, the
 preflight and the set checksum comparisons all use the same copies. Without
@@ -174,15 +174,14 @@ Right before upload, `asc_release.py` refuses any copy that still stores alpha
 (complete chunks with matching CRCs, image data of the size its header gives, a
 final `IEND`), before anything is sent.
 
-The live 1.1 sets (uploaded by hand as `image1.png` to `image5.png`) hold the
-same pixels as the repository's files, checked on 2026-10-20, but App Store
-Connect compares checksums, not pixels: the first run with
-`IOS_UPLOAD_SCREENSHOTS` on replaces both sets once with the RGB copies, and
-later runs find them matching.
+The repository's iPhone and iPad sets use five RGB marketing frames each,
+composed with authentic ABYSM gameplay captures. App Store Connect compares
+checksums, not pixels: a run with `IOS_UPLOAD_SCREENSHOTS` on replaces sets
+whose files differ from the deployed listing.
 
-The iPhone Duo and Apple Watch sets are optional: ABYSM has none, and without
-PNGs in their folder the live sets in App Store Connect are left alone. Apple
-Watch screenshots go with the other sets when `store/metadata/screenshots/ios/watch/`
+The optional iPhone Duo set contains five outer-display frames. ABYSM has no
+Apple Watch frames; optional sets without PNGs are left alone in App Store
+Connect. Apple Watch screenshots go with the other sets when `store/metadata/screenshots/ios/watch/`
 holds PNGs. Each frame's size picks its set: 416×496 `APP_WATCH_SERIES_10`,
 422×514 or 410×502 `APP_WATCH_ULTRA`, 396×484 `APP_WATCH_SERIES_7`, 368×448
 `APP_WATCH_SERIES_4`, 312×390 `APP_WATCH_SERIES_3`; any other size fails the
@@ -200,8 +199,7 @@ may store alpha. `prepare` checks sizes, formats, alpha and that each file is
 a complete, well-formed image before anything is built, then (read-only) each
 image's Asset Library state the way the store step plans it, so an image the
 version cannot take now fails before the build. A slot without an image is left
-alone. ABYSM has no header or search results image yet: both folders hold only
-a README, so the switch has nothing to do until an image is committed.
+alone. ABYSM provides both images as RGB PNGs.
 
 ```
 store/creative/ios/

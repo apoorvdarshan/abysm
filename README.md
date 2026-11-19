@@ -87,7 +87,7 @@ All text lives in a single `Localizable.xcstrings` String Catalog. Latin-script 
 
 ## 🚀 Build & run
 
-1. Open `Abysm.xcodeproj` in Xcode.
+1. Open `Abysm.xcodeproj` in Xcode 27.1 or newer (for iPhone Duo's reserved-region APIs).
 2. Select the **Abysm** scheme.
 3. Run on an iOS **17+** device or simulator (landscape).
 

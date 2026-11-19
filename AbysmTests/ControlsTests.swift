@@ -7,6 +7,69 @@ import SpriteKit
 @MainActor
 final class ControlsTests: XCTestCase {
 
+    func testPlayfieldFitsBothDuoDisplaysAndAvoidsAnActiveFold() {
+        for size in [CGSize(width: 678, height: 466), CGSize(width: 951, height: 669),
+                     CGSize(width: 1376, height: 1032)] {
+            let bounds = CGRect(origin: .zero, size: size)
+            XCTAssertEqual(GameViewport.playableRect(in: bounds, avoiding: []), bounds)
+            for fold in [CGRect(x: size.width / 2 - 10, y: 0, width: 20, height: size.height),
+                         CGRect(x: 0, y: size.height / 2 - 10, width: size.width, height: 20)] {
+                let playable = GameViewport.playableRect(in: bounds, avoiding: [fold])
+                XCTAssertTrue(bounds.contains(playable))
+                XCTAssertGreaterThan(playable.width * playable.height, 0)
+                let overlap = playable.intersection(fold)
+                XCTAssertTrue(overlap.isNull || overlap.width * overlap.height == 0)
+            }
+        }
+    }
+
+    func testCameraAndFoldRegionsAreBothExcluded() {
+        let bounds = CGRect(x: 0, y: 0, width: 951, height: 669)
+        let regions = [CGRect(x: 470, y: 0, width: 20, height: 669),
+                       CGRect(x: 800, y: 0, width: 40, height: 30)]
+        let playable = GameViewport.playableRect(in: bounds, avoiding: regions)
+        XCTAssertTrue(bounds.contains(playable))
+        for region in regions {
+            let overlap = playable.intersection(region)
+            XCTAssertTrue(overlap.isNull || overlap.width * overlap.height == 0)
+        }
+    }
+
+    func testResizingForDuoKeepsTheSameDiveAndControlsInsideThePlayfield() throws {
+        let inner = CGSize(width: 951, height: 669)
+        let view = SKView(frame: CGRect(origin: .zero, size: inner))
+        let scene = GameScene(size: inner)
+        scene.startDepthMeters = 650
+        view.presentScene(scene)
+
+        let camera = try XCTUnwrap(scene.camera)
+        let hud = try XCTUnwrap(camera.children.compactMap { $0 as? DepthHUD }.first)
+        let joystick = try XCTUnwrap(camera.children.compactMap { $0 as? Joystick }.first)
+        let controls = camera.children.compactMap { $0 as? HoldButton }
+        XCTAssertFalse(controls.isEmpty)
+        let depth = hud.accessibilityLabel
+        XCTAssertEqual(depth, "Depth 650 meters, TWILIGHT ZONE")
+
+        let folded = GameViewport.playableRect(
+            in: CGRect(origin: .zero, size: inner),
+            avoiding: [CGRect(x: 465, y: 0, width: 21, height: inner.height)]
+        ).size
+        for size in [folded, CGSize(width: 678, height: 466), inner] {
+            scene.size = size
+            let bounds = CGRect(x: -size.width / 2, y: -size.height / 2,
+                                width: size.width, height: size.height)
+            XCTAssertTrue(view.scene === scene)
+            XCTAssertEqual(hud.accessibilityLabel, depth)
+            XCTAssertTrue(bounds.contains(joystick.position))
+            for control in controls {
+                let radius = control.radius
+                XCTAssertTrue(bounds.contains(CGRect(x: control.position.x - radius,
+                                                     y: control.position.y - radius,
+                                                     width: radius * 2, height: radius * 2)))
+            }
+        }
+    }
+
     func testJoystickReportsDirectionAndStrength() {
         let stick = Joystick()
         stick.position = CGPoint(x: -300, y: -100)

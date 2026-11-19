@@ -48,8 +48,8 @@ final class StoreManager {
         didSet { UserDefaults.standard.set(isUnlocked, forKey: Self.unlockedKey) }
     }
 
-    /// Localized display price, e.g. "$2.99" / "2,99 €" (falls back until loaded).
-    var displayPrice: String { package?.storeProduct.localizedPriceString ?? "$2.99" }
+    /// Only show a price returned by the store for this product and storefront.
+    var displayPrice: String? { package?.storeProduct.localizedPriceString }
 
     private var updatesTask: Task<Void, Never>?
 
@@ -92,17 +92,7 @@ final class StoreManager {
     /// Buy the unlock. Updates `isUnlocked` on success.
     func purchase() async -> Outcome {
         if package == nil { await loadProduct() }
-        guard let package else {
-            #if DEBUG
-            // Dev convenience: if RevenueCat can't vend the package (e.g. installed
-            // via devicectl with no sandbox account), grant locally so the gate +
-            // post-unlock descent stay testable on-device. Never in Release.
-            isUnlocked = true
-            return .success
-            #else
-            return .failed
-            #endif
-        }
+        guard let package else { return .failed }
         do {
             let result = try await Purchases.shared.purchase(package: package)
             if result.userCancelled { return .cancelled }
