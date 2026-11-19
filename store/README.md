@@ -162,9 +162,9 @@ folder, an empty iPhone or iPad set, more than 10 files or any other size fails
 the run with a clear message before anything is uploaded.
 
 App Store screenshots are uploaded as RGB PNGs. App Store Connect refuses a PNG
-that stores an alpha channel, even when every pixel is opaque, and ABYSM's
-committed screenshots are RGBA, so the run stages a copy of each in a temporary
-folder: Pillow lays transparent pixels over black once and keeps the colour
+that stores an alpha channel, even when every pixel is opaque. The run stages a
+copy of each file in a temporary folder: for PNGs with an alpha channel, Pillow
+lays transparent pixels over black once and keeps the colour
 profile (ICC profile, sRGB, gamma and chromaticity chunks). The files in
 `store/metadata/screenshots/` are only read, never rewritten. The dry run, the
 preflight and the set checksum comparisons all use the same copies. Without
