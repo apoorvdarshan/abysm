@@ -174,11 +174,10 @@ Right before upload, `asc_release.py` refuses any copy that still stores alpha
 (complete chunks with matching CRCs, image data of the size its header gives, a
 final `IEND`), before anything is sent.
 
-The live 1.1 sets (uploaded by hand as `image1.png` to `image5.png`) hold the
-same pixels as the repository's files, checked on 2026-10-20, but App Store
-Connect compares checksums, not pixels: the first run with
-`IOS_UPLOAD_SCREENSHOTS` on replaces both sets once with the RGB copies, and
-later runs find them matching.
+The repository's iPhone and iPad sets use five RGB marketing frames each,
+composed with authentic ABYSM gameplay captures. App Store Connect compares
+checksums, not pixels: a run with `IOS_UPLOAD_SCREENSHOTS` on replaces sets
+whose files differ from the deployed listing.
 
 The iPhone Duo and Apple Watch sets are optional: ABYSM has none, and without
 PNGs in their folder the live sets in App Store Connect are left alone. Apple
