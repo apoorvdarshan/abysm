@@ -1,7 +1,6 @@
 # Product page header image
 
-Empty: ABYSM has no product page header image yet, so `IOS_UPLOAD_CREATIVE_ASSETS`
-has nothing to do for this slot.
+`abysm-header.png` is the product page header (3840×1646 RGB PNG).
 
 To add one, commit a single PNG of exactly 3840×1646, without an alpha channel.
 The release run uploads it to the App Store Connect Asset Library once, sends it

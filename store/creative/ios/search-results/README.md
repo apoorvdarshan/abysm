@@ -1,7 +1,6 @@
 # Search results image
 
-Empty: ABYSM has no search results image yet, so `IOS_UPLOAD_CREATIVE_ASSETS` has
-nothing to do for this slot.
+`abysm-search-results.png` is the search results image (3840×2560 RGB PNG).
 
 To add one, commit a single PNG or JPEG in 3:2, from 1920×1280 to 3840×2560,
 without an alpha channel. The release run uploads it to the App Store Connect

@@ -200,8 +200,7 @@ may store alpha. `prepare` checks sizes, formats, alpha and that each file is
 a complete, well-formed image before anything is built, then (read-only) each
 image's Asset Library state the way the store step plans it, so an image the
 version cannot take now fails before the build. A slot without an image is left
-alone. ABYSM has no header or search results image yet: both folders hold only
-a README, so the switch has nothing to do until an image is committed.
+alone. ABYSM provides both images as RGB PNGs.
 
 ```
 store/creative/ios/
