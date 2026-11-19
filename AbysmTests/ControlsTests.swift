@@ -35,6 +35,41 @@ final class ControlsTests: XCTestCase {
         }
     }
 
+    func testResizingForDuoKeepsTheSameDiveAndControlsInsideThePlayfield() throws {
+        let inner = CGSize(width: 951, height: 669)
+        let view = SKView(frame: CGRect(origin: .zero, size: inner))
+        let scene = GameScene(size: inner)
+        scene.startDepthMeters = 650
+        view.presentScene(scene)
+
+        let camera = try XCTUnwrap(scene.camera)
+        let hud = try XCTUnwrap(camera.children.compactMap { $0 as? DepthHUD }.first)
+        let joystick = try XCTUnwrap(camera.children.compactMap { $0 as? Joystick }.first)
+        let controls = camera.children.compactMap { $0 as? HoldButton }
+        XCTAssertFalse(controls.isEmpty)
+        let depth = hud.accessibilityLabel
+        XCTAssertEqual(depth, "Depth 650 meters, TWILIGHT ZONE")
+
+        let folded = GameViewport.playableRect(
+            in: CGRect(origin: .zero, size: inner),
+            avoiding: [CGRect(x: 465, y: 0, width: 21, height: inner.height)]
+        ).size
+        for size in [folded, CGSize(width: 678, height: 466), inner] {
+            scene.size = size
+            let bounds = CGRect(x: -size.width / 2, y: -size.height / 2,
+                                width: size.width, height: size.height)
+            XCTAssertTrue(view.scene === scene)
+            XCTAssertEqual(hud.accessibilityLabel, depth)
+            XCTAssertTrue(bounds.contains(joystick.position))
+            for control in controls {
+                let radius = control.radius
+                XCTAssertTrue(bounds.contains(CGRect(x: control.position.x - radius,
+                                                     y: control.position.y - radius,
+                                                     width: radius * 2, height: radius * 2)))
+            }
+        }
+    }
+
     func testJoystickReportsDirectionAndStrength() {
         let stick = Joystick()
         stick.position = CGPoint(x: -300, y: -100)
