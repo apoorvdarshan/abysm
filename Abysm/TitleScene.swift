@@ -111,7 +111,7 @@ final class TitleScene: SKScene {
         infoIcon(contactAd13dtuBtn, image: "ui_contact", name: String(format: L("menu.contact", "CONTACT %lld"), 1), badge: "1")
         infoIcon(contactApoorvBtn, image: "ui_contact", name: String(format: L("menu.contact", "CONTACT %lld"), 2), badge: "2")
         infoIcon(followDeveloperBtn, image: "ui_follow_x", name: "@APOORVDARSHAN")
-        infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVCODES")
+        infoIcon(instagramBtn, image: "ui_instagram", name: "@APOORVXI")
         infoIcon(productHuntBtn, image: "ui_product_hunt", name: L("menu.product_hunt", "VOTE ON PRODUCT HUNT"), iconSize: 38)
         infoIcon(githubBtn, image: "ui_github", name: L("menu.github", "STAR ON GITHUB"), iconSize: 32)
         infoIcon(reportBugBtn, image: "ui_bug", name: L("menu.report_bug", "REPORT A BUG"))
@@ -448,7 +448,7 @@ final class TitleScene: SKScene {
     /// Open the developer's Instagram profile.
     private func openInstagramProfile() {
         AudioManager.shared.playClick()
-        guard let url = URL(string: "https://www.instagram.com/apoorvcodes/") else { return }
+        guard let url = URL(string: "https://www.instagram.com/apoorvxi/") else { return }
         UIApplication.shared.open(url)
     }
 
