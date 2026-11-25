@@ -27,7 +27,7 @@ Move the `Unreleased` items under a new `## vX.Y.Z` heading when you tag.
 
 - VoiceOver speaks every title-screen button, the in-game controls and the
   depth read-out in your language, with the right plural forms for meters.
-- The Instagram button now opens @apoorvcodes, and the Product Hunt button
+- The Instagram button now opens @apoorvxi, and the Product Hunt button
   opens the current ABYSM page.
 - ABYSM is open source. The title screen links to its GitHub repository
   (star it there) and to forms for reporting a bug or requesting a feature;
