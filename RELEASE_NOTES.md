@@ -17,6 +17,10 @@ Move the `Unreleased` items under a new `## vX.Y.Z` heading when you tag.
 - Unlock the Deep shows only the store's localized price. A missing product
   fails safely instead of granting access in Debug builds.
 
+## v1.1.2
+
+Updated the developer’s Instagram link to @apoorvxi.
+
 ## v1.1.1
 
 - Bug fixes and improvements.
